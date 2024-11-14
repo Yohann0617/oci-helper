@@ -27,7 +27,7 @@ mkdir -p /app/oci-helper/keys
 需提前安装docker环境，镜像大小约170MB，支持arm64、amd64架构。
 
 ```bash
-docker run -d --name test --restart=always \
+docker run -d --name oci-helper --restart=always \
 -p 8818:8818 \
 -v /app/oci-helper/application.yml:/app/oci-helper/application.yml \
 -v /app/oci-helper/oci-helper.db:/app/oci-helper/oci-helper.db \
