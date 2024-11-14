@@ -1,3 +1,5 @@
+[ZH](README.md) | [EN](README_EN.md)
+
 # oci-helper
 
 > 一个基于 Oracle OCI SDK 开发的WEB端可视化甲骨文云助手，目前实现的功能有：支持添加多个租户配置、查询租户实例信息、根据多个CIDR网段更换实例公共IP、多租户枪机等功能。
