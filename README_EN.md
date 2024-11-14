@@ -9,6 +9,7 @@
 1. Manage multiple tenant configuration information at the same time.
 2. Change instance public IP according to multiple CIDR network segments. If there are abnormalities such as frequent requests, they will be ignored directly and will not affect the next execution until the IP of the specified IP segment is changed.
 3. Multiple tenants are started at the same time, and the background keeps running until the startup is successful.
+4. Support breakpoint continuation, the gun machine task is saved in the database, the service restart will continue to execute the machine task, no need to repeat the configuration.
 
 ## How to deploy
 
