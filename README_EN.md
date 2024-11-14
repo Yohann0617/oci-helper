@@ -26,7 +26,7 @@ Copy `application.yml` and `oci-helper.db` to the `/app/oci-helper` directory, a
 
 ### 3. Pull the image from docker and run it directly
 
-The docker environment needs to be installed in advance. The image size is about 170MB and supports arm64 and amd64 architectures.
+The docker environment needs to be installed in advance. The image supports arm64 and amd64 architectures.
 
 ```bash
 docker run -d --name oci-helper --restart=always \

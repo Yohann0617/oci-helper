@@ -26,7 +26,7 @@ mkdir -p /app/oci-helper/keys
 
 ### 3. docker拉取镜像直接运行
 
-需提前安装docker环境，镜像大小约170MB，支持arm64、amd64架构。
+需提前安装docker环境，支持arm64、amd64架构。
 
 ```bash
 docker run -d --name oci-helper --restart=always \
