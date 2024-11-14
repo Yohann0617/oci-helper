@@ -32,7 +32,7 @@ docker run -d --name oci-helper --restart=always \
 -v /app/oci-helper/application.yml:/app/oci-helper/application.yml \
 -v /app/oci-helper/oci-helper.db:/app/oci-helper/oci-helper.db \
 -v /app/oci-helper/keys:/app/oci-helper/keys \
-yohannfan/oci-helper:latest
+ghcr.io/yohann0617/oci-helper:master
 ```
 
 ## 页面展示
