@@ -10,17 +10,17 @@
 
 ## 如何部署
 
-推荐docker部署，出于安全问题建议使用Nginx反向代理配置HTTPS访问。
+推荐docker部署，出于安全考虑建议使用Nginx反向代理配置HTTPS访问。
 
 ### 1. 新建目录
-
+创建密钥文件存放目录，新增oci配置时只需输入密钥文件名称即可，默认会加上这个目录全路径。
 ```bash
 mkdir -p /app/oci-helper/keys
 ```
 
 ### 2.  拷贝文件
 
-复制`application.yml`、`oci-helper.db`到`/app/oci-helper`目录下。
+复制`application.yml`、`oci-helper.db`到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
 
 ### 3. docker拉取镜像直接运行
 
@@ -37,8 +37,12 @@ yohannfan/oci-helper:latest
 
 ## 页面展示
 
-![image.png](https://pic5.58cdn.com.cn/nowater/webim/big/n_v2095b0fdd8f7e4b7186d265cd261b6d81.png)
+![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v26a2f3e2cd0ea4ac787723191f4f32f36.png)
+
+![image.png](https://pic4.58cdn.com.cn/nowater/webim/big/n_v290443ddeb885445399561ab6eb1d7a09.png)
 
 ![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v2543323ea3d274c2ca435e2b5dcc3074f.png)
 
 ![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v2e3c93ccfcbd6442b8093d11fec370ee1.png)
+
+![image.png](https://pic7.58cdn.com.cn/nowater/webim/big/n_v2a47b5866e28344e695b25a84f568ba05.png)

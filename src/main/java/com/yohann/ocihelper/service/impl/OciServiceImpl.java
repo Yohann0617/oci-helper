@@ -34,6 +34,7 @@ import javax.annotation.Resource;
 
 import com.yohann.ocihelper.mapper.OciUserMapper;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -70,6 +71,8 @@ public class OciServiceImpl implements IOciService {
     private String account;
     @Value("${web.password}")
     private String password;
+    @Value("${oci-cfg.key-dir-path}")
+    private String keyDirPath;
 
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
             10,
@@ -128,7 +131,7 @@ public class OciServiceImpl implements IOciService {
                 .ociUserId(ociCfgMap.get(OciCfgEnum.OCI_CFG_USER_ID.getType()))
                 .ociFingerprint(ociCfgMap.get(OciCfgEnum.OCI_CFG_FINGERPRINT.getType()))
                 .ociRegion(ociCfgMap.get(OciCfgEnum.OCI_CFG_REGION.getType()))
-                .ociKeyPath(ociCfgMap.get(OciCfgEnum.OCI_CFG_KEY_FILE.getType()))
+                .ociKeyPath(keyDirPath + File.separator + ociCfgMap.get(OciCfgEnum.OCI_CFG_KEY_FILE.getType()))
                 .build();
         try {
             OracleInstanceFetcher ociFetcher = getOciFetcher(ociUser);

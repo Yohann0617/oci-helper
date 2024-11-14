@@ -195,8 +195,10 @@ public class OracleInstanceFetcher {
                             instanceDetailDTO.setOut(true);
                             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 无法创建实例，配额已经超过限制~",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
-//                            throw new OciException(ErrorEnum.LIMIT_EXCEEDED);
                             return instanceDetailDTO;
+                        } else if (error.getStatusCode() == 429 && error.getMessage().contains(ErrorEnum.TOO_MANY_REQUESTS.getErrorType())){
+                            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机请求频繁，[{}]秒后将重试......",
+                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
                         } else {
 //                            clearAllDetails(computeClient, virtualNetworkClient, instanceFromBootVolume, instance, networkSecurityGroup,
 //                             internetGateway, subnet, vcn);

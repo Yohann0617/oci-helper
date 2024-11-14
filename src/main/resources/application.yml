@@ -13,10 +13,16 @@ spring:
 mybatis-plus:
   mapper-locations: classpath*:com/yohann/ocihelper/mapper/xml/*.xml
 
+# 密钥文件存放目录（如果是docker部署则不用修改）
+oci-cfg:
+  key-dir-path: /app/oci-helper/keys
+
+# web登录管理员账号密码
 web:
   account: admin
   password: mypwd
 
+# TG接收消息通知的机器人token和个人ID （可选）
 tg-cfg:
   token: xxxx:xxxx
   chat-id: xxxxxx
