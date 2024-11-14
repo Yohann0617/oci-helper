@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yohann.ocihelper.mapper.OciUserMapper">
+
+    <select id="userPage" resultType="com.yohann.ocihelper.bean.response.OciUserListRsp">
+        select t1.id,
+        t1.username,
+        t1.oci_region AS region,
+        t1.create_time,
+        CASE
+        WHEN t2.id IS NOT NULL THEN 1
+        ELSE 0
+        END AS enableCreate
+        from oci_user t1
+        left join oci_create_task t2 on t2.user_id = t1.id
+        <where>
+            <if test="enableTask != null">
+                <if test="enableTask == 1">
+                    AND t2.id IS NOT NULL
+                </if>
+                <if test="enableTask == 0">
+                    AND t2.id IS NULL
+                </if>
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (t1.username like '%' || #{keyword} || '%' or t1.oci_region like '%' || #{keyword} || '%')
+            </if>
+        </where>
+        order by t1.create_time DESC limit #{offset}, #{size}
+    </select>
+    <select id="userPageTotal" resultType="java.lang.Long">
+        select count(1)
+        from oci_user t1
+        left join oci_create_task t2 on t2.user_id = t1.id
+        <where>
+            <if test="enableTask != null">
+                <if test="enableTask == 1">
+                    AND t2.id IS NOT NULL
+                </if>
+                <if test="enableTask == 0">
+                    AND t2.id IS NULL
+                </if>
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (t1.username like '%' || #{keyword} || '%' or t1.oci_region like '%' || #{keyword} || '%')
+            </if>
+        </where>
+    </select>
+</mapper>

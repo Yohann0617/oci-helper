@@ -1,0 +1,22 @@
+server:
+  port: 8818
+
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: org.sqlite.JDBC
+    url: jdbc:sqlite:oci-helper.db
+    druid:
+      pool-prepared-statements: false
+      max-pool-prepared-statement-per-connection-size: -1
+
+mybatis-plus:
+  mapper-locations: classpath*:com/yohann/ocihelper/mapper/xml/*.xml
+
+web:
+  account: admin
+  password: mypwd
+
+tg-cfg:
+  token: xxxx:xxxx
+  chat-id: xxxxxx
