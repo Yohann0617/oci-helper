@@ -176,6 +176,7 @@ public class OracleInstanceFetcher {
                         instanceDetailDTO.setMemory(user.getMemory());
                         instanceDetailDTO.setDisk(user.getDisk());
                         instanceDetailDTO.setRootPassword(user.getRootPassword());
+                        instanceDetailDTO.setShape(shape.getShape());
                     }
                 } catch (Exception e) {
                     if (e instanceof BmcException) {
