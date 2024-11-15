@@ -34,7 +34,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 
 需提前安装docker环境，支持arm64、amd64架构。
 
-### 3.1 方式一
+#### 3.1 方式一
 
 docker直接运行：
 
@@ -47,7 +47,7 @@ docker run -d --name oci-helper --restart=always \
 ghcr.io/yohann0617/oci-helper:master
 ```
 
-### 3.2 方式二
+#### 3.2 方式二
 
 下载`Releases`中最新的`docker-compose.yml`到`/app/oci-helper`目录下，运行以下命令：
 
