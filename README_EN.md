@@ -16,6 +16,7 @@
 2. Change the instance public IP according to multiple CIDR network segments. If there are abnormalities such as frequent requests, they will be ignored directly and will not affect the next execution until the IP in the specified IP segment is changed.
 3. Multiple tenants start up at the same time, and the background runs until the startup is successful.
 4. Support breakpoint continuation. The configuration and machine grabbing tasks are saved in the local database. The machine grabbing tasks will continue to be executed after the service restarts, without repeated configuration.
+5. Support multiple region codes (configuration items are distinguished by region). For example: I have a 4-region code, so I add 4 configurations and modify the region. Other configuration items remain the same.
 
 ## How to deploy
 
