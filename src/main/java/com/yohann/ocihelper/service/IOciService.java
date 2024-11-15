@@ -2,6 +2,7 @@ package com.yohann.ocihelper.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.params.*;
+import com.yohann.ocihelper.bean.response.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.OciUserListRsp;
 
@@ -32,4 +33,8 @@ public interface IOciService {
     void stopCreate(StopCreateParams params);
 
     void stopChangeIp(StopChangeIpParams params);
+
+    Page<CreateTaskRsp> createTaskPage(CreateTaskPageParams params);
+
+    void stopCreateBatch(IdListParams params);
 }

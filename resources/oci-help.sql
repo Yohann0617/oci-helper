@@ -21,7 +21,7 @@ create table if not exists `oci_create_task`
     ocpus            REAL        DEFAULT 1.0,
     memory           REAL        DEFAULT 6.0,
     disk             INTEGER     DEFAULT 50,
-    architecture     TEXT        DEFAULT 'ARM',
+    architecture     varchar(64) DEFAULT 'ARM',
     interval         INTEGER     DEFAULT 60,
     create_numbers   INTEGER     DEFAULT 1,
     root_password    varchar(64),

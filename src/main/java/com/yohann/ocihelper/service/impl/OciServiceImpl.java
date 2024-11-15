@@ -12,6 +12,7 @@ import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.params.*;
+import com.yohann.ocihelper.bean.response.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.OciUserListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
@@ -20,6 +21,7 @@ import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.enums.OciCfgEnum;
 import com.yohann.ocihelper.enums.OperationSystemEnum;
 import com.yohann.ocihelper.exception.OciException;
+import com.yohann.ocihelper.mapper.OciCreateTaskMapper;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.service.IOciCreateTaskService;
 import com.yohann.ocihelper.service.IOciService;
@@ -66,6 +68,8 @@ public class OciServiceImpl implements IOciService {
     private MessageServiceFactory messageServiceFactory;
     @Resource
     private OciUserMapper userMapper;
+    @Resource
+    private OciCreateTaskMapper createTaskMapper;
 
     @Value("${web.account}")
     private String account;
@@ -266,5 +270,18 @@ public class OciServiceImpl implements IOciService {
     @Override
     public void stopChangeIp(StopChangeIpParams params) {
         TEMP_MAP.remove(params.getInstanceId());
+    }
+
+    @Override
+    public Page<CreateTaskRsp> createTaskPage(CreateTaskPageParams params) {
+        long offset = (params.getCurrentPage() - 1) * params.getPageSize();
+        List<CreateTaskRsp> list = createTaskMapper.createTaskPage(offset, params.getPageSize(), params.getKeyword(), params.getArchitecture());
+        Long total = createTaskMapper.createTaskPageTotal(params.getKeyword(), params.getArchitecture());
+        return CommonUtils.buildPage(list, params.getPageSize(), params.getCurrentPage(), total);
+    }
+
+    @Override
+    public void stopCreateBatch(IdListParams params) {
+        createTaskService.removeBatchByIds(params.getIdList());
     }
 }

@@ -4,4 +4,42 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.yohann.ocihelper.mapper.OciCreateTaskMapper">
 
+    <select id="createTaskPage" resultType="com.yohann.ocihelper.bean.response.CreateTaskRsp">
+        select oct.id,
+        oct.ocpus,
+        oct.`memory`,
+        oct.disk,
+        oct.architecture,
+        oct.interval,
+        oct.create_numbers,
+        oct.operation_system,
+        oct.create_time,
+        ou.username
+        from oci_create_task oct
+        left join oci_user ou on oct.user_id = ou.id
+        <where>
+            <if test="architecture != null and architecture != ''">
+                and oct.architecture = #{architecture}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and ou.username like '%' || #{keyword} || '%' or
+                ou.oci_region like '%' || #{keyword} || '%'
+            </if>
+        </where>
+        order by oct.create_time DESC limit #{offset}, #{size}
+    </select>
+    <select id="createTaskPageTotal" resultType="java.lang.Long">
+        select count(1)
+        from oci_create_task oct
+        left join oci_user ou on oct.user_id = ou.id
+        <where>
+            <if test="architecture != null and architecture != ''">
+                and oct.architecture = #{architecture}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and ou.username like '%' || #{keyword} || '%' or
+                ou.oci_region like '%' || #{keyword} || '%'
+            </if>
+        </where>
+    </select>
 </mapper>

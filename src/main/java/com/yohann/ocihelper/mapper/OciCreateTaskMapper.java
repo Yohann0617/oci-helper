@@ -2,6 +2,10 @@ package com.yohann.ocihelper.mapper;
 
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.yohann.ocihelper.bean.response.CreateTaskRsp;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
 * @author Administrator
@@ -10,6 +14,14 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.yohann.ocihelper.bean.entity.OciCreateTask
 */
 public interface OciCreateTaskMapper extends BaseMapper<OciCreateTask> {
+
+    List<CreateTaskRsp> createTaskPage(@Param("offset") long offset,
+                                       @Param("size") long size,
+                                       @Param("keyword") String keyword,
+                                       @Param("architecture") String architecture);
+
+    Long createTaskPageTotal(@Param("keyword") String keyword,
+                             @Param("architecture") String architecture);
 
 }
 

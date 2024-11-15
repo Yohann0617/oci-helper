@@ -3,6 +3,7 @@ package com.yohann.ocihelper.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.*;
+import com.yohann.ocihelper.bean.response.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.OciUserListRsp;
 import com.yohann.ocihelper.service.IOciService;
@@ -98,5 +99,20 @@ public class OciController {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.stopChangeIp(params);
         return ResponseData.successData("停止更换IP任务成功");
+    }
+
+    @PostMapping(path = "/createTaskPage")
+    public ResponseData<Page<CreateTaskRsp>> createTaskPage(@Validated @RequestBody CreateTaskPageParams params,
+                                                      BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        return ResponseData.successData(ociService.createTaskPage(params),"获取开机任务列表成功");
+    }
+
+    @PostMapping(path = "/stopCreateBatch")
+    public ResponseData<Void> stopCreateBatch(@Validated @RequestBody IdListParams params,
+                                           BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.stopCreateBatch(params);
+        return ResponseData.successData("批量停止开机任务成功");
     }
 }
