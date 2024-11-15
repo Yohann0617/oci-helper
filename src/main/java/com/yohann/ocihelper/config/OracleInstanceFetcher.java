@@ -143,8 +143,8 @@ public class OracleInstanceFetcher {
                             }
                             networkSecurityGroup = createNetworkSecurityGroup(virtualNetworkClient, compartmentId, vcn);
                             addNetworkSecurityGroupSecurityRules(virtualNetworkClient, networkSecurityGroup, networkCidrBlock);
-                            log.info("【开机任务】current user:[{}] and region:[{}] Instance is being created via image and KMS key ...",
-                                    user.getUsername(), user.getOciCfg().getRegion());
+                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 检测到VCN不存在，正在创建VCN......",
+                                    user.getUsername(), user.getOciCfg().getRegion(),user.getArchitecture());
                         } else {
                             subnet = listSubnets(vcnList.get(0).getId()).get(0);
                             networkSecurityGroup = null;
