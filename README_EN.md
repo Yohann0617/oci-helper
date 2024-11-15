@@ -34,7 +34,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 
 The docker environment needs to be installed in advance, supporting arm64 and amd64 architectures.
 
-### 3.1 Method 1
+#### 3.1 Method 1
 
 Run directly with docker:
 
@@ -47,7 +47,7 @@ docker run -d --name oci-helper --restart=always \
 ghcr.io/yohann0617/oci-helper:master
 ```
 
-### 3.2 Method 2
+#### 3.2 Method 2
 
 Download the latest `docker-compose.yml` in `Releases` to the `/app/oci-helper` directory and run the following command:
 
