@@ -14,7 +14,7 @@
 
 1. 同时管理多个租户配置信息，支持模糊搜索、状态筛选。
 2. 根据多个CIDR网段更换实例公共IP，遇到请求频繁等异常会直接忽略，不影响下一次执行，直至更换到指定IP段的IP。
-3. 多租户同时开机，后台一直运行，直至开机成功。
+3. 多租户同时批量开机，后台一直运行，直至开机成功。
 4. 支持断点续抢，配置以及抢机任务都保存在本地数据库，服务重启会继续执行抢机任务，无需重复配置。
 5. 支持多区号（配置项以`region`区分），例：我有一个4区号，则新增4个配置，修改`region`即可，其他配置项都一样。
 
@@ -65,13 +65,15 @@ docker compose pull && docker compose up -d
 
 ## 页面展示
 
-![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v26a2f3e2cd0ea4ac787723191f4f32f36.png)
+![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2dbe45607168944718bb0ccb5e53b41f8.png)
 
 ![image.png](https://pic4.58cdn.com.cn/nowater/webim/big/n_v290443ddeb885445399561ab6eb1d7a09.png)
 
 ![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v2543323ea3d274c2ca435e2b5dcc3074f.png)
 
 ![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v2e3c93ccfcbd6442b8093d11fec370ee1.png)
+
+![image.png](https://pic6.58cdn.com.cn/nowater/webim/big/n_v2c5608c6436cd4d0d8e90fa53c1ad8fe3.png)
 
 ![image.png](https://pic7.58cdn.com.cn/nowater/webim/big/n_v2a47b5866e28344e695b25a84f568ba05.png)
 

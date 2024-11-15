@@ -37,4 +37,6 @@ public interface IOciService {
     Page<CreateTaskRsp> createTaskPage(CreateTaskPageParams params);
 
     void stopCreateBatch(IdListParams params);
+
+    void createInstanceBatch(CreateInstanceBatchParams params);
 }

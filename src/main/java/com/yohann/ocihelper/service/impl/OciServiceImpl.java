@@ -29,6 +29,7 @@ import com.yohann.ocihelper.service.IOciUserService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.MessageServiceFactory;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -283,5 +284,15 @@ public class OciServiceImpl implements IOciService {
     @Override
     public void stopCreateBatch(IdListParams params) {
         createTaskService.removeBatchByIds(params.getIdList());
+    }
+
+    @Override
+    public void createInstanceBatch(CreateInstanceBatchParams params) {
+        params.getUserIds().stream().map(userId -> {
+            CreateInstanceParams instanceParams = new CreateInstanceParams();
+            BeanUtils.copyProperties(params.getInstanceInfo(), instanceParams);
+            instanceParams.setUserId(userId);
+            return instanceParams;
+        }).collect(Collectors.toList()).parallelStream().forEach(this::createInstance);
     }
 }
