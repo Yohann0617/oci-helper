@@ -1,5 +1,6 @@
 package com.yohann.ocihelper.config;
 
+import cn.hutool.core.collection.CollectionUtil;
 import com.oracle.bmc.Region;
 import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider;
 import com.oracle.bmc.core.BlockstorageClient;
@@ -197,7 +198,7 @@ public class OracleInstanceFetcher {
                             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 无法创建实例，配额已经超过限制~",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                             return instanceDetailDTO;
-                        } else if (error.getStatusCode() == 429 && error.getMessage().contains(ErrorEnum.TOO_MANY_REQUESTS.getErrorType())){
+                        } else if (error.getStatusCode() == 429 && error.getMessage().contains(ErrorEnum.TOO_MANY_REQUESTS.getErrorType())) {
                             log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机请求频繁，[{}]秒后将重试......",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
                         } else {
@@ -214,7 +215,7 @@ public class OracleInstanceFetcher {
                         // internetGateway, subnet, vcn);
                         instanceDetailDTO.setOut(true);
                         log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了,原因为:{}",
-                                user.getUsername(), user.getOciCfg().getRegion(),user.getArchitecture(),
+                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(),
                                 e.getMessage(), e);
                         return instanceDetailDTO;
                     }
@@ -285,7 +286,9 @@ public class OracleInstanceFetcher {
 
         // 发送请求并获取响应
         ListVcnsResponse listVcnsResponse = virtualNetworkClient.listVcns(listVcnsRequest);
-
+        if (CollectionUtil.isEmpty(listVcnsResponse.getItems())) {
+            return "10.0.0.0/16";
+        }
         if (log.isDebugEnabled()) {
             // 遍历所有 VCN 并打印其 CIDR 块
             for (Vcn vcn : listVcnsResponse.getItems()) {
