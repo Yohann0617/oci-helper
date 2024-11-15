@@ -20,7 +20,7 @@
 ## How to deploy
 
 ### 1. Create a new directory
-Create a directory for storing key files. When adding oci configuration, you only need to enter the key file name. The full path of this directory will be added by default.
+Create a directory to store the key file, and store the `key file.pem` downloaded when generating the API from the Oracle Cloud Console. When adding an oci configuration, you only need to enter the key file name, and the full path of this directory will be added by default.
 ```bash
 mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ```
