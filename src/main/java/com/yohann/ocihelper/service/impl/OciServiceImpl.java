@@ -16,10 +16,8 @@ import com.yohann.ocihelper.bean.response.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.OciUserListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
-import com.yohann.ocihelper.enums.ArchitectureEnum;
 import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.enums.OciCfgEnum;
-import com.yohann.ocihelper.enums.OperationSystemEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.mapper.OciCreateTaskMapper;
 import com.yohann.ocihelper.service.IInstanceService;
@@ -80,7 +78,7 @@ public class OciServiceImpl implements IOciService {
     private String keyDirPath;
 
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
-            10,
+            Runtime.getRuntime().availableProcessors() * 2,
             ThreadFactoryBuilder.create().setNamePrefix("oci-create-").build());
     public final static Map<String, Object> TEMP_MAP = new ConcurrentHashMap<>();
 
