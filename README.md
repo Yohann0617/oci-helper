@@ -24,9 +24,7 @@
 安装完成后浏览器直接`ip:port`即可访问，账号密码默认都是：`yohann`，如需修改请更改`application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
 
 ```bash
-curl -LO https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh && \
-chmod +x sh_oci-helper_install.sh && ./sh_oci-helper_install.sh && \
-rm -f sh_oci-helper_install.sh
+bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
 ```
 
 此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
