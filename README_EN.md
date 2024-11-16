@@ -23,7 +23,7 @@
 After the installation is complete, you can access it directly through the browser `ip:port`. The default account and password are: `yohann`. If you need to modify it, please change the configuration in `application.yml` and execute `docker restart oci-helper` to restart the docker container.
 
 ```bash
-curl -LO curl -LO https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh && \
+curl -LO https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh && \
 chmod +x sh_oci-helper_install.sh && ./sh_oci-helper_install.sh && \
 rm -f sh_oci-helper_install.sh
 ```
