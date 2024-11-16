@@ -19,7 +19,7 @@
 4. 支持断点续抢，配置以及抢机任务都保存在本地数据库，服务重启会继续执行抢机任务，无需重复配置。
 5. 支持多区号（配置项以`region`区分），例：我有一个4区号，则新增4个配置，修改`region`即可，其他配置项都一样。
 
-## 一键 docker-compose 部署
+## 一键 docker-compose 部署或更新
 
 安装完成后浏览器直接`ip:port`即可访问，账号密码默认都是：`yohann`，如需修改请更改`application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
 
@@ -28,6 +28,8 @@ curl -LO https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oc
 chmod +x sh_oci-helper_install.sh && ./sh_oci-helper_install.sh && \
 rm -f sh_oci-helper_install.sh
 ```
+
+此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
 
 ## 手动部署
 
