@@ -20,6 +20,8 @@
 
 ## One-click docker-compose deployment
 
+After the installation is complete, you can access it directly through the browser `ip:port`. The default account and password are: `yohann`. If you need to modify it, please change the configuration in `application.yml` and execute `docker restart oci-helper` to restart the docker container.
+
 ```bash
 curl -O https://raw.githubusercontent.com/Yohann0617/oci-helper/refs/heads/master/resources/sh_oci-helper_install.sh && \
 chmod +x sh_oci-helper_install.sh && ./sh_oci-helper_install.sh && \
