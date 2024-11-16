@@ -48,7 +48,7 @@ public class OciTask implements ApplicationRunner {
                         createTaskService.removeById(task.getId());
                     } else {
                         OciUser ociUser = userService.getById(task.getUserId());
-                        OracleInstanceFetcher fetcher = new OracleInstanceFetcher(SysUserDTO.builder()
+                        SysUserDTO sysUserDTO = SysUserDTO.builder()
                                 .ociCfg(SysUserDTO.OciCfg.builder()
                                         .userId(ociUser.getOciUserId())
                                         .tenantId(ociUser.getOciTenantId())
@@ -66,8 +66,8 @@ public class OciTask implements ApplicationRunner {
                                 .createNumbers(task.getCreateNumbers())
                                 .operationSystem(task.getOperationSystem())
                                 .rootPassword(task.getRootPassword())
-                                .build());
-                        CREATE_INSTANCE_POOL.scheduleWithFixedDelay(() -> execCreate(fetcher, instanceService),
+                                .build();
+                        CREATE_INSTANCE_POOL.scheduleWithFixedDelay(() -> execCreate(sysUserDTO, instanceService),
                                 0, task.getInterval(), TimeUnit.SECONDS);
                     }
                 });

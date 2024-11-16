@@ -29,12 +29,15 @@ import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Closeable;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.oracle.bmc.core.model.CreatePublicIpDetails.Lifetime.Ephemeral;
+import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
 
 /**
  * <p>
@@ -45,7 +48,7 @@ import static com.oracle.bmc.core.model.CreatePublicIpDetails.Lifetime.Ephemeral
  * @since 2024/11/1 15:55
  */
 @Slf4j
-public class OracleInstanceFetcher {
+public class OracleInstanceFetcher implements Closeable {
 
     private final SysUserDTO user;
     private ComputeClient computeClient;
@@ -55,7 +58,15 @@ public class OracleInstanceFetcher {
     private VirtualNetworkClient virtualNetworkClient;
     private BlockstorageClient blockstorageClient;
     private final String compartmentId;
-    public Long counts = 0L;
+
+    @Override
+    public void close() throws IOException {
+        computeClient.close();
+        identityClient.close();
+        workRequestClient.close();
+        virtualNetworkClient.close();
+        blockstorageClient.close();
+    }
 
     public OracleInstanceFetcher(SysUserDTO user) {
         this.user = user;
@@ -101,6 +112,11 @@ public class OracleInstanceFetcher {
         if (user.getCreateNumbers() <= 0) {
             return null;
         }
+        Long currentCount = (Long) TEMP_MAP.compute(
+                CommonUtils.CREATE_COUNTS_PREFIX + user.getTaskId(),
+                (key, value) -> value == null ? 1L : Long.parseLong(String.valueOf(value)) + 1
+        );
+
         InstanceDetailDTO instanceDetailDTO = new InstanceDetailDTO();
         instanceDetailDTO.setTaskId(user.getTaskId());
         instanceDetailDTO.setUsername(user.getUsername());
@@ -108,7 +124,7 @@ public class OracleInstanceFetcher {
         instanceDetailDTO.setRegion(user.getOciCfg().getRegion());
         instanceDetailDTO.setArchitecture(user.getArchitecture());
         log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] ，开始执行第 [{}] 次创建实例操作......",
-                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getCreateNumbers(), ++counts);
+                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getCreateNumbers(), currentCount);
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         List<Vcn> vcnList = listVcn();
         int size = availabilityDomains.size();
@@ -144,7 +160,7 @@ public class OracleInstanceFetcher {
                             networkSecurityGroup = createNetworkSecurityGroup(virtualNetworkClient, compartmentId, vcn);
                             addNetworkSecurityGroupSecurityRules(virtualNetworkClient, networkSecurityGroup, networkCidrBlock);
                             log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 检测到VCN不存在，正在创建VCN......",
-                                    user.getUsername(), user.getOciCfg().getRegion(),user.getArchitecture());
+                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                         } else {
                             subnet = listSubnets(vcnList.get(0).getId()).get(0);
                             networkSecurityGroup = null;

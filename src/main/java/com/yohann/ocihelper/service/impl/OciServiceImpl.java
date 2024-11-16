@@ -90,20 +90,12 @@ public class OciServiceImpl implements IOciService {
                     "实例： %s\n" +
                     "新的公网IP： %s";
 
-    public static void execCreate(OracleInstanceFetcher fetcher, IInstanceService instanceService) {
-        instanceService.createInstance(fetcher);
-    }
-
-    private OracleInstanceFetcher getOciFetcher(OciUser ociUser) {
-        return new OracleInstanceFetcher(SysUserDTO.builder()
-                .ociCfg(SysUserDTO.OciCfg.builder()
-                        .userId(ociUser.getOciUserId())
-                        .fingerprint(ociUser.getOciFingerprint())
-                        .tenantId(ociUser.getOciTenantId())
-                        .region(ociUser.getOciRegion())
-                        .privateKeyPath(ociUser.getOciKeyPath())
-                        .build())
-                .build());
+    public static void execCreate(SysUserDTO sysUserDTO, IInstanceService instanceService) {
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            instanceService.createInstance(fetcher);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -136,8 +128,16 @@ public class OciServiceImpl implements IOciService {
                 .ociRegion(ociCfgMap.get(OciCfgEnum.OCI_CFG_REGION.getType()))
                 .ociKeyPath(keyDirPath + File.separator + ociCfgMap.get(OciCfgEnum.OCI_CFG_KEY_FILE.getType()))
                 .build();
-        try {
-            OracleInstanceFetcher ociFetcher = getOciFetcher(ociUser);
+        SysUserDTO sysUserDTO = SysUserDTO.builder()
+                .ociCfg(SysUserDTO.OciCfg.builder()
+                        .userId(ociUser.getOciUserId())
+                        .fingerprint(ociUser.getOciFingerprint())
+                        .tenantId(ociUser.getOciTenantId())
+                        .region(ociUser.getOciRegion())
+                        .privateKeyPath(ociUser.getOciKeyPath())
+                        .build())
+                .build();
+        try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
             ociFetcher.listInstances();
         } catch (Exception e) {
             throw new OciException(-1, "配置不生效，请检查密钥与配置项是否准确无误");
@@ -159,7 +159,21 @@ public class OciServiceImpl implements IOciService {
     public void createInstance(CreateInstanceParams params) {
         String taskId = IdUtil.randomUUID();
         OciUser ociUser = userService.getById(params.getUserId());
-        OracleInstanceFetcher fetcher = new OracleInstanceFetcher(SysUserDTO.builder()
+        OciCreateTask ociCreateTask = OciCreateTask.builder()
+                .id(taskId)
+                .userId(params.getUserId())
+                .ocpus(Float.parseFloat(params.getOcpus()))
+                .memory(Float.parseFloat(params.getMemory()))
+                .disk(Integer.valueOf(params.getDisk()))
+                .architecture(params.getArchitecture())
+                .interval(params.getInterval())
+                .createNumbers(params.getCreateNumbers())
+                .operationSystem(params.getOperationSystem())
+                .rootPassword(params.getRootPassword())
+                .operationSystem(params.getOperationSystem())
+                .build();
+        createTaskService.save(ociCreateTask);
+        SysUserDTO sysUserDTO = SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
                         .userId(ociUser.getOciUserId())
                         .tenantId(ociUser.getOciTenantId())
@@ -177,28 +191,15 @@ public class OciServiceImpl implements IOciService {
                 .createNumbers(params.getCreateNumbers())
                 .operationSystem(params.getOperationSystem())
                 .rootPassword(params.getRootPassword())
-                .build());
-        createTaskService.save(OciCreateTask.builder()
-                .id(taskId)
-                .userId(params.getUserId())
-                .ocpus(Float.parseFloat(params.getOcpus()))
-                .memory(Float.parseFloat(params.getMemory()))
-                .disk(Integer.valueOf(params.getDisk()))
-                .architecture(params.getArchitecture())
-                .interval(params.getInterval())
-                .createNumbers(params.getCreateNumbers())
-                .operationSystem(params.getOperationSystem())
-                .rootPassword(params.getRootPassword())
-                .operationSystem(params.getOperationSystem())
-                .build());
-        CREATE_INSTANCE_POOL.scheduleWithFixedDelay(() -> execCreate(fetcher, instanceService),
+                .build();
+        CREATE_INSTANCE_POOL.scheduleWithFixedDelay(() -> execCreate(sysUserDTO, instanceService),
                 0, params.getInterval(), TimeUnit.SECONDS);
     }
 
     @Override
     public OciCfgDetailsRsp details(IdParams params) {
         OciUser ociUser = userService.getById(params.getId());
-        OracleInstanceFetcher fetcher = new OracleInstanceFetcher(SysUserDTO.builder()
+        SysUserDTO sysUserDTO = SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
                         .userId(ociUser.getOciUserId())
                         .tenantId(ociUser.getOciTenantId())
@@ -206,21 +207,25 @@ public class OciServiceImpl implements IOciService {
                         .fingerprint(ociUser.getOciFingerprint())
                         .privateKeyPath(ociUser.getOciKeyPath())
                         .build())
-                .build());
-        return new OciCfgDetailsRsp(Optional.ofNullable(fetcher.listInstances())
-                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
-                .map(x -> {
-                    OciCfgDetailsRsp.InstanceInfo info = new OciCfgDetailsRsp.InstanceInfo();
-                    info.setOcId(x.getId());
-                    info.setRegion(x.getRegion());
-                    info.setName(x.getDisplayName());
-                    info.setShape(x.getShape());
-                    info.setPublicIp(fetcher.listInstanceIPs(x.getId()).stream()
-                            .map(Vnic::getPublicIp)
-                            .collect(Collectors.toList()));
-                    info.setEnableChangeIp(TEMP_MAP.get(x.getId()) != null ? 1 : 0);
-                    return info;
-                }).collect(Collectors.toList()));
+                .build();
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
+            return new OciCfgDetailsRsp(Optional.ofNullable(fetcher.listInstances())
+                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
+                    .map(x -> {
+                        OciCfgDetailsRsp.InstanceInfo info = new OciCfgDetailsRsp.InstanceInfo();
+                        info.setOcId(x.getId());
+                        info.setRegion(x.getRegion());
+                        info.setName(x.getDisplayName());
+                        info.setShape(x.getShape());
+                        info.setPublicIp(fetcher.listInstanceIPs(x.getId()).stream()
+                                .map(Vnic::getPublicIp)
+                                .collect(Collectors.toList()));
+                        info.setEnableChangeIp(TEMP_MAP.get(x.getId()) != null ? 1 : 0);
+                        return info;
+                    }).collect(Collectors.toList()));
+        } catch (Exception e) {
+            throw new OciException(-1, "获取实例信息失败");
+        }
     }
 
     @Override
@@ -233,7 +238,7 @@ public class OciServiceImpl implements IOciService {
 
         TEMP_MAP.put(params.getInstanceId(), params);
         OciUser ociUser = userService.getById(params.getOciCfgId());
-        OracleInstanceFetcher fetcher = new OracleInstanceFetcher(SysUserDTO.builder()
+        SysUserDTO sysUserDTO = SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
                         .userId(ociUser.getOciUserId())
                         .tenantId(ociUser.getOciTenantId())
@@ -242,27 +247,37 @@ public class OciServiceImpl implements IOciService {
                         .privateKeyPath(ociUser.getOciKeyPath())
                         .build())
                 .username(ociUser.getUsername())
-                .build());
-        Instance instance = fetcher.getInstanceById(params.getInstanceId());
-        CompletableFuture.runAsync(() -> {
-            String publicIp = instanceService.changeInstancePublicIp(fetcher, instance, params.getCidrList());
-            TEMP_MAP.remove(params.getInstanceId());
-            try {
-                String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
-                        ociUser.getUsername(),
-                        LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                        ociUser.getOciRegion(), instance.getDisplayName(), publicIp);
-                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-            } catch (Exception e) {
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
-                        ociUser.getUsername(), ociUser.getOciRegion(),
-                        instance.getDisplayName(), publicIp);
-            }
-        });
+                .build();
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            Instance instance = fetcher.getInstanceById(params.getInstanceId());
+            CompletableFuture.runAsync(() -> {
+                String publicIp = instanceService.changeInstancePublicIp(fetcher, instance, params.getCidrList());
+                TEMP_MAP.remove(params.getInstanceId());
+                try {
+                    String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
+                            ociUser.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                            ociUser.getOciRegion(), instance.getDisplayName(), publicIp);
+                    messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
+                } catch (Exception e) {
+                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
+                            ociUser.getUsername(), ociUser.getOciRegion(),
+                            instance.getDisplayName(), publicIp);
+                }
+            });
+        } catch (Exception e) {
+            throw new OciException(-1, "执行更换IP任务失败");
+        }
     }
 
     @Override
     public void stopCreate(StopCreateParams params) {
+        List<String> taskIds = createTaskService.listObjs(new LambdaQueryWrapper<OciCreateTask>()
+                .eq(OciCreateTask::getUserId, params.getUserId())
+                .select(OciCreateTask::getId), String::valueOf);
+        if (CollectionUtil.isNotEmpty(taskIds)) {
+            taskIds.parallelStream().forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
+        }
         createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getUserId, params.getUserId()));
     }
 
