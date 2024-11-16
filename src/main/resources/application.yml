@@ -13,6 +13,11 @@ spring:
 mybatis-plus:
   mapper-locations: classpath*:com/yohann/ocihelper/mapper/xml/*.xml
 
+logging:
+  level:
+    com.oracle.bmc: error
+    c.o.b.h.c.j: error
+
 # 密钥文件存放目录（如果是docker部署则不用修改）
 oci-cfg:
   key-dir-path: /app/oci-helper/keys
