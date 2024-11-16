@@ -291,6 +291,10 @@ public class OciServiceImpl implements IOciService {
         long offset = (params.getCurrentPage() - 1) * params.getPageSize();
         List<CreateTaskRsp> list = createTaskMapper.createTaskPage(offset, params.getPageSize(), params.getKeyword(), params.getArchitecture());
         Long total = createTaskMapper.createTaskPageTotal(params.getKeyword(), params.getArchitecture());
+        list.parallelStream().forEach(x -> {
+            Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
+            x.setCounts(counts == null ? "0" : String.valueOf(counts));
+        });
         return CommonUtils.buildPage(list, params.getPageSize(), params.getCurrentPage(), total);
     }
 

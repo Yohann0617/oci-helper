@@ -113,7 +113,7 @@ public class OciController {
                                            BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.stopCreateBatch(params);
-        return ResponseData.successData("批量停止开机任务成功");
+        return ResponseData.successData("停止开机任务成功");
     }
 
     @PostMapping(path = "/createInstanceBatch")
@@ -121,6 +121,6 @@ public class OciController {
                                            BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.createInstanceBatch(params);
-        return ResponseData.successData("批量新增开机任务成功");
+        return ResponseData.successData("批量创建开机任务成功");
     }
 }
