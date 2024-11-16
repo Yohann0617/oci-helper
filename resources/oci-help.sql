@@ -11,7 +11,7 @@ create table if not exists `oci_user`
     create_time     datetime default (datetime('now', 'localtime')) not null,
     primary key ("id")
 );
-CREATE INDEX idx_create_time ON oci_user (create_time DESC);
+CREATE INDEX oci_user_create_time ON oci_user (create_time DESC);
 
 --开机任务表
 create table if not exists `oci_create_task`
@@ -29,4 +29,4 @@ create table if not exists `oci_create_task`
     create_time      datetime    default (datetime('now', 'localtime')) not null,
     primary key ("id")
 );
-CREATE INDEX idx_create_time ON oci_create_task (create_time DESC);
+CREATE INDEX oci_create_task_create_time ON oci_create_task (create_time DESC);
