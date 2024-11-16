@@ -5,16 +5,17 @@
 <mapper namespace="com.yohann.ocihelper.mapper.OciUserMapper">
 
     <select id="userPage" resultType="com.yohann.ocihelper.bean.response.OciUserListRsp">
-        select t1.id,
+        SELECT
+        t1.id,
         t1.username,
         t1.oci_region AS region,
         t1.create_time,
         CASE
-        WHEN t2.id IS NOT NULL THEN 1
+        WHEN MAX(t2.id) IS NOT NULL THEN 1
         ELSE 0
         END AS enableCreate
-        from oci_user t1
-        left join oci_create_task t2 on t2.user_id = t1.id
+        FROM oci_user t1
+        LEFT JOIN oci_create_task t2 ON t2.user_id = t1.id
         <where>
             <if test="enableTask != null">
                 <if test="enableTask == 1">
@@ -28,12 +29,13 @@
                 and (t1.username like '%' || #{keyword} || '%' or t1.oci_region like '%' || #{keyword} || '%')
             </if>
         </where>
+        GROUP BY t1.id, t1.username, t1.oci_region, t1.create_time
         order by t1.create_time DESC limit #{offset}, #{size}
     </select>
     <select id="userPageTotal" resultType="java.lang.Long">
-        select count(1)
-        from oci_user t1
-        left join oci_create_task t2 on t2.user_id = t1.id
+        SELECT COUNT(DISTINCT t1.id)
+        FROM oci_user t1
+        LEFT JOIN oci_create_task t2 ON t2.user_id = t1.id
         <where>
             <if test="enableTask != null">
                 <if test="enableTask == 1">
@@ -44,7 +46,7 @@
                 </if>
             </if>
             <if test="keyword != null and keyword != ''">
-                and (t1.username like '%' || #{keyword} || '%' or t1.oci_region like '%' || #{keyword} || '%')
+                AND (t1.username LIKE '%' || #{keyword} || '%' OR t1.oci_region LIKE '%' || #{keyword} || '%')
             </if>
         </where>
     </select>
