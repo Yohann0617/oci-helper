@@ -5,6 +5,7 @@
 > 一个基于 Oracle OCI SDK 开发的WEB端可视化甲骨文云助手，目前实现的功能有：支持添加多个租户配置、查询租户实例信息、根据多个CIDR网段更换实例公共IP、多租户抢机、断点续抢等功能。
 
 ## 注意事项及免责声明
+
 - 因开机、换IP频率过高而导致的封号本人概不负责。
 - 开发此项目纯属个人爱好，无后门，放心使用。
 - 强烈建议不要裸HTTP访问，应使用Nginx反向代理配置HTTPS访问。
@@ -18,10 +19,20 @@
 4. 支持断点续抢，配置以及抢机任务都保存在本地数据库，服务重启会继续执行抢机任务，无需重复配置。
 5. 支持多区号（配置项以`region`区分），例：我有一个4区号，则新增4个配置，修改`region`即可，其他配置项都一样。
 
-## 如何部署
+## 一键 docker-compose 部署
+
+```bash
+curl -O https://raw.githubusercontent.com/Yohann0617/oci-helper/refs/heads/master/resources/sh_oci-helper_install.sh && \
+chmod +x sh_oci-helper_install.sh && ./sh_oci-helper_install.sh && \
+rm -f sh_oci-helper_install.sh
+```
+
+## 手动部署
 
 ### 1. 新建目录
+
 创建密钥文件存放目录，存放从甲骨文云控制台生成API时下载的`密钥文件.pem`，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
+
 ```bash
 mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ```
@@ -61,7 +72,6 @@ docker compose up -d
 ```bash
 docker compose pull && docker compose up -d
 ```
-
 
 ## 页面展示
 

@@ -19,8 +19,8 @@ oci-cfg:
 
 # web登录管理员账号密码
 web:
-  account: admin
-  password: mypwd
+  account: yohann
+  password: yohann
 
 # TG接收消息通知的机器人token和个人ID （可选）
 tg-cfg:

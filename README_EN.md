@@ -18,7 +18,15 @@
 4. Support breakpoint continuation. The configuration and machine grabbing tasks are saved in the local database. The machine grabbing tasks will continue to be executed after the service restarts, without repeated configuration.
 5. Support multiple region codes (configuration items are distinguished by region). For example: I have a 4-region code, so I add 4 configurations and modify the region. Other configuration items remain the same.
 
-## How to deploy
+## One-click docker-compose deployment
+
+```bash
+curl -O https://raw.githubusercontent.com/Yohann0617/oci-helper/refs/heads/master/resources/sh_oci-helper_install.sh && \
+chmod +x sh_oci-helper_install.sh && ./sh_oci-helper_install.sh && \
+rm -f sh_oci-helper_install.sh
+```
+
+## Manual deployment
 
 ### 1. Create a new directory
 Create a directory to store the key file, and store the `key file.pem` downloaded when generating the API from the Oracle Cloud Console. When adding an oci configuration, you only need to enter the key file name, and the full path of this directory will be added by default.
