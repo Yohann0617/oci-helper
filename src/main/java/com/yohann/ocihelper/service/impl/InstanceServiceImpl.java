@@ -93,6 +93,7 @@ public class InstanceServiceImpl implements IInstanceService {
             if (instanceDetail.getLeftCreateNumbers() <= 0) {
                 createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>()
                         .eq(OciCreateTask::getId, instanceDetail.getTaskId()));
+                TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + instanceDetail.getTaskId());
             }
             log.info("---------------- 🎉 用户：{} 开机成功 🎉 ----------------", instanceDetail.getUsername());
             log.info("Region: {}", instanceDetail.getRegion());
