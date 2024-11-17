@@ -1,6 +1,18 @@
 server:
   port: 8818
 
+# --------------------------------------- 用户自定义修改项 ------------------------------------
+# web登录管理员账号密码
+web:
+  account: yohann
+  password: yohann
+
+# TG接收消息通知的机器人token和个人ID （可选）
+tg-cfg:
+  token: xxxx:xxxx
+  chat-id: xxxxxx
+# --------------------------------------- 用户自定义修改项 ------------------------------------
+
 spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
@@ -14,6 +26,9 @@ mybatis-plus:
   mapper-locations: classpath*:com/yohann/ocihelper/mapper/xml/*.xml
 
 logging:
+  pattern:
+    # console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level %msg%n"
   level:
     com.oracle.bmc: error
     c.o.b.h.c.j: error
@@ -21,13 +36,3 @@ logging:
 # 密钥文件存放目录（如果是docker部署则不用修改）
 oci-cfg:
   key-dir-path: /app/oci-helper/keys
-
-# web登录管理员账号密码
-web:
-  account: yohann
-  password: yohann
-
-# TG接收消息通知的机器人token和个人ID （可选）
-tg-cfg:
-  token: xxxx:xxxx
-  chat-id: xxxxxx
