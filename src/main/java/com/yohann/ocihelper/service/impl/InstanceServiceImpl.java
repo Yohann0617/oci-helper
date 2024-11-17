@@ -60,6 +60,14 @@ public class InstanceServiceImpl implements IInstanceService {
                     "---------------------------\n" +
                     "⭐注意： 如果没有开机任务请及时清理API";
 
+    private static final String CHANGE_IP_MESSAGE_TEMPLATE =
+            "🎉 用户：%s 更换公共IP成功 🎉\n" +
+                    "---------------------------\n" +
+                    "时间： %s\n" +
+                    "区域： %s\n" +
+                    "实例： %s\n" +
+                    "新的公网IP： %s";
+
     @Override
     public List<SysUserDTO.CloudInstance> listRunningInstances(OracleInstanceFetcher fetcher) {
         return fetcher.listInstances().parallelStream()
@@ -130,40 +138,57 @@ public class InstanceServiceImpl implements IInstanceService {
     }
 
     @Override
-    public String changeInstancePublicIp(OracleInstanceFetcher fetcher, Instance instance, List<String> cidrList) {
-        log.info("---------------------------- 用户：[{}] ，区域：[{}] ，实例：[{}] 开始执行更换公共IP任务 -------------------------------",
-                fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(), instance.getDisplayName());
-        String publicIp = null;
-        if (CollectionUtil.isEmpty(cidrList)) {
-            return fetcher.reassignEphemeralPublicIp(fetcher.listInstanceIPs(instance.getId()).get(0));
-        }
-
-        // 循环尝试获取符合 CIDR 范围的 IP
-        do {
-            try {
-                publicIp = fetcher.reassignEphemeralPublicIp(fetcher.listInstanceIPs(instance.getId()).get(0));
-                int randomIntInterval = ThreadLocalRandom.current().nextInt(60 * 1000, 80 * 1000);
-                if (!CommonUtils.isIpInCidrList(publicIp, cidrList)) {
-                    log.warn("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，获取到的IP：{} 不在给定的 CIDR 网段中，{} 秒后将继续更换公共IP...",
-                            fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(), instance.getDisplayName(),
-                            publicIp, randomIntInterval / 1000);
-                } else {
-                    log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
-                            fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(), instance.getDisplayName(),
-                            publicIp);
-                    TEMP_MAP.remove(instance.getId());
-                    break;
-                }
-                Thread.sleep(randomIntInterval);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            } catch (BmcException ociException) {
-                log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP失败，原因：{}",
-                        fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(), instance.getDisplayName(),
-                        ociException.getMessage());
+    public String changeInstancePublicIp(String instanceId, SysUserDTO sysUserDTO, List<String> cidrList) {
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            Instance instance = fetcher.getInstanceById(instanceId);
+            log.info("---------------------------- 用户：[{}] ，区域：[{}] ，实例：[{}] 开始执行更换公共IP任务 -------------------------------",
+                    fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(), instance.getDisplayName());
+            String publicIp = null;
+            if (CollectionUtil.isEmpty(cidrList)) {
+                return fetcher.reassignEphemeralPublicIp(fetcher.listInstanceIPs(instance.getId()).get(0));
             }
-        } while (!CommonUtils.isIpInCidrList(publicIp, cidrList) && TEMP_MAP.get(instance.getId()) != null);
-        return publicIp;
+            // 循环尝试获取符合 CIDR 范围的 IP
+            do {
+                try {
+                    publicIp = fetcher.reassignEphemeralPublicIp(fetcher.listInstanceIPs(instance.getId()).get(0));
+                    int randomIntInterval = ThreadLocalRandom.current().nextInt(60 * 1000, 80 * 1000);
+                    if (!CommonUtils.isIpInCidrList(publicIp, cidrList)) {
+                        log.warn("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，获取到的IP：{} 不在给定的 CIDR 网段中，{} 秒后将继续更换公共IP...",
+                                fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(), instance.getDisplayName(),
+                                publicIp, randomIntInterval / 1000);
+                    } else {
+                        log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
+                                fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(), instance.getDisplayName(),
+                                publicIp);
+                        TEMP_MAP.remove(instance.getId());
+                        break;
+                    }
+                    Thread.sleep(randomIntInterval);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                } catch (BmcException ociException) {
+                    log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP失败，原因：{}",
+                            fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(), instance.getDisplayName(),
+                            ociException.getMessage());
+                }
+            } while (!CommonUtils.isIpInCidrList(publicIp, cidrList) && TEMP_MAP.get(instance.getId()) != null);
+
+            try {
+                String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
+                        sysUserDTO.getUsername(),
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                        sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName(), publicIp);
+                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
+            } catch (Exception e) {
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        instance.getDisplayName(), publicIp);
+            }
+
+            return publicIp;
+        } catch (Exception e) {
+            throw new OciException(-1, "执行更换IP任务失败");
+        }
     }
 
 }

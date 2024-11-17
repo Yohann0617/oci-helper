@@ -82,14 +82,6 @@ public class OciServiceImpl implements IOciService {
             ThreadFactoryBuilder.create().setNamePrefix("oci-create-").build());
     public final static Map<String, Object> TEMP_MAP = new ConcurrentHashMap<>();
 
-    private static final String CHANGE_IP_MESSAGE_TEMPLATE =
-            "🎉 用户：%s 更换公共IP成功 🎉\n" +
-                    "---------------------------\n" +
-                    "时间： %s\n" +
-                    "区域： %s\n" +
-                    "实例： %s\n" +
-                    "新的公网IP： %s";
-
     public static void execCreate(SysUserDTO sysUserDTO, IInstanceService instanceService) {
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             instanceService.createInstance(fetcher);
@@ -118,6 +110,10 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public void addCfg(AddCfgParams params) {
+        List<OciUser> ociUserList = userService.list(new LambdaQueryWrapper<OciUser>().eq(OciUser::getUsername, params.getUsername()));
+        if (ociUserList.size() != 0) {
+            throw new OciException(-1, "当前配置名称已存在");
+        }
         Map<String, String> ociCfgMap = CommonUtils.getOciCfgFromStr(params.getOciCfgStr());
         OciUser ociUser = OciUser.builder()
                 .id(IdUtil.randomUUID())
@@ -248,26 +244,9 @@ public class OciServiceImpl implements IOciService {
                         .build())
                 .username(ociUser.getUsername())
                 .build();
-        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            Instance instance = fetcher.getInstanceById(params.getInstanceId());
-            CompletableFuture.runAsync(() -> {
-                String publicIp = instanceService.changeInstancePublicIp(fetcher, instance, params.getCidrList());
-                TEMP_MAP.remove(params.getInstanceId());
-                try {
-                    String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
-                            ociUser.getUsername(),
-                            LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                            ociUser.getOciRegion(), instance.getDisplayName(), publicIp);
-                    messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-                } catch (Exception e) {
-                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
-                            ociUser.getUsername(), ociUser.getOciRegion(),
-                            instance.getDisplayName(), publicIp);
-                }
-            });
-        } catch (Exception e) {
-            throw new OciException(-1, "执行更换IP任务失败");
-        }
+        CompletableFuture.runAsync(() -> {
+            instanceService.changeInstancePublicIp(params.getInstanceId(), sysUserDTO, params.getCidrList());
+        });
     }
 
     @Override

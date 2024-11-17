@@ -31,7 +31,8 @@ public class CrossDomainFilter extends WebMvcConfigurationSupport {
                 .allowedMethods("GET", "POST", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(false)
-                .maxAge(3600);
+                .maxAge(3600)
+                .exposedHeaders("Upgrade", "Connection");
         super.addCorsMappings(registry);
     }
 
@@ -42,9 +43,5 @@ public class CrossDomainFilter extends WebMvcConfigurationSupport {
         registry.addResourceHandler("/webjars/**")
                 .addResourceLocations("classpath:/META-INF/resources/webjars/");
         super.addResourceHandlers(registry);
-    }
-
-    private String append(String str) {
-        return str + "**";
     }
 }

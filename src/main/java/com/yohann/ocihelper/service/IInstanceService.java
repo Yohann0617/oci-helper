@@ -36,10 +36,10 @@ public interface IInstanceService {
     /**
      * 根据 CIDR 网段更换实例公共IP
      *
-     * @param fetcher  oci配置
-     * @param instance 实例
-     * @param cidrList CIDR 网段 （传为空则随机更换一个ip）
+     * @param instanceId 实例Id
+     * @param sysUserDTO oci配置
+     * @param cidrList   CIDR 网段 （传为空则随机更换一个ip）
      * @return 新的实例公共IP
      */
-    String changeInstancePublicIp(OracleInstanceFetcher fetcher, Instance instance, List<String> cidrList);
+    String changeInstancePublicIp(String instanceId, SysUserDTO sysUserDTO, List<String> cidrList);
 }

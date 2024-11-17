@@ -32,4 +32,4 @@ COPY --from=builder /app/oci-helper.jar .
 EXPOSE 8818
 
 # 定义启动命令
-CMD ["java", "-jar", "oci-helper.jar"]
+CMD ["sh", "-c", "java -jar oci-helper.jar | tee /var/log/oci-helper.log"]
