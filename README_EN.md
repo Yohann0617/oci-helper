@@ -82,6 +82,8 @@ docker compose pull && docker compose up -d
 
 ![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v26273e166fd944c5e98a665020c798f95.png)
 
+![image.png](https://pic6.58cdn.com.cn/nowater/webim/big/n_v20f1abb438e414139a2b142d8c97fa846.png)
+
 ![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2520fa8e9b66a4cb192ce26a177dd0133.png)
 
 ## Stargazers over time
