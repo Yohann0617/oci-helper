@@ -1,12 +1,10 @@
 package com.yohann.ocihelper.service.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
-import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.oracle.bmc.core.model.Instance;
 import com.oracle.bmc.core.model.Vnic;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
@@ -16,7 +14,6 @@ import com.yohann.ocihelper.bean.response.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.OciUserListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
-import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.enums.OciCfgEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.mapper.OciCreateTaskMapper;
@@ -25,7 +22,6 @@ import com.yohann.ocihelper.service.IOciCreateTaskService;
 import com.yohann.ocihelper.service.IOciService;
 import com.yohann.ocihelper.service.IOciUserService;
 import com.yohann.ocihelper.utils.CommonUtils;
-import com.yohann.ocihelper.utils.MessageServiceFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,8 +32,6 @@ import javax.annotation.Resource;
 import com.yohann.ocihelper.mapper.OciUserMapper;
 
 import java.io.File;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,8 +57,6 @@ public class OciServiceImpl implements IOciService {
     private IOciUserService userService;
     @Resource
     private IOciCreateTaskService createTaskService;
-    @Resource
-    private MessageServiceFactory messageServiceFactory;
     @Resource
     private OciUserMapper userMapper;
     @Resource
@@ -280,6 +272,7 @@ public class OciServiceImpl implements IOciService {
     @Override
     public void stopCreateBatch(IdListParams params) {
         createTaskService.removeBatchByIds(params.getIdList());
+        params.getIdList().parallelStream().forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
     }
 
     @Override

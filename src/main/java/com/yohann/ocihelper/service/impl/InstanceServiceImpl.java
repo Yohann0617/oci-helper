@@ -93,6 +93,7 @@ public class InstanceServiceImpl implements IInstanceService {
         if (instanceDetail.isOut()) {
             createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>()
                     .eq(OciCreateTask::getId, instanceDetail.getTaskId()));
+            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + instanceDetail.getTaskId());
             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因异常而终止任务......",
                     instanceDetail.getUsername(), instanceDetail.getRegion(),
                     instanceDetail.getArchitecture(), instanceDetail.getLeftCreateNumbers());

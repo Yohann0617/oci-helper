@@ -1,8 +1,7 @@
 package com.yohann.ocihelper.config;
 
+import cn.hutool.core.io.file.Tailer;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.input.Tailer;
-import org.apache.commons.io.input.TailerListenerAdapter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -11,6 +10,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.concurrent.*;
 
 /**
@@ -31,7 +31,11 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
     private volatile boolean isSenderRunning = false;
 
     public LogWebSocketHandler() {
-        startLogTailer("/var/log/oci-helper.log");
+        try {
+            startLogTailer("/var/log/oci-helper.log");
+        } catch (Exception e) {
+            log.error("启动日志监听服务失败：{}", e.getLocalizedMessage());
+        }
     }
 
     @Override
@@ -45,6 +49,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
             }
         }
         currentSession = session;
+        log.info("--------------------------- 开始推送服务日志 ---------------------------");
         startMessageSender();
     }
 
@@ -55,32 +60,17 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        logThreadExecutor.submit(() -> {
-            Tailer tailer = Tailer.create(logFile, new TailerListenerAdapter() {
-                @Override
-                public void handle(String line) {
-                    try {
-                        if (!close) {
-                            messageQueue.put(line); // 将日志行加入队列
-                        }
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        log.error("Failed to enqueue log line: {}", e.getLocalizedMessage());
-                    }
+        logThreadExecutor.submit(() -> new Tailer(logFile, Charset.defaultCharset(), line -> {
+            try {
+                if (!close) {
+                    messageQueue.put(line); // 将日志行加入队列
                 }
-
-                @Override
-                public void fileNotFound() {
-                    log.error("Log file not found: {}", logFile.getPath());
-                }
-
-                @Override
-                public void handle(Exception ex) {
-                    log.error("Error in Tailer: {}", ex.getLocalizedMessage());
-                }
-            }, 1000, true);
-            tailer.run();
-        });
+            } catch (Exception e) {
+                Thread.currentThread().interrupt();
+                log.error("Failed to enqueue log line: {}", e.getLocalizedMessage());
+            }
+        }, 10, 1000).start());
+        // 每 1 秒检查一次
     }
 
     private void startMessageSender() {
