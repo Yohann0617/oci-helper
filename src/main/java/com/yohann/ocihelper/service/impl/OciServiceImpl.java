@@ -145,7 +145,9 @@ public class OciServiceImpl implements IOciService {
             log.warn("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，获取到的IP：{} 不在给定的 CIDR 网段中，{} 秒后将继续更换公共IP...",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName,
                     publicIp, randomIntInterval);
+            TEMP_MAP.remove(CommonUtils.CHANGE_COUNTS_PREFIX_ + instanceId);
         } else {
+            TEMP_MAP.remove(CommonUtils.CHANGE_COUNTS_PREFIX_ + instanceId);
             sendChangeIpMsg(sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
             stopTask(instanceId);
         }
