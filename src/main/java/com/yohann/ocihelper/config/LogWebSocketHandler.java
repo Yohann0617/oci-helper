@@ -49,7 +49,6 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
             }
         }
         currentSession = session;
-        log.info("--------------------------- 开始推送服务日志 ---------------------------");
         startMessageSender();
     }
 
