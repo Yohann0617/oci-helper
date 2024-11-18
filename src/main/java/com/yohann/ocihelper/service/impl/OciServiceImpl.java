@@ -77,8 +77,9 @@ public class OciServiceImpl implements IOciService {
 
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors() * 2,
-            ThreadFactoryBuilder.create().setNamePrefix("oci-create-").build());
+            ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
     public final static Map<String, Object> TEMP_MAP = new ConcurrentHashMap<>();
+    private final static Map<String, ScheduledFuture<?>> TASK_MAP = new ConcurrentHashMap<>();
 
     private static final String CHANGE_IP_MESSAGE_TEMPLATE =
             "🎉 用户：%s 更换公共IP成功 🎉\n" +
@@ -96,11 +97,35 @@ public class OciServiceImpl implements IOciService {
         }
     }
 
+    public void addTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {
+        ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleWithFixedDelay(task, initialDelay, period, timeUnit);
+        TASK_MAP.put(taskId, future);
+    }
+
+    public void stopTask(String taskId) {
+        ScheduledFuture<?> future = TASK_MAP.get(taskId);
+        if (future != null) {
+            future.cancel(false);
+            TASK_MAP.remove(taskId);
+        }
+    }
+
     public void execChange(String instanceId,
                            SysUserDTO sysUserDTO,
                            List<String> cidrList,
                            IInstanceService instanceService,
                            int randomIntInterval) {
+        if (CollectionUtil.isEmpty(cidrList)) {
+            Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
+            sendChangeIpMsg(
+                    sysUserDTO.getUsername(),
+                    sysUserDTO.getOciCfg().getRegion(),
+                    tuple2.getSecond().getDisplayName(),
+                    tuple2.getFirst()
+            );
+            stopTask(instanceId);
+            return;
+        }
         Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
         if (tuple2.getFirst() == null || tuple2.getSecond() == null) {
             Long currentCount = (Long) TEMP_MAP.compute(
@@ -110,7 +135,8 @@ public class OciServiceImpl implements IOciService {
             if (currentCount > 5) {
                 log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，执行更换IP任务失败次数达到5次，任务终止",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), tuple2.getSecond().getDisplayName());
-                throw new OciException(-1, "更换IP任务终止");
+                stopTask(instanceId);
+                return;
             }
         }
         String publicIp = tuple2.getFirst();
@@ -120,21 +146,25 @@ public class OciServiceImpl implements IOciService {
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName,
                     publicIp, randomIntInterval);
         } else {
-            log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
-                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName,
-                    publicIp);
-            TEMP_MAP.remove(tuple2.getSecond().getId());
-            try {
-                String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
-                        sysUserDTO.getUsername(),
-                        LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                        sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
-                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-            } catch (Exception e) {
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
-                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
-                        instanceName, publicIp);
-            }
+            sendChangeIpMsg(sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
+            stopTask(instanceId);
+        }
+    }
+
+    private void sendChangeIpMsg(String username, String region, String instanceName, String publicIp) {
+        log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
+                username, region, instanceName,
+                publicIp);
+        try {
+            String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
+                    username,
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                    region, instanceName, publicIp);
+            messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
+        } catch (Exception e) {
+            log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
+                    username, region,
+                    instanceName, publicIp);
         }
     }
 
@@ -280,7 +310,6 @@ public class OciServiceImpl implements IOciService {
             }
         });
 
-        TEMP_MAP.put(params.getInstanceId(), params);
         OciUser ociUser = userService.getById(params.getOciCfgId());
         SysUserDTO sysUserDTO = SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
@@ -295,13 +324,12 @@ public class OciServiceImpl implements IOciService {
         log.info("【更换公共IP】用户：[{}] ，区域：[{}] 开始执行更换IP任务...",
                 sysUserDTO.getUsername(),
                 sysUserDTO.getOciCfg().getRegion());
-        int randomIntInterval = ThreadLocalRandom.current().nextInt(60 * 1000, 80 * 1000) / 1000;
-        CREATE_INSTANCE_POOL.scheduleWithFixedDelay(() -> execChange(
+        addTask(params.getInstanceId(), () -> execChange(
                 params.getInstanceId(),
                 sysUserDTO,
                 params.getCidrList(),
                 instanceService,
-                randomIntInterval), 0, randomIntInterval, TimeUnit.SECONDS);
+                60), 0, 60, TimeUnit.SECONDS);
     }
 
     @Override
