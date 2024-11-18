@@ -54,6 +54,14 @@ public class OciController {
         return ResponseData.successData("新增配置成功");
     }
 
+    @PostMapping(path = "/uploadCfg")
+    public ResponseData<Void> uploadCfg(@Validated UploadCfgParams params,
+                                     BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.uploadCfg(params);
+        return ResponseData.successData("上传配置成功，请耐心等待后台校验");
+    }
+
     @PostMapping(path = "/removeCfg")
     public ResponseData<Void> removeCfg(@Validated @RequestBody IdListParams params,
                                         BindingResult bindingResult) {

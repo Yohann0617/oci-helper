@@ -39,4 +39,6 @@ public interface IOciService {
     void stopCreateBatch(IdListParams params);
 
     void createInstanceBatch(CreateInstanceBatchParams params);
+
+    void uploadCfg(UploadCfgParams params);
 }

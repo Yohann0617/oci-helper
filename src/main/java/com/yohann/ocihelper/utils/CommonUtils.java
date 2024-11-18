@@ -4,9 +4,12 @@ import cn.hutool.core.net.Ipv4Util;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.exception.OciException;
 import org.springframework.validation.BindingResult;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.InetAddress;
@@ -32,6 +35,64 @@ public class CommonUtils {
 
     public static final String CREATE_COUNTS_PREFIX = "CREATE_COUNTS_PREFIX_";
     public static final String CHANGE_COUNTS_PREFIX_ = "CHANGE_COUNTS_PREFIX_";
+
+    public static List<OciUser> parseConfigContent(String configContent) throws IOException {
+        List<OciUser> ociUsers = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new StringReader(configContent))) {
+            String line;
+            OciUser currentUser = null;
+            String currentUsername = null;
+
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+
+                if (line.isEmpty()) {
+                    continue; // Skip empty lines
+                }
+
+                if (line.startsWith("[")) {
+                    // New section
+                    if (currentUser != null) {
+                        ociUsers.add(currentUser);
+                    }
+                    currentUsername = line.substring(1, line.length() - 1); // Remove square brackets
+                    currentUser = new OciUser();
+                    currentUser.setUsername(currentUsername);
+                } else if (currentUser != null && line.contains("=")) {
+                    String[] parts = line.split("=", 2);
+                    String key = parts[0].trim();
+                    String value = parts[1].trim();
+
+                    switch (key) {
+                        case "user":
+                            currentUser.setOciUserId(value);
+                            break;
+                        case "fingerprint":
+                            currentUser.setOciFingerprint(value);
+                            break;
+                        case "tenancy":
+                            currentUser.setOciTenantId(value);
+                            break;
+                        case "region":
+                            currentUser.setOciRegion(value);
+                            break;
+                        case "key_file":
+                            currentUser.setOciKeyPath(value);
+                            break;
+                        default:
+                            // Ignore unknown keys
+                            break;
+                    }
+                }
+            }
+
+            // Add the last user
+            if (currentUser != null) {
+                ociUsers.add(currentUser);
+            }
+        }
+        return ociUsers;
+    }
 
     public static String getMD5(String input) {
         try {
