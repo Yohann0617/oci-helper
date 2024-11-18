@@ -31,6 +31,7 @@ import java.util.regex.Pattern;
 public class CommonUtils {
 
     public static final String CREATE_COUNTS_PREFIX = "CREATE_COUNTS_PREFIX_";
+    public static final String CHANGE_COUNTS_PREFIX_ = "CHANGE_COUNTS_PREFIX_";
 
     public static String getMD5(String input) {
         try {

@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.service;
 
 import com.oracle.bmc.core.model.Instance;
+import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
@@ -39,7 +40,7 @@ public interface IInstanceService {
      * @param instanceId 实例Id
      * @param sysUserDTO oci配置
      * @param cidrList   CIDR 网段 （传为空则随机更换一个ip）
-     * @return 新的实例公共IP
+     * @return 新的实例公共IP，实例
      */
-    String changeInstancePublicIp(String instanceId, SysUserDTO sysUserDTO, List<String> cidrList);
+    Tuple2<String, Instance> changeInstancePublicIp(String instanceId, SysUserDTO sysUserDTO, List<String> cidrList);
 }
