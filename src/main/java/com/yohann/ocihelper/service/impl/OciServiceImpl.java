@@ -384,43 +384,42 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public void uploadCfg(UploadCfgParams params) {
-        CompletableFuture.runAsync(() -> {
-            Set<String> seenUsernames = new HashSet<>();
-            List<OciUser> ociUserList = params.getFileList().parallelStream()
-                    .map(file -> {
-                        try {
-                            String read = IoUtil.read(file.getInputStream(), Charset.defaultCharset());
-                            return CommonUtils.parseConfigContent(read);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .collect(Collectors.toList()).stream() // Convert to a single stream
-                    .flatMap(Collection::stream).parallel()
-                    .peek(ociUser -> {
-                        if (!seenUsernames.add(ociUser.getUsername())) {
-                            log.error("名称：{} 重复，添加配置失败", ociUser.getUsername());
-                            throw new OciException(-1, "名称: " + ociUser.getUsername() + " 重复，添加配置失败");
-                        }
-                        ociUser.setId(IdUtil.randomUUID());
-                        SysUserDTO sysUserDTO = SysUserDTO.builder()
-                                .ociCfg(SysUserDTO.OciCfg.builder()
-                                        .userId(ociUser.getOciUserId())
-                                        .fingerprint(ociUser.getOciFingerprint())
-                                        .tenantId(ociUser.getOciTenantId())
-                                        .region(ociUser.getOciRegion())
-                                        .privateKeyPath(keyDirPath + File.separator + ociUser.getOciKeyPath())
-                                        .build())
-                                .build();
-                        try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
-                            ociFetcher.listInstances();
-                        } catch (Exception e) {
-                            log.error("配置：{} 不生效，请检查密钥与配置项是否准确无误", ociUser.getUsername());
-                            throw new OciException(-1, "配置：" + ociUser.getUsername() + " 不生效，请检查密钥与配置项是否准确无误");
-                        }
-                    })
-                    .collect(Collectors.toList());
-            userService.saveBatch(ociUserList);
-        });
+        Set<String> seenUsernames = new HashSet<>();
+        List<OciUser> ociUserList = params.getFileList().parallelStream()
+                .map(file -> {
+                    try {
+                        String read = IoUtil.read(file.getInputStream(), Charset.defaultCharset());
+                        return CommonUtils.parseConfigContent(read);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(Collectors.toList()).stream() // Convert to a single stream
+                .flatMap(Collection::stream).parallel()
+                .peek(ociUser -> {
+                    if (!seenUsernames.add(ociUser.getUsername())) {
+                        log.error("名称：{} 重复，添加配置失败", ociUser.getUsername());
+                        throw new OciException(-1, "名称: " + ociUser.getUsername() + " 重复，添加配置失败");
+                    }
+                    ociUser.setId(IdUtil.randomUUID());
+                    ociUser.setOciKeyPath(keyDirPath + File.separator + ociUser.getOciKeyPath());
+                    SysUserDTO sysUserDTO = SysUserDTO.builder()
+                            .ociCfg(SysUserDTO.OciCfg.builder()
+                                    .userId(ociUser.getOciUserId())
+                                    .fingerprint(ociUser.getOciFingerprint())
+                                    .tenantId(ociUser.getOciTenantId())
+                                    .region(ociUser.getOciRegion())
+                                    .privateKeyPath(ociUser.getOciKeyPath())
+                                    .build())
+                            .build();
+                    try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
+                        ociFetcher.listInstances();
+                    } catch (Exception e) {
+                        log.error("配置：{} 不生效，请检查密钥与配置项是否准确无误，错误信息：{}", ociUser.getUsername(), e.getLocalizedMessage());
+                        throw new OciException(-1, "配置：" + ociUser.getUsername() + " 不生效，请检查密钥与配置项是否准确无误");
+                    }
+                })
+                .collect(Collectors.toList());
+        userService.saveBatch(ociUserList);
     }
 }
