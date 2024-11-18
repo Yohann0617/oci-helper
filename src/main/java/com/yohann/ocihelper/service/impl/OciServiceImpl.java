@@ -112,6 +112,7 @@ public class OciServiceImpl implements IOciService {
             future.cancel(false);
             TASK_MAP.remove(taskId);
         }
+        TEMP_MAP.remove(CommonUtils.CHANGE_COUNTS_PREFIX_ + taskId);
     }
 
     public void execChange(String instanceId,
@@ -151,7 +152,6 @@ public class OciServiceImpl implements IOciService {
                     publicIp, randomIntInterval);
             TEMP_MAP.remove(CommonUtils.CHANGE_COUNTS_PREFIX_ + instanceId);
         } else {
-            TEMP_MAP.remove(CommonUtils.CHANGE_COUNTS_PREFIX_ + instanceId);
             sendChangeIpMsg(sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
             stopTask(instanceId);
         }
