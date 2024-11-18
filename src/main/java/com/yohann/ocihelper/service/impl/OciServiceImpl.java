@@ -384,6 +384,11 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public void uploadCfg(UploadCfgParams params) {
+        params.getFileList().forEach(x -> {
+            if (!x.getOriginalFilename().contains(".ini") && !x.getOriginalFilename().contains(".txt")) {
+                throw new OciException(-1, "文件必须是.txt或者.ini的文本文件");
+            }
+        });
         Set<String> seenUsernames = new HashSet<>();
         List<OciUser> ociUserList = params.getFileList().parallelStream()
                 .map(file -> {
