@@ -1195,6 +1195,7 @@ public class OracleInstanceFetcher implements Closeable {
             }
         }
 
+        String publicIp;
         try {
             String privateIpId = getPrivateIpIdForVnic(vnic);
             // Step 1: 创建一个 Reserved Public IP
@@ -1222,11 +1223,13 @@ public class OracleInstanceFetcher implements Closeable {
 
             virtualNetworkClient.updatePublicIp(updateRequest);
 //            log.info("Reserved Public IP attached to VNIC: " + reservedPublicIp.getIpAddress());
-            return reservedPublicIp.getIpAddress();
+            publicIp = reservedPublicIp.getIpAddress();
+            return publicIp;
         } catch (Exception e) {
             releaseUnusedPublicIps();
-            throw new RuntimeException(e);
+            log.error("【开机任务】用户：[{}] ，区域：[{}] 更换IP任务异常，稍后将重试......", user.getUsername(), user.getOciCfg().getRegion());
         }
+        return null;
     }
 
 }

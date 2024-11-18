@@ -136,8 +136,8 @@ public class OciServiceImpl implements IOciService {
                 log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，执行更换IP任务失败次数达到5次，任务终止",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), tuple2.getSecond().getDisplayName());
                 stopTask(instanceId);
-                return;
             }
+            return;
         }
         String publicIp = tuple2.getFirst();
         String instanceName = tuple2.getSecond().getDisplayName();
@@ -294,7 +294,7 @@ public class OciServiceImpl implements IOciService {
                         info.setPublicIp(fetcher.listInstanceIPs(x.getId()).stream()
                                 .map(Vnic::getPublicIp)
                                 .collect(Collectors.toList()));
-                        info.setEnableChangeIp(TEMP_MAP.get(x.getId()) != null ? 1 : 0);
+                        info.setEnableChangeIp(TASK_MAP.get(x.getId()) != null ? 1 : 0);
                         return info;
                     }).collect(Collectors.toList()));
         } catch (Exception e) {
@@ -345,7 +345,7 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public void stopChangeIp(StopChangeIpParams params) {
-        TEMP_MAP.remove(params.getInstanceId());
+        stopTask(params.getInstanceId());
     }
 
     @Override
