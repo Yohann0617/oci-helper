@@ -399,6 +399,7 @@ public class OciServiceImpl implements IOciService {
                     .flatMap(Collection::stream).parallel()
                     .peek(ociUser -> {
                         if (!seenUsernames.add(ociUser.getUsername())) {
+                            log.error("名称：{} 重复，添加配置失败", ociUser.getUsername());
                             throw new OciException(-1, "名称: " + ociUser.getUsername() + " 重复，添加配置失败");
                         }
                         ociUser.setId(IdUtil.randomUUID());
@@ -408,12 +409,13 @@ public class OciServiceImpl implements IOciService {
                                         .fingerprint(ociUser.getOciFingerprint())
                                         .tenantId(ociUser.getOciTenantId())
                                         .region(ociUser.getOciRegion())
-                                        .privateKeyPath(ociUser.getOciKeyPath())
+                                        .privateKeyPath(keyDirPath + File.separator + ociUser.getOciKeyPath())
                                         .build())
                                 .build();
                         try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
                             ociFetcher.listInstances();
                         } catch (Exception e) {
+                            log.error("配置：{} 不生效，请检查密钥与配置项是否准确无误", ociUser.getUsername());
                             throw new OciException(-1, "配置：" + ociUser.getUsername() + " 不生效，请检查密钥与配置项是否准确无误");
                         }
                     })
