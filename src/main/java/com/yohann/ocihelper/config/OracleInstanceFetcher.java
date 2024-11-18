@@ -1227,7 +1227,7 @@ public class OracleInstanceFetcher implements Closeable {
             return publicIp;
         } catch (Exception e) {
             releaseUnusedPublicIps();
-            log.error("【开机任务】用户：[{}] ，区域：[{}] 更换IP任务异常，稍后将重试......", user.getUsername(), user.getOciCfg().getRegion());
+            log.error("【更换公共IP】用户：[{}] ，区域：[{}] 更换IP任务异常，稍后将重试......", user.getUsername(), user.getOciCfg().getRegion());
         }
         return null;
     }
