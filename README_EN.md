@@ -80,7 +80,7 @@ docker compose pull && docker compose up -d
 
 ![image.png](https://pic4.58cdn.com.cn/nowater/webim/big/n_v2258c21fd6dbf428fba05cdc86e8e56d1.png)
 
-![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v2543323ea3d274c2ca435e2b5dcc3074f.png)
+![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2c509ebec4779406384b0629ba3396f33.png)
 
 ![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v26273e166fd944c5e98a665020c798f95.png)
 
