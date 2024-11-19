@@ -89,7 +89,7 @@ public class OciServiceImpl implements IOciService {
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
 
     private static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
-            "用户：%s 开始执行开机任务成功\n\n" +
+            "用户：%s 开始执行开机任务\n\n" +
                     "时间： %s\n" +
                     "Region： %s\n" +
                     "CPU类型： %s\n" +
