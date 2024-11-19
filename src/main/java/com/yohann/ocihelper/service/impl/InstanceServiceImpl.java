@@ -11,7 +11,6 @@ import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.service.IInstanceService;
-import com.yohann.ocihelper.service.IOciCreateTaskService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.MessageServiceFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +42,7 @@ public class InstanceServiceImpl implements IInstanceService {
     private MessageServiceFactory messageServiceFactory;
 
     private static final String LEGACY_MESSAGE_TEMPLATE =
-            "🎉 用户：%s 开机成功 🎉\n\n" +
+            "🎉 用户：[%s] 开机成功 🎉\n\n" +
                     "时间： %s\n" +
                     "Region： %s\n" +
                     "CPU类型： %s\n" +

@@ -89,16 +89,17 @@ public class OciServiceImpl implements IOciService {
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
 
     private static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
-            "用户：%s 开始执行开机任务\n\n" +
+            "用户：[%s] 开始执行开机任务\n\n" +
                     "时间： %s\n" +
                     "Region： %s\n" +
                     "CPU类型： %s\n" +
                     "CPU： %s\n" +
                     "内存（GB）： %s\n" +
                     "磁盘大小（GB）： %s\n" +
+                    "数量： %s\n" +
                     "root密码： %s";
     private static final String CHANGE_IP_MESSAGE_TEMPLATE =
-            "🎉 用户：%s 更换公共IP成功 🎉\n\n" +
+            "🎉 用户：[%s] 更换公共IP成功 🎉\n\n" +
                     "时间： %s\n" +
                     "区域： %s\n" +
                     "实例： %s\n" +
@@ -213,6 +214,7 @@ public class OciServiceImpl implements IOciService {
                 Float.parseFloat(params.getOcpus()),
                 Float.parseFloat(params.getMemory()),
                 Long.valueOf(params.getDisk()),
+                params.getCreateNumbers(),
                 params.getRootPassword());
         messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(beginCreateMsg);
     }
