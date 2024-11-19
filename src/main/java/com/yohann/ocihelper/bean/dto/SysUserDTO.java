@@ -25,7 +25,7 @@ public class SysUserDTO {
     private Long disk = 50L;
     private String architecture = "ARM";
     private Long interval = 60L;
-    private int createNumbers = 0;
+    private volatile int createNumbers = 0;
     private String rootPassword;
     private String operationSystem = "Ubuntu";
     private List<CloudInstance> instanceList;

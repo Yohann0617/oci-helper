@@ -3,10 +3,10 @@ package com.yohann.ocihelper.task;
 import cn.hutool.core.collection.CollectionUtil;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciUser;
-import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.service.IOciCreateTaskService;
 import com.yohann.ocihelper.service.IOciUserService;
+import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -67,7 +67,8 @@ public class OciTask implements ApplicationRunner {
                                 .operationSystem(task.getOperationSystem())
                                 .rootPassword(task.getRootPassword())
                                 .build();
-                        CREATE_INSTANCE_POOL.scheduleWithFixedDelay(() -> execCreate(sysUserDTO, instanceService),
+                        addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
+                                        execCreate(sysUserDTO, instanceService, createTaskService),
                                 0, task.getInterval(), TimeUnit.SECONDS);
                     }
                 });

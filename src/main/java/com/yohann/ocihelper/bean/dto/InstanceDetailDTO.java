@@ -20,7 +20,7 @@ import lombok.NoArgsConstructor;
 public class InstanceDetailDTO {
 
     private String taskId;
-    private boolean isSuccess;
+    private boolean isSuccess = false;
     private boolean isOut = false;
     private String publicIp;
     private String image;
@@ -32,6 +32,6 @@ public class InstanceDetailDTO {
     private float memory = 6F;
     private Long disk = 50L;
     private String rootPassword;
-    private int leftCreateNumbers;
+    private long createNumbers = 0;
 
 }

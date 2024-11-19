@@ -7,10 +7,13 @@ import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oracle.bmc.core.model.Instance;
 import com.oracle.bmc.core.model.Vnic;
 import com.yohann.ocihelper.bean.Tuple2;
+import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
+import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciUser;
@@ -79,100 +82,27 @@ public class OciServiceImpl implements IOciService {
     @Value("${oci-cfg.key-dir-path}")
     private String keyDirPath;
 
+    public final static Map<String, Object> TEMP_MAP = new ConcurrentHashMap<>();
+    private final static Map<String, ScheduledFuture<?>> TASK_MAP = new ConcurrentHashMap<>();
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors() * 2,
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
-    public final static Map<String, Object> TEMP_MAP = new ConcurrentHashMap<>();
-    private final static Map<String, ScheduledFuture<?>> TASK_MAP = new ConcurrentHashMap<>();
 
+    private static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
+            "用户：%s 开始执行开机任务成功\n\n" +
+                    "时间： %s\n" +
+                    "Region： %s\n" +
+                    "CPU类型： %s\n" +
+                    "CPU： %s\n" +
+                    "内存（GB）： %s\n" +
+                    "磁盘大小（GB）： %s\n" +
+                    "root密码： %s";
     private static final String CHANGE_IP_MESSAGE_TEMPLATE =
-            "🎉 用户：%s 更换公共IP成功 🎉\n" +
-                    "---------------------------\n" +
+            "🎉 用户：%s 更换公共IP成功 🎉\n\n" +
                     "时间： %s\n" +
                     "区域： %s\n" +
                     "实例： %s\n" +
                     "新的公网IP： %s";
-
-    public static void execCreate(SysUserDTO sysUserDTO, IInstanceService instanceService) {
-        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            instanceService.createInstance(fetcher);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public void addTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {
-        ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleWithFixedDelay(task, initialDelay, period, timeUnit);
-        TASK_MAP.put(taskId, future);
-    }
-
-    public void stopTask(String taskId) {
-        ScheduledFuture<?> future = TASK_MAP.get(taskId);
-        if (future != null) {
-            future.cancel(false);
-            TASK_MAP.remove(taskId);
-        }
-        TEMP_MAP.remove(CommonUtils.CHANGE_COUNTS_PREFIX_ + taskId);
-    }
-
-    public void execChange(String instanceId,
-                           SysUserDTO sysUserDTO,
-                           List<String> cidrList,
-                           IInstanceService instanceService,
-                           int randomIntInterval) {
-        if (CollectionUtil.isEmpty(cidrList)) {
-            Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
-            sendChangeIpMsg(
-                    sysUserDTO.getUsername(),
-                    sysUserDTO.getOciCfg().getRegion(),
-                    tuple2.getSecond().getDisplayName(),
-                    tuple2.getFirst()
-            );
-            stopTask(instanceId);
-            return;
-        }
-        Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
-        if (tuple2.getFirst() == null || tuple2.getSecond() == null) {
-            Long currentCount = (Long) TEMP_MAP.compute(
-                    CommonUtils.CHANGE_COUNTS_PREFIX_ + instanceId,
-                    (key, value) -> value == null ? 1L : Long.parseLong(String.valueOf(value)) + 1
-            );
-            if (currentCount > 5) {
-                log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，执行更换IP任务失败次数达到5次，任务终止",
-                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), tuple2.getSecond().getDisplayName());
-                stopTask(instanceId);
-            }
-            return;
-        }
-        String publicIp = tuple2.getFirst();
-        String instanceName = tuple2.getSecond().getDisplayName();
-        if (!CommonUtils.isIpInCidrList(tuple2.getFirst(), cidrList)) {
-            log.warn("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，获取到的IP：{} 不在给定的 CIDR 网段中，{} 秒后将继续更换公共IP...",
-                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName,
-                    publicIp, randomIntInterval);
-            TEMP_MAP.remove(CommonUtils.CHANGE_COUNTS_PREFIX_ + instanceId);
-        } else {
-            sendChangeIpMsg(sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
-            stopTask(instanceId);
-        }
-    }
-
-    private void sendChangeIpMsg(String username, String region, String instanceName, String publicIp) {
-        log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
-                username, region, instanceName,
-                publicIp);
-        try {
-            String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
-                    username,
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                    region, instanceName, publicIp);
-            messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-        } catch (Exception e) {
-            log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
-                    username, region,
-                    instanceName, publicIp);
-        }
-    }
 
     @Override
     public String login(LoginParams params) {
@@ -272,8 +202,19 @@ public class OciServiceImpl implements IOciService {
                 .operationSystem(params.getOperationSystem())
                 .rootPassword(params.getRootPassword())
                 .build();
-        CREATE_INSTANCE_POOL.scheduleWithFixedDelay(() -> execCreate(sysUserDTO, instanceService),
+        addTask(CommonUtils.CREATE_TASK_PREFIX + taskId, () ->
+                        execCreate(sysUserDTO, instanceService, createTaskService),
                 0, params.getInterval(), TimeUnit.SECONDS);
+        String beginCreateMsg = String.format(BEGIN_CREATE_MESSAGE_TEMPLATE,
+                ociUser.getUsername(),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                ociUser.getOciRegion(),
+                params.getArchitecture(),
+                Float.parseFloat(params.getOcpus()),
+                Float.parseFloat(params.getMemory()),
+                Long.valueOf(params.getDisk()),
+                params.getRootPassword());
+        messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(beginCreateMsg);
     }
 
     @Override
@@ -302,7 +243,7 @@ public class OciServiceImpl implements IOciService {
                         info.setPublicIp(fetcher.listInstanceIPs(x.getId()).stream()
                                 .map(Vnic::getPublicIp)
                                 .collect(Collectors.toList()));
-                        info.setEnableChangeIp(TASK_MAP.get(x.getId()) != null ? 1 : 0);
+                        info.setEnableChangeIp(TASK_MAP.get(CommonUtils.CREATE_TASK_PREFIX + x.getId()) != null ? 1 : 0);
                         return info;
                     }).collect(Collectors.toList()));
             return rsp;
@@ -333,7 +274,7 @@ public class OciServiceImpl implements IOciService {
         log.info("【更换公共IP】用户：[{}] ，区域：[{}] 开始执行更换IP任务...",
                 sysUserDTO.getUsername(),
                 sysUserDTO.getOciCfg().getRegion());
-        addTask(params.getInstanceId(), () -> execChange(
+        addTask(CommonUtils.CHANGE_IP_TASK_PREFIX + params.getInstanceId(), () -> execChange(
                 params.getInstanceId(),
                 sysUserDTO,
                 params.getCidrList(),
@@ -350,11 +291,13 @@ public class OciServiceImpl implements IOciService {
             taskIds.parallelStream().forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
         }
         createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getUserId, params.getUserId()));
+        taskIds.parallelStream().forEach(taskId -> stopTask(CommonUtils.CREATE_TASK_PREFIX + taskId));
     }
 
     @Override
     public void stopChangeIp(StopChangeIpParams params) {
-        stopTask(params.getInstanceId());
+        stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + params.getInstanceId());
+        TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + params.getInstanceId());
     }
 
     @Override
@@ -373,6 +316,7 @@ public class OciServiceImpl implements IOciService {
     public void stopCreateBatch(IdListParams params) {
         createTaskService.removeBatchByIds(params.getIdList());
         params.getIdList().parallelStream().forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
+        params.getIdList().parallelStream().forEach(taskId -> stopTask(CommonUtils.CREATE_TASK_PREFIX + taskId));
     }
 
     @Override
@@ -429,5 +373,136 @@ public class OciServiceImpl implements IOciService {
                 })
                 .collect(Collectors.toList());
         userService.saveBatch(ociUserList);
+    }
+
+    public static void addTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {
+        ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleWithFixedDelay(task, initialDelay, period, timeUnit);
+        TASK_MAP.put(taskId, future);
+    }
+
+    public static void stopTask(String taskId) {
+        ScheduledFuture<?> future = TASK_MAP.get(taskId);
+        if (future != null) {
+            future.cancel(false);
+            TASK_MAP.remove(taskId);
+        }
+    }
+
+    public static void execCreate(
+            SysUserDTO sysUserDTO,
+            IInstanceService instanceService,
+            IOciCreateTaskService createTaskService) {
+
+        if (createTaskService.getById(sysUserDTO.getTaskId()) == null) {
+            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务终止......",
+                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
+            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
+//            throw new OciException(-1, "任务终止");
+        }
+
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+
+            List<InstanceDetailDTO> createInstanceList = instanceService.createInstance(fetcher).getCreateInstanceList();
+            long successCounts = createInstanceList.stream().filter(InstanceDetailDTO::isSuccess).count();
+            long outCounts = createInstanceList.stream().filter(InstanceDetailDTO::isOut).count();
+            long leftCreateNum = sysUserDTO.getCreateNumbers() - successCounts;
+
+            if (sysUserDTO.getCreateNumbers() == outCounts) {
+                TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
+                stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
+                createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因异常而终止任务......",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+            }
+
+            if (sysUserDTO.getCreateNumbers() == successCounts || leftCreateNum == 0) {
+                TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
+                stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
+                createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
+                log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务结束......",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+            }
+
+            if (leftCreateNum > 0) {
+                createTaskService.update(new LambdaUpdateWrapper<OciCreateTask>()
+                        .eq(OciCreateTask::getId, sysUserDTO.getTaskId())
+                        .set(OciCreateTask::getCreateNumbers, leftCreateNum));
+                sysUserDTO.setCreateNumbers((int) leftCreateNum);
+            }
+        } catch (Exception e) {
+            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因异常而终止任务，异常原因：{}",
+                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), e.getLocalizedMessage());
+            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
+            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
+            createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void execChange(String instanceId,
+                           SysUserDTO sysUserDTO,
+                           List<String> cidrList,
+                           IInstanceService instanceService,
+                           int randomIntInterval) {
+        if (CollectionUtil.isEmpty(cidrList)) {
+            Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
+            sendChangeIpMsg(
+                    sysUserDTO.getUsername(),
+                    sysUserDTO.getOciCfg().getRegion(),
+                    tuple2.getSecond().getDisplayName(),
+                    tuple2.getFirst()
+            );
+            stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + instanceId);
+            TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
+            return;
+        }
+        Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
+        if (tuple2.getFirst() == null || tuple2.getSecond() == null) {
+            Long currentCount = (Long) TEMP_MAP.compute(
+                    CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId,
+                    (key, value) -> value == null ? 1L : Long.parseLong(String.valueOf(value)) + 1
+            );
+            if (currentCount > 5) {
+                log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，执行更换IP任务失败次数达到5次，任务终止",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), tuple2.getSecond().getDisplayName());
+                stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + instanceId);
+                TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
+            }
+            return;
+        }
+        String publicIp = tuple2.getFirst();
+        String instanceName = tuple2.getSecond().getDisplayName();
+        if (!CommonUtils.isIpInCidrList(tuple2.getFirst(), cidrList)) {
+            log.warn("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，获取到的IP：{} 不在给定的 CIDR 网段中，{} 秒后将继续更换公共IP...",
+                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName,
+                    publicIp, randomIntInterval);
+            TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
+        } else {
+            sendChangeIpMsg(sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
+            stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + instanceId);
+            TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
+        }
+    }
+
+    private void sendChangeIpMsg(String username, String region, String instanceName, String publicIp) {
+        log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
+                username, region, instanceName,
+                publicIp);
+        try {
+            String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
+                    username,
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                    region, instanceName, publicIp);
+            messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
+        } catch (Exception e) {
+            log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
+                    username, region,
+                    instanceName, publicIp);
+        }
     }
 }

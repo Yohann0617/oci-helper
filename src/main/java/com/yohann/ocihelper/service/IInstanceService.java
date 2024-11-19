@@ -2,7 +2,7 @@ package com.yohann.ocihelper.service;
 
 import com.oracle.bmc.core.model.Instance;
 import com.yohann.ocihelper.bean.Tuple2;
-import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
+import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 
@@ -32,7 +32,7 @@ public interface IInstanceService {
      * @param fetcher oci配置
      * @return 成功开机的实例信息
      */
-    InstanceDetailDTO createInstance(OracleInstanceFetcher fetcher);
+    CreateInstanceDTO createInstance(OracleInstanceFetcher fetcher);
 
     /**
      * 根据 CIDR 网段更换实例公共IP

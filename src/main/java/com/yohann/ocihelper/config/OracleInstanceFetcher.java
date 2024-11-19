@@ -33,6 +33,7 @@ import java.io.Closeable;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -108,23 +109,14 @@ public class OracleInstanceFetcher implements Closeable {
         blockstorageClient.setRegion(ociCfg.getRegion());
     }
 
-    synchronized public InstanceDetailDTO createInstanceData() {
-        if (user.getCreateNumbers() <= 0) {
-            return null;
-        }
-        Long currentCount = (Long) TEMP_MAP.compute(
-                CommonUtils.CREATE_COUNTS_PREFIX + user.getTaskId(),
-                (key, value) -> value == null ? 1L : Long.parseLong(String.valueOf(value)) + 1
-        );
-
+    public InstanceDetailDTO createInstanceData() {
         InstanceDetailDTO instanceDetailDTO = new InstanceDetailDTO();
         instanceDetailDTO.setTaskId(user.getTaskId());
         instanceDetailDTO.setUsername(user.getUsername());
-        instanceDetailDTO.setLeftCreateNumbers(user.getCreateNumbers());
         instanceDetailDTO.setRegion(user.getOciCfg().getRegion());
         instanceDetailDTO.setArchitecture(user.getArchitecture());
-        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] ，开始执行第 [{}] 次创建实例操作......",
-                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getCreateNumbers(), currentCount);
+        instanceDetailDTO.setCreateNumbers(user.getCreateNumbers());
+
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         List<Vcn> vcnList = listVcn();
         int size = availabilityDomains.size();
@@ -137,7 +129,6 @@ public class OracleInstanceFetcher implements Closeable {
         try {
             for (AvailabilityDomain availableDomain : availabilityDomains) {
                 try {
-//                    log.info("---------------- AvailabilityDomain: {} ----------------", availableDomain.getName());
                     List<Shape> shapes = getShape(computeClient, compartmentId, availableDomain, user);
                     if (shapes.size() == 0) {
                         continue;
@@ -177,16 +168,9 @@ public class OracleInstanceFetcher implements Closeable {
                         instance = createInstance(computeWaiters, launchInstanceDetails);
                         printInstance(computeClient, virtualNetworkClient, instance, instanceDetailDTO);
 
-                        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机成功，正在为实例创建引导卷......",
+                        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机成功，正在为实例预配......",
                                 user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
-//                        log.info("-----------------------------------------------------------------");
-                        //bootVolume = createBootVolume(blockstorageClient, compartmentId, availablityDomain, image, kmsKeyId);
-//                        launchInstanceDetails = createLaunchInstanceDetailsFromBootVolume(launchInstanceDetails, bootVolume);
-                        //instanceFromBootVolume = createInstance(computeWaiters, launchInstanceDetails);
-                        //printInstance(computeClient, virtualNetworkClient, instanceFromBootVolume, oracleInstanceDetail);
-                        user.setCreateNumbers(user.getCreateNumbers() - 1);
                         instanceDetailDTO.setSuccess(true);
-                        instanceDetailDTO.setLeftCreateNumbers(user.getCreateNumbers());
                         instanceDetailDTO.setImage(image.getId());
                         instanceDetailDTO.setRegion(user.getOciCfg().getRegion());
                         instanceDetailDTO.setOcpus(user.getOcpus());
@@ -198,7 +182,7 @@ public class OracleInstanceFetcher implements Closeable {
                 } catch (Exception e) {
                     if (e instanceof BmcException) {
                         BmcException error = (BmcException) e;
-                        if (error.getStatusCode() == 500 &&
+                        if (error.getStatusCode() == 500 ||
                                 (error.getMessage().contains(ErrorEnum.CAPACITY.getErrorType()) ||
                                         error.getMessage().contains(ErrorEnum.CAPACITY_HOST.getErrorType()))) {
                             size--;
@@ -209,28 +193,24 @@ public class OracleInstanceFetcher implements Closeable {
                                 log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 容量不足，[{}]秒后将重试......",
                                         user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
                             }
-                        } else if (error.getStatusCode() == 400 && error.getMessage().contains(ErrorEnum.LIMIT_EXCEEDED.getErrorType())) {
+                        } else if (error.getStatusCode() == 400 || error.getMessage().contains(ErrorEnum.LIMIT_EXCEEDED.getErrorType())) {
                             instanceDetailDTO.setOut(true);
                             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 无法创建实例，配额已经超过限制~",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                             return instanceDetailDTO;
-                        } else if (error.getStatusCode() == 429 && error.getMessage().contains(ErrorEnum.TOO_MANY_REQUESTS.getErrorType())) {
+                        } else if (error.getStatusCode() == 429 || error.getMessage().contains(ErrorEnum.TOO_MANY_REQUESTS.getErrorType())) {
                             log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机请求频繁，[{}]秒后将重试......",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
                         } else {
-//                            clearAllDetails(computeClient, virtualNetworkClient, instanceFromBootVolume, instance, networkSecurityGroup,
-//                             internetGateway, subnet, vcn);
                             instanceDetailDTO.setOut(true);
-                            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了,原因为:{}",
+                            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(),
                                     e.getMessage(), e);
                             return instanceDetailDTO;
                         }
                     } else {
-                        //clearAllDetails(computeClient, virtualNetworkClient, instanceFromBootVolume, instance, networkSecurityGroup,
-                        // internetGateway, subnet, vcn);
                         instanceDetailDTO.setOut(true);
-                        log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了,原因为:{}",
+                        log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",
                                 user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(),
                                 e.getMessage(), e);
                         return instanceDetailDTO;
@@ -283,11 +263,6 @@ public class OracleInstanceFetcher implements Closeable {
                 GetVnicRequest getVnicRequest = GetVnicRequest.builder().vnicId(vnicId).build();
                 GetVnicResponse getVnicResponse = virtualNetworkClient.getVnic(getVnicRequest);
                 Vnic vnic = getVnicResponse.getVnic();
-//                System.out.println("  Private IP: " + vnic.getPrivateIp());
-//                if (vnic.getPublicIp() != null) {
-//                    System.out.println("  Public IP: " + vnic.getPublicIp());
-//                    return vnic;
-//                }
                 return vnic;
             }
             return null;
@@ -304,20 +279,6 @@ public class OracleInstanceFetcher implements Closeable {
         ListVcnsResponse listVcnsResponse = virtualNetworkClient.listVcns(listVcnsRequest);
         if (CollectionUtil.isEmpty(listVcnsResponse.getItems())) {
             return "10.0.0.0/16";
-        }
-        if (log.isDebugEnabled()) {
-            // 遍历所有 VCN 并打印其 CIDR 块
-            for (Vcn vcn : listVcnsResponse.getItems()) {
-                log.info("VCN Name: {}", vcn.getDisplayName());
-                log.info("VCN ID: {}", vcn.getId());
-                log.info("CIDR Block: {}", vcn.getCidrBlock());
-
-                // 如果 VCN 有多个 CIDR 块，也打印出来
-                List<String> cidrBlocks = vcn.getCidrBlocks();
-                if (cidrBlocks != null && !cidrBlocks.isEmpty()) {
-                    log.info("Additional CIDR Blocks: {}", cidrBlocks);
-                }
-            }
         }
         return listVcnsResponse.getItems().get(0).getCidrBlock();
     }
@@ -361,13 +322,6 @@ public class OracleInstanceFetcher implements Closeable {
                 if (type.getShapeDetail().equals(vmShape.getShape())) {
                     shapesNewList.add(vmShape);
                 }
-
-                if (log.isDebugEnabled()) {
-                    log.info("Found Shape: " + vmShape.getShape());
-                    log.info("Billing Type: " + vmShape.getBillingType());
-                    log.info("<====================================>");
-                }
-
             }
         }
         return shapesNewList;
@@ -393,15 +347,12 @@ public class OracleInstanceFetcher implements Closeable {
         // way of determining what is needed.
         //
         // Note the latest version of the images for the same operating system is returned firstly.
-        Image image = images.get(0);
-
-        return image;
+        return images.get(0);
     }
 
-    private static Vcn createVcn(
-            VirtualNetworkClient virtualNetworkClient, String compartmentId, String cidrBlock)
+    private static Vcn createVcn(VirtualNetworkClient virtualNetworkClient, String compartmentId, String cidrBlock)
             throws Exception {
-        String vcnName = "java-sdk-example-vcn";
+        String vcnName = "oci-helper-vcn";
         ListVcnsRequest build = ListVcnsRequest.builder().compartmentId(compartmentId)
                 .displayName(vcnName)
                 .build();
@@ -410,33 +361,23 @@ public class OracleInstanceFetcher implements Closeable {
         if (listVcnsResponse.getItems().size() > 0) {
             return listVcnsResponse.getItems().get(0);
         }
-        CreateVcnDetails createVcnDetails =
-                CreateVcnDetails.builder()
-                        .cidrBlock(cidrBlock)
-                        .compartmentId(compartmentId)
-                        .displayName(vcnName)
-                        .build();
-
-        CreateVcnRequest createVcnRequest =
-                CreateVcnRequest.builder().createVcnDetails(createVcnDetails).build();
+        CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
+                .cidrBlock(cidrBlock)
+                .compartmentId(compartmentId)
+                .displayName(vcnName)
+                .build();
+        CreateVcnRequest createVcnRequest = CreateVcnRequest.builder().createVcnDetails(createVcnDetails).build();
         CreateVcnResponse createVcnResponse = virtualNetworkClient.createVcn(createVcnRequest);
 
-        GetVcnRequest getVcnRequest =
-                GetVcnRequest.builder().vcnId(createVcnResponse.getVcn().getId()).build();
-        GetVcnResponse getVcnResponse =
-                virtualNetworkClient
-                        .getWaiters()
-                        .forVcn(getVcnRequest, Vcn.LifecycleState.Available)
-                        .execute();
-        Vcn vcn = getVcnResponse.getVcn();
-
-        log.info("Created Vcn: " + vcn.getId());
-
-        return vcn;
+        GetVcnRequest getVcnRequest = GetVcnRequest.builder().vcnId(createVcnResponse.getVcn().getId()).build();
+        GetVcnResponse getVcnResponse = virtualNetworkClient
+                .getWaiters()
+                .forVcn(getVcnRequest, Vcn.LifecycleState.Available)
+                .execute();
+        return getVcnResponse.getVcn();
     }
 
-    private static void deleteVcn(VirtualNetworkClient virtualNetworkClient, Vcn vcn)
-            throws Exception {
+    private static void deleteVcn(VirtualNetworkClient virtualNetworkClient, Vcn vcn) throws Exception {
         DeleteVcnRequest deleteVcnRequest = DeleteVcnRequest.builder().vcnId(vcn.getId()).build();
         virtualNetworkClient.deleteVcn(deleteVcnRequest);
 
@@ -445,26 +386,20 @@ public class OracleInstanceFetcher implements Closeable {
                 .getWaiters()
                 .forVcn(getVcnRequest, Vcn.LifecycleState.Terminated)
                 .execute();
-
     }
 
     public List<Vcn> listVcn() {
         ListVcnsRequest request = ListVcnsRequest.builder()
                 .compartmentId(compartmentId)
                 .build();
-
         ListVcnsResponse response = virtualNetworkClient.listVcns(request);
-
-//        for (Vcn vcn : response.getItems()) {
-//            System.out.println("VCN Name: " + vcn.getDisplayName() + ", OCID: " + vcn.getId());
-//        }
         return response.getItems();
     }
 
     private static InternetGateway createInternetGateway(
             VirtualNetworkClient virtualNetworkClient, String compartmentId, Vcn vcn)
             throws Exception {
-        String internetGatewayName = "java-sdk-example-internet-gateway";
+        String internetGatewayName = "oci-helper-gateway";
 
         //查询网关是否存在,不存在再创建
         ListInternetGatewaysRequest build = ListInternetGatewaysRequest.builder()
@@ -477,70 +412,50 @@ public class OracleInstanceFetcher implements Closeable {
             return listInternetGatewaysResponse.getItems().get(0);
         }
 
-        CreateInternetGatewayDetails createInternetGatewayDetails =
-                CreateInternetGatewayDetails.builder()
-                        .compartmentId(compartmentId)
-                        .displayName(internetGatewayName)
-                        .isEnabled(true)
-                        .vcnId(vcn.getId())
-                        .build();
-        CreateInternetGatewayRequest createInternetGatewayRequest =
-                CreateInternetGatewayRequest.builder()
-                        .createInternetGatewayDetails(createInternetGatewayDetails)
-                        .build();
-        CreateInternetGatewayResponse createInternetGatewayResponse =
-                virtualNetworkClient.createInternetGateway(createInternetGatewayRequest);
+        CreateInternetGatewayDetails createInternetGatewayDetails = CreateInternetGatewayDetails.builder()
+                .compartmentId(compartmentId)
+                .displayName(internetGatewayName)
+                .isEnabled(true)
+                .vcnId(vcn.getId())
+                .build();
+        CreateInternetGatewayRequest createInternetGatewayRequest = CreateInternetGatewayRequest.builder()
+                .createInternetGatewayDetails(createInternetGatewayDetails)
+                .build();
+        CreateInternetGatewayResponse createInternetGatewayResponse = virtualNetworkClient
+                .createInternetGateway(createInternetGatewayRequest);
 
-        GetInternetGatewayRequest getInternetGatewayRequest =
-                GetInternetGatewayRequest.builder()
-                        .igId(createInternetGatewayResponse.getInternetGateway().getId())
-                        .build();
-        GetInternetGatewayResponse getInternetGatewayResponse =
-                virtualNetworkClient
-                        .getWaiters()
-                        .forInternetGateway(
-                                getInternetGatewayRequest, InternetGateway.LifecycleState.Available)
-                        .execute();
-        InternetGateway internetGateway = getInternetGatewayResponse.getInternetGateway();
-
-        log.info("Created Internet Gateway: " + internetGateway.getId());
-
-        return internetGateway;
+        GetInternetGatewayRequest getInternetGatewayRequest = GetInternetGatewayRequest.builder()
+                .igId(createInternetGatewayResponse.getInternetGateway().getId())
+                .build();
+        GetInternetGatewayResponse getInternetGatewayResponse = virtualNetworkClient
+                .getWaiters()
+                .forInternetGateway(getInternetGatewayRequest, InternetGateway.LifecycleState.Available)
+                .execute();
+        return getInternetGatewayResponse.getInternetGateway();
     }
 
-    private static void deleteInternetGateway(
-            VirtualNetworkClient virtualNetworkClient, InternetGateway internetGateway)
+    private static void deleteInternetGateway(VirtualNetworkClient virtualNetworkClient, InternetGateway internetGateway)
             throws Exception {
-        DeleteInternetGatewayRequest deleteInternetGatewayRequest =
-                DeleteInternetGatewayRequest.builder().igId(internetGateway.getId()).build();
+        DeleteInternetGatewayRequest deleteInternetGatewayRequest = DeleteInternetGatewayRequest.builder()
+                .igId(internetGateway.getId())
+                .build();
         virtualNetworkClient.deleteInternetGateway(deleteInternetGatewayRequest);
-
-        GetInternetGatewayRequest getInternetGatewayRequest =
-                GetInternetGatewayRequest.builder().igId(internetGateway.getId()).build();
-        virtualNetworkClient
-                .getWaiters()
-                .forInternetGateway(
-                        getInternetGatewayRequest, InternetGateway.LifecycleState.Terminated)
+        GetInternetGatewayRequest getInternetGatewayRequest = GetInternetGatewayRequest.builder()
+                .igId(internetGateway.getId())
+                .build();
+        virtualNetworkClient.getWaiters()
+                .forInternetGateway(getInternetGatewayRequest, InternetGateway.LifecycleState.Terminated)
                 .execute();
-
-        log.info("Deleted Internet Gateway: " + internetGateway.getId());
     }
 
     private static void addInternetGatewayToDefaultRouteTable(
-            VirtualNetworkClient virtualNetworkClient, Vcn vcn, InternetGateway internetGateway)
-            throws Exception {
-        GetRouteTableRequest getRouteTableRequest =
-                GetRouteTableRequest.builder().rtId(vcn.getDefaultRouteTableId()).build();
-        GetRouteTableResponse getRouteTableResponse =
-                virtualNetworkClient.getRouteTable(getRouteTableRequest);
-
+            VirtualNetworkClient virtualNetworkClient,
+            Vcn vcn, InternetGateway internetGateway) throws Exception {
+        GetRouteTableRequest getRouteTableRequest = GetRouteTableRequest.builder()
+                .rtId(vcn.getDefaultRouteTableId())
+                .build();
+        GetRouteTableResponse getRouteTableResponse = virtualNetworkClient.getRouteTable(getRouteTableRequest);
         List<RouteRule> routeRules = getRouteTableResponse.getRouteTable().getRouteRules();
-
-        if (log.isDebugEnabled()) {
-            log.info("Current Route Rules in Default Route Table");
-            log.info("==========================================");
-        }
-
 
         // 检查是否已有相同的路由规则
         boolean ruleExists = routeRules.stream()
@@ -553,42 +468,31 @@ public class OracleInstanceFetcher implements Closeable {
         }
 
         // 创建新的路由规则
-        RouteRule internetAccessRoute =
-                RouteRule.builder()
-                        .destination("0.0.0.0/0")
-                        .destinationType(RouteRule.DestinationType.CidrBlock)
-                        .networkEntityId(internetGateway.getId())
-                        .build();
+        RouteRule internetAccessRoute = RouteRule.builder()
+                .destination("0.0.0.0/0")
+                .destinationType(RouteRule.DestinationType.CidrBlock)
+                .networkEntityId(internetGateway.getId())
+                .build();
 
         // 将新的规则添加到新的列表中
         List<RouteRule> updatedRouteRules = new ArrayList<>(routeRules);
         updatedRouteRules.add(internetAccessRoute);
 
-        UpdateRouteTableDetails updateRouteTableDetails =
-                UpdateRouteTableDetails.builder().routeRules(updatedRouteRules).build();
-        UpdateRouteTableRequest updateRouteTableRequest =
-                UpdateRouteTableRequest.builder()
-                        .updateRouteTableDetails(updateRouteTableDetails)
-                        .rtId(vcn.getDefaultRouteTableId())
-                        .build();
+        UpdateRouteTableDetails updateRouteTableDetails = UpdateRouteTableDetails.builder()
+                .routeRules(updatedRouteRules)
+                .build();
+        UpdateRouteTableRequest updateRouteTableRequest = UpdateRouteTableRequest.builder()
+                .updateRouteTableDetails(updateRouteTableDetails)
+                .rtId(vcn.getDefaultRouteTableId())
+                .build();
 
         virtualNetworkClient.updateRouteTable(updateRouteTableRequest);
 
         // 等待路由表更新完成
-        getRouteTableResponse =
-                virtualNetworkClient
-                        .getWaiters()
-                        .forRouteTable(getRouteTableRequest, RouteTable.LifecycleState.Available)
-                        .execute();
+        getRouteTableResponse = virtualNetworkClient.getWaiters()
+                .forRouteTable(getRouteTableRequest, RouteTable.LifecycleState.Available)
+                .execute();
         routeRules = getRouteTableResponse.getRouteTable().getRouteRules();
-
-        if (log.isDebugEnabled()) {
-            System.out.println("Updated Route Rules in Default Route Table");
-            System.out.println("==========================================");
-            routeRules.forEach(System.out::println);
-            System.out.println();
-        }
-
     }
 
     private static void clearRouteRulesFromDefaultRouteTable(
@@ -623,7 +527,7 @@ public class OracleInstanceFetcher implements Closeable {
             String networkCidrBlock,
             Vcn vcn)
             throws Exception {
-        String subnetName = "java-sdk-example-subnet";
+        String subnetName = "oci-helper-subnet";
         Subnet subnet = null;
         //检查子网是否存在
         ListSubnetsRequest listRequest = ListSubnetsRequest.builder()
@@ -936,7 +840,7 @@ public class OracleInstanceFetcher implements Closeable {
             NetworkSecurityGroup networkSecurityGroup,
             String script,
             SysUserDTO user) {
-        String instanceName = System.currentTimeMillis() + "-instance";
+        String instanceName = "instance-" + LocalDateTime.now().format(CommonUtils.DATETIME_FMT_PURE);
         String encodedCloudInitScript = Base64.getEncoder().encodeToString(script.getBytes());
 //        Map<String, Object> extendedMetadata = new HashMap<>();
         /*extendedMetadata.put(
@@ -981,22 +885,19 @@ public class OracleInstanceFetcher implements Closeable {
                 .build();
     }
 
-    private static void terminateInstance(ComputeClient computeClient, Instance instance)
-            throws Exception {
-        System.out.println("Terminating Instance: " + instance.getId());
-        TerminateInstanceRequest terminateInstanceRequest =
-                TerminateInstanceRequest.builder().instanceId(instance.getId()).build();
+    private static void terminateInstance(ComputeClient computeClient, Instance instance) throws Exception {
+        TerminateInstanceRequest terminateInstanceRequest = TerminateInstanceRequest.builder()
+                .instanceId(instance.getId())
+                .build();
         computeClient.terminateInstance(terminateInstanceRequest);
 
-        GetInstanceRequest getInstanceRequest =
-                GetInstanceRequest.builder().instanceId(instance.getId()).build();
-        computeClient
-                .getWaiters()
+        GetInstanceRequest getInstanceRequest = GetInstanceRequest.builder()
+                .instanceId(instance.getId())
+                .build();
+
+        computeClient.getWaiters()
                 .forInstance(getInstanceRequest, Instance.LifecycleState.Terminated)
                 .execute();
-
-        log.info("Terminated Instance: " + instance.getId());
-        log.info("-----------------------------------------------------------------");
     }
 
     private static void printInstance(
@@ -1004,31 +905,21 @@ public class OracleInstanceFetcher implements Closeable {
             VirtualNetworkClient virtualNetworkClient,
             Instance instance,
             InstanceDetailDTO instanceDetailDTO) {
-        ListVnicAttachmentsRequest listVnicAttachmentsRequest =
-                ListVnicAttachmentsRequest.builder()
-                        .compartmentId(instance.getCompartmentId())
-                        .instanceId(instance.getId())
-                        .build();
-        ListVnicAttachmentsResponse listVnicAttachmentsResponse =
-                computeClient.listVnicAttachments(listVnicAttachmentsRequest);
+        ListVnicAttachmentsRequest listVnicAttachmentsRequest = ListVnicAttachmentsRequest.builder()
+                .compartmentId(instance.getCompartmentId())
+                .instanceId(instance.getId())
+                .build();
+        ListVnicAttachmentsResponse listVnicAttachmentsResponse = computeClient.listVnicAttachments(listVnicAttachmentsRequest);
         List<VnicAttachment> vnicAttachments = listVnicAttachmentsResponse.getItems();
         VnicAttachment vnicAttachment = vnicAttachments.get(0);
 
-        GetVnicRequest getVnicRequest =
-                GetVnicRequest.builder().vnicId(vnicAttachment.getVnicId()).build();
+        GetVnicRequest getVnicRequest = GetVnicRequest.builder()
+                .vnicId(vnicAttachment.getVnicId())
+                .build();
         GetVnicResponse getVnicResponse = virtualNetworkClient.getVnic(getVnicRequest);
         Vnic vnic = getVnicResponse.getVnic();
 
-//        log.info("Virtual Network Interface Card :" + vnic.getId());
-//        log.info("Public IP :" + vnic.getPublicIp());
-//        log.info("Private IP :" + vnic.getPrivateIp());
-//        log.info("vnic: [{}]", vnic);
         instanceDetailDTO.setPublicIp(vnic.getPublicIp());
-//        InstanceAgentConfig instanceAgentConfig = instance.getAgentConfig();
-//        boolean monitoringEnabled =
-//                (instanceAgentConfig != null) && !instanceAgentConfig.getIsMonitoringDisabled();
-//        String monitoringStatus = (monitoringEnabled ? "Enabled" : "Disabled");
-//        log.info("Instance " + instance.getId() + " has monitoring " + monitoringStatus);
     }
 
     private static BootVolume createBootVolume(
@@ -1036,17 +927,14 @@ public class OracleInstanceFetcher implements Closeable {
             String compartmentId,
             AvailabilityDomain availabilityDomain,
             Image image,
-            String kmsKeyId)
-            throws Exception {
-        String bootVolumeName = "java-sdk-example-boot-volume";
+            String kmsKeyId) throws Exception {
+        String bootVolumeName = "oci-helper-boot-volume";
         // find existing boot volume by image
-        ListBootVolumesRequest listBootVolumesRequest =
-                ListBootVolumesRequest.builder()
-                        .availabilityDomain(availabilityDomain.getName())
-                        .compartmentId(compartmentId)
-                        .build();
-        ListBootVolumesResponse listBootVolumesResponse =
-                blockstorageClient.listBootVolumes(listBootVolumesRequest);
+        ListBootVolumesRequest listBootVolumesRequest = ListBootVolumesRequest.builder()
+                .availabilityDomain(availabilityDomain.getName())
+                .compartmentId(compartmentId)
+                .build();
+        ListBootVolumesResponse listBootVolumesResponse = blockstorageClient.listBootVolumes(listBootVolumesRequest);
         List<BootVolume> bootVolumes = listBootVolumesResponse.getItems();
         String bootVolumeId = null;
         for (BootVolume bootVolume : bootVolumes) {
@@ -1056,54 +944,44 @@ public class OracleInstanceFetcher implements Closeable {
                 break;
             }
         }
-        System.out.println("Found BootVolume: " + bootVolumeId);
 
         // create a new boot volume based on existing one
-        BootVolumeSourceDetails bootVolumeSourceDetails =
-                BootVolumeSourceFromBootVolumeDetails.builder().id(bootVolumeId).build();
-        CreateBootVolumeDetails details =
-                CreateBootVolumeDetails.builder()
-                        .availabilityDomain(availabilityDomain.getName())
-                        .compartmentId(compartmentId)
-                        .displayName(bootVolumeName)
-                        .sourceDetails(bootVolumeSourceDetails)
-                        .kmsKeyId(kmsKeyId)
-                        .build();
-        CreateBootVolumeRequest createBootVolumeRequest =
-                CreateBootVolumeRequest.builder().createBootVolumeDetails(details).build();
-        CreateBootVolumeResponse createBootVolumeResponse =
-                blockstorageClient.createBootVolume(createBootVolumeRequest);
-        System.out.println(
-                "Provisioning new BootVolume: " + createBootVolumeResponse.getBootVolume().getId());
+        BootVolumeSourceDetails bootVolumeSourceDetails = BootVolumeSourceFromBootVolumeDetails.builder()
+                .id(bootVolumeId)
+                .build();
+        CreateBootVolumeDetails details = CreateBootVolumeDetails.builder()
+                .availabilityDomain(availabilityDomain.getName())
+                .compartmentId(compartmentId)
+                .displayName(bootVolumeName)
+                .sourceDetails(bootVolumeSourceDetails)
+                .kmsKeyId(kmsKeyId)
+                .build();
+        CreateBootVolumeRequest createBootVolumeRequest = CreateBootVolumeRequest.builder()
+                .createBootVolumeDetails(details)
+                .build();
+        CreateBootVolumeResponse createBootVolumeResponse = blockstorageClient.createBootVolume(createBootVolumeRequest);
 
         // wait for boot volume to be ready
-        GetBootVolumeRequest getBootVolumeRequest =
-                GetBootVolumeRequest.builder()
-                        .bootVolumeId(createBootVolumeResponse.getBootVolume().getId())
-                        .build();
-        GetBootVolumeResponse getBootVolumeResponse =
-                blockstorageClient
-                        .getWaiters()
-                        .forBootVolume(getBootVolumeRequest, BootVolume.LifecycleState.Available)
-                        .execute();
-        BootVolume bootVolume = getBootVolumeResponse.getBootVolume();
-
-        System.out.println("Provisioned BootVolume: " + bootVolume.getId());
-        System.out.println(bootVolume);
-        System.out.println();
-
-        return bootVolume;
+        GetBootVolumeRequest getBootVolumeRequest = GetBootVolumeRequest.builder()
+                .bootVolumeId(createBootVolumeResponse.getBootVolume().getId())
+                .build();
+        GetBootVolumeResponse getBootVolumeResponse = blockstorageClient
+                .getWaiters()
+                .forBootVolume(getBootVolumeRequest, BootVolume.LifecycleState.Available)
+                .execute();
+        return getBootVolumeResponse.getBootVolume();
     }
 
     private static LaunchInstanceDetails createLaunchInstanceDetailsFromBootVolume(
-            LaunchInstanceDetails launchInstanceDetails, BootVolume bootVolume) throws Exception {
-        String bootVolumeName = "java-sdk-example-instance-from-boot-volume";
-        InstanceSourceViaBootVolumeDetails instanceSourceViaBootVolumeDetails =
-                InstanceSourceViaBootVolumeDetails.builder()
-                        .bootVolumeId(bootVolume.getId())
-                        .build();
-        LaunchInstanceAgentConfigDetails launchInstanceAgentConfigDetails =
-                LaunchInstanceAgentConfigDetails.builder().isMonitoringDisabled(true).build();
+            LaunchInstanceDetails launchInstanceDetails,
+            BootVolume bootVolume) throws Exception {
+        String bootVolumeName = "oci-helper-instance-from-boot-volume";
+        InstanceSourceViaBootVolumeDetails instanceSourceViaBootVolumeDetails = InstanceSourceViaBootVolumeDetails.builder()
+                .bootVolumeId(bootVolume.getId())
+                .build();
+        LaunchInstanceAgentConfigDetails launchInstanceAgentConfigDetails = LaunchInstanceAgentConfigDetails.builder()
+                .isMonitoringDisabled(true)
+                .build();
         return LaunchInstanceDetails.builder()
                 .copy(launchInstanceDetails)
                 .sourceDetails(instanceSourceViaBootVolumeDetails)
@@ -1136,13 +1014,11 @@ public class OracleInstanceFetcher implements Closeable {
     public String getPrivateIpIdForVnic(Vnic vnic) {
         ListPrivateIpsRequest listPrivateIpsRequest = ListPrivateIpsRequest.builder()
                 .vnicId(vnic.getId())
-//                .ipAddress(vnic.getPrivateIp())
                 .build();
 
         ListPrivateIpsResponse privateIpsResponse = virtualNetworkClient.listPrivateIps(listPrivateIpsRequest);
 
         for (PrivateIp privateIp : privateIpsResponse.getItems()) {
-//            System.out.println("Private IP: " + privateIp.getIpAddress() + ", Private IP ID: " + privateIp.getId());
             // 返回第一个 Private IP 的 ID
             return privateIp.getId();
         }

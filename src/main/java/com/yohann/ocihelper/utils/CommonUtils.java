@@ -1,5 +1,6 @@
 package com.yohann.ocihelper.utils;
 
+import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.net.Ipv4Util;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTUtil;
@@ -18,6 +19,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,8 +34,11 @@ import java.util.regex.Pattern;
  */
 public class CommonUtils {
 
+    public static final String CREATE_TASK_PREFIX = "CREATE_TASK_PREFIX_";
+    public static final String CHANGE_IP_TASK_PREFIX = "CREATE_TASK_PREFIX_";
     public static final String CREATE_COUNTS_PREFIX = "CREATE_COUNTS_PREFIX_";
-    public static final String CHANGE_COUNTS_PREFIX_ = "CHANGE_COUNTS_PREFIX_";
+    public static final String CHANGE_IP_ERROR_COUNTS_PREFIX = "CHANGE_IP_ERROR_COUNTS_PREFIX_";
+    public static final DateTimeFormatter DATETIME_FMT_PURE = DateTimeFormatter.ofPattern(DatePattern.PURE_DATETIME_PATTERN);
 
     public static List<OciUser> parseConfigContent(String configContent) throws IOException {
         List<OciUser> ociUsers = new ArrayList<>();
