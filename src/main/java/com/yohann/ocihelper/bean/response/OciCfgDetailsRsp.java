@@ -18,6 +18,11 @@ import java.util.List;
 @AllArgsConstructor
 public class OciCfgDetailsRsp {
 
+    private String userId;
+    private String tenantId;
+    private String fingerprint;
+    private String privateKeyPath;
+    private String region;
     private List<InstanceInfo> instanceList;
 
     @Data

@@ -289,7 +289,9 @@ public class OciServiceImpl implements IOciService {
                         .build())
                 .build();
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
-            return new OciCfgDetailsRsp(Optional.ofNullable(fetcher.listInstances())
+            OciCfgDetailsRsp rsp = new OciCfgDetailsRsp();
+            BeanUtils.copyProperties(sysUserDTO.getOciCfg(), rsp);
+            rsp.setInstanceList(Optional.ofNullable(fetcher.listInstances())
                     .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
                     .map(x -> {
                         OciCfgDetailsRsp.InstanceInfo info = new OciCfgDetailsRsp.InstanceInfo();
@@ -303,6 +305,7 @@ public class OciServiceImpl implements IOciService {
                         info.setEnableChangeIp(TASK_MAP.get(x.getId()) != null ? 1 : 0);
                         return info;
                     }).collect(Collectors.toList()));
+            return rsp;
         } catch (Exception e) {
             throw new OciException(-1, "获取实例信息失败");
         }
