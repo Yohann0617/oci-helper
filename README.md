@@ -2,7 +2,7 @@
 
 # oci-helper
 
-> 一个基于 Oracle OCI SDK 开发的WEB端可视化甲骨文云助手，目前实现的功能有：支持添加多个租户配置、查询租户实例信息、根据多个CIDR网段更换实例公共IP、多租户抢机、断点续抢等功能。
+> 一个基于 Oracle OCI SDK 开发的WEB端可视化甲骨文云助手，目前实现的功能有：支持批量添加多个租户配置、查询租户实例信息、根据多个CIDR网段更换实例公共IP、多租户同时抢机、断点续抢等功能。
 
 ## 注意事项及免责声明
 
@@ -10,18 +10,20 @@
 - 开发此项目纯属个人爱好，无后门，放心使用。
 - 强烈建议不要裸HTTP访问，应使用Nginx反向代理配置HTTPS访问。
 - 建议使用密钥登录服务器，防止服务器被SSH爆破导致API数据及密钥泄露。
+- 记得定时清理docker日志~
 
 ## 核心功能
 
 1. 同时管理多个租户配置信息，支持模糊搜索、状态筛选。
-2. 根据多个CIDR网段更换实例公共IP，遇到请求频繁等异常会直接忽略，不影响下一次执行，直至更换到指定IP段的IP。
-3. 多租户同时批量开机，后台一直运行，直至开机成功。
-4. 支持断点续抢，配置以及抢机任务都保存在本地数据库，服务重启会继续执行抢机任务，无需重复配置。
+2. 根据多个**CIDR网段**更换实例公共IP，遇到请求频繁等异常会直接忽略，不影响下一次执行，直至更换到指定IP段的IP。
+3. 多租户**同时批量开机**，后台一直运行，直至开机成功。
+4. 支持**断点续抢**，配置以及抢机任务都保存在本地数据库，服务重启会继续执行抢机任务，无需重复配置。
 5. 支持多区号（配置项以`region`区分），例：我有一个4区号，则新增4个配置，修改`region`即可，其他配置项都一样。
+6. 支持前端页面**实时查看后端日志**。
 
 ## 一键 docker-compose 部署或更新
 
-安装完成后浏览器直接`ip:port`即可访问，账号密码默认都是：`yohann`，如需修改请更改`application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
+安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，如需修改请更改`application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。`密钥文件.pem`需使用英文命名，并全部上传到`/app/oci-helper/keys`目录下，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
 
 ```bash
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
@@ -33,7 +35,7 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 ### 1. 新建目录
 
-创建密钥文件存放目录，存放从甲骨文云控制台生成API时下载的`密钥文件.pem`，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
+创建密钥文件存放目录`/app/oci-helper/keys`，存放从甲骨文云控制台生成API时下载的`密钥文件.pem`，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
 
 ```bash
 mkdir -p /app/oci-helper/keys && cd /app/oci-helper

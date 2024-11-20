@@ -38,6 +38,7 @@ public class CommonUtils {
     public static final String CHANGE_IP_TASK_PREFIX = "CREATE_TASK_PREFIX_";
     public static final String CREATE_COUNTS_PREFIX = "CREATE_COUNTS_PREFIX_";
     public static final String CHANGE_IP_ERROR_COUNTS_PREFIX = "CHANGE_IP_ERROR_COUNTS_PREFIX_";
+    public static final String LOG_FILE_PATH = "/var/log/oci-helper.log";
     public static final DateTimeFormatter DATETIME_FMT_PURE = DateTimeFormatter.ofPattern(DatePattern.PURE_DATETIME_PATTERN);
 
     public static List<OciUser> parseConfigContent(String configContent) throws IOException {

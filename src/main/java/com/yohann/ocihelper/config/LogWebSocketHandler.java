@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.config;
 
 import cn.hutool.core.io.file.Tailer;
+import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -32,7 +33,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
 
     public LogWebSocketHandler() {
         try {
-            startLogTailer("/var/log/oci-helper.log");
+            startLogTailer(CommonUtils.LOG_FILE_PATH);
         } catch (Exception e) {
             log.error("启动日志监听服务失败：{}", e.getLocalizedMessage());
         }

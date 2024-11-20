@@ -8,11 +8,14 @@ import com.yohann.ocihelper.service.IOciCreateTaskService;
 import com.yohann.ocihelper.service.IOciUserService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -38,9 +41,20 @@ public class OciTask implements ApplicationRunner {
     @Resource
     private IOciCreateTaskService createTaskService;
 
+    @Value("${web.account}")
+    private String account;
+
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        // 开机任务重启，清理已完成的开机任务
+        addAtFixedRateTask(account, () -> {
+            try (FileWriter fw = new FileWriter(CommonUtils.LOG_FILE_PATH, false)) {
+                fw.write("");
+                log.info("【日志清理任务】日志文件：{} 已清空", CommonUtils.LOG_FILE_PATH);
+            } catch (IOException e) {
+                log.error("【日志清理任务】清理日志文件时出错：{}", e.getMessage());
+            }
+        }, 0, 1, TimeUnit.DAYS);
+
         Optional.ofNullable(createTaskService.list())
                 .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
                 .forEach(task -> {
