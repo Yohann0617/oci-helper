@@ -53,7 +53,7 @@ public class OciTask implements ApplicationRunner {
             } catch (IOException e) {
                 log.error("【日志清理任务】清理日志文件时出错：{}", e.getMessage());
             }
-        }, 0, 1, TimeUnit.DAYS);
+        }, 1, 1, TimeUnit.DAYS);
 
         Optional.ofNullable(createTaskService.list())
                 .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()

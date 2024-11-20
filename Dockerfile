@@ -12,7 +12,7 @@ RUN mvn clean package -DskipTests \
     && cp target/ocihelper-0.0.1.jar /app/oci-helper.jar
 
 # 支持AMD、ARM两种架构的镜像
-FROM openjdk:8-jdk
+FROM openjdk:8-jre
 
 # 安装依赖包
 RUN apt-get update \
