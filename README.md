@@ -79,7 +79,7 @@ docker compose pull && docker compose up -d
 
 ## 页面展示
 
-![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2dbe45607168944718bb0ccb5e53b41f8.png)
+![image.png](https://pic8.58cdn.com.cn/nowater/webim/big/n_v2054a93f18f424f62aa370ac27651c7c9.png)
 
 ![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2dea4ddda7ee84965b6970746db4cdc4f.png)
 
@@ -91,7 +91,7 @@ docker compose pull && docker compose up -d
 
 ![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v26273e166fd944c5e98a665020c798f95.png)
 
-![image.png](https://pic6.58cdn.com.cn/nowater/webim/big/n_v20f1abb438e414139a2b142d8c97fa846.png)
+![image.png](https://pic4.58cdn.com.cn/nowater/webim/big/n_v23a04a922585a4e229c1e8f38e987c98f.png)
 
 ![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2520fa8e9b66a4cb192ce26a177dd0133.png)
 
