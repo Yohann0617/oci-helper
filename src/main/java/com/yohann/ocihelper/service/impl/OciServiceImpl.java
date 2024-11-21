@@ -441,13 +441,12 @@ public class OciServiceImpl implements IOciService {
                 sysUserDTO.setCreateNumbers((int) leftCreateNum);
             }
         } catch (Exception e) {
-            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因异常而终止任务，异常原因：{}",
+            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 发生了异常：{}",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                     sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), e.getLocalizedMessage());
-            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
-            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
-            createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
-            throw new RuntimeException(e);
+//            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
+//            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
+//            createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
         }
     }
 
