@@ -79,17 +79,19 @@ docker compose pull && docker compose up -d
 
 ## Page display
 
-![image.png](https://pic8.58cdn.com.cn/nowater/webim/big/n_v2054a93f18f424f62aa370ac27651c7c9.png)
+![image.png](https://pic5.58cdn.com.cn/nowater/webim/big/n_v2c1f8e3c934c7493983f2d6e6a83d8378.png)
 
-![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2dea4ddda7ee84965b6970746db4cdc4f.png)
+![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v2a710d7c751374b21acae99435daba526.png)
 
-![image.png](https://pic4.58cdn.com.cn/nowater/webim/big/n_v2258c21fd6dbf428fba05cdc86e8e56d1.png)
+![image.png](https://pic6.58cdn.com.cn/nowater/webim/big/n_v27a9be3a128ef4b87a7cbe4b45c763f92.png)
 
-![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2c509ebec4779406384b0629ba3396f33.png)
+![image.png](https://pic6.58cdn.com.cn/nowater/webim/big/n_v2fc6781f003f2469faf0d9490911d1dbe.png)
 
-![image.png](https://pic1.58cdn.com.cn/nowater/webim/big/n_v26273e166fd944c5e98a665020c798f95.png)
+![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v2a4c76efd15234f58a1e816e2d261ffdf.png)
 
-![image.png](https://pic4.58cdn.com.cn/nowater/webim/big/n_v23a04a922585a4e229c1e8f38e987c98f.png)
+![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v24fdb3306c7c1454790e123bb6ea2f384.png)
+
+![image.png](https://pic8.58cdn.com.cn/nowater/webim/big/n_v293a82d0fbede4b8699a1d06f1e4e0f8d.png)
 
 ![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2520fa8e9b66a4cb192ce26a177dd0133.png)
 
