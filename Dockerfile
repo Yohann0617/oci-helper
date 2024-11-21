@@ -22,8 +22,6 @@ RUN apt-get update \
     && mkdir -p /app/oci-helper/keys && touch /app/oci-helper/oci-helper.db \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-帮我用apk 修改一下
-
 # 设置工作目录
 WORKDIR /app/oci-helper
 
