@@ -12,15 +12,17 @@ RUN mvn clean package -DskipTests \
     && cp target/ocihelper-0.0.1.jar /app/oci-helper.jar
 
 # 支持AMD、ARM两种架构的镜像
-FROM openjdk:8-jre-alpine
+FROM openjdk:8-jre
 
 # 安装依赖包
-RUN apk add --no-cache tzdata \
-    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone \
-    && mkdir -p /app/oci-helper/keys \
-    && touch /app/oci-helper/oci-helper.db \
-    && rm -rf /var/cache/apk/*
+    && mkdir -p /app/oci-helper/keys && touch /app/oci-helper/oci-helper.db \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+帮我用apk 修改一下
 
 # 设置工作目录
 WORKDIR /app/oci-helper
