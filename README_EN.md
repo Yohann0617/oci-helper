@@ -6,6 +6,8 @@
 
 ## Notes and Disclaimer
 
+- It is recommended to use low-privilege APIs. Please refer to the tutorial of [@ Jin Gu Bang](https://t.me/jin_gubang): [How to generate 
+  low-privilege APIs](https://telegra.ph/oralce-api-role-05-05)
 - I am not responsible for account suspension due to high frequency of booting and changing IP.
 - The development of this project is purely personal hobby, no backdoor, and safe to use.
 - It is strongly recommended not to use naked HTTP access, and HTTPS access should be configured using Nginx reverse proxy.
