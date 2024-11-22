@@ -83,7 +83,7 @@ public class OciServiceImpl implements IOciService {
     private String keyDirPath;
 
     public final static Map<String, Object> TEMP_MAP = new ConcurrentHashMap<>();
-    private final static Map<String, ScheduledFuture<?>> TASK_MAP = new ConcurrentHashMap<>();
+    public final static Map<String, ScheduledFuture<?>> TASK_MAP = new ConcurrentHashMap<>();
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors() * 2,
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
@@ -236,18 +236,8 @@ public class OciServiceImpl implements IOciService {
             BeanUtils.copyProperties(sysUserDTO.getOciCfg(), rsp);
             rsp.setInstanceList(Optional.ofNullable(fetcher.listInstances())
                     .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
-                    .map(x -> {
-                        OciCfgDetailsRsp.InstanceInfo info = new OciCfgDetailsRsp.InstanceInfo();
-                        info.setOcId(x.getId());
-                        info.setRegion(x.getRegion());
-                        info.setName(x.getDisplayName());
-                        info.setShape(x.getShape());
-                        info.setPublicIp(fetcher.listInstanceIPs(x.getId()).stream()
-                                .map(Vnic::getPublicIp)
-                                .collect(Collectors.toList()));
-                        info.setEnableChangeIp(TASK_MAP.get(CommonUtils.CREATE_TASK_PREFIX + x.getId()) != null ? 1 : 0);
-                        return info;
-                    }).collect(Collectors.toList()));
+                    .map(x -> fetcher.getInstanceInfo(x.getId()))
+                    .collect(Collectors.toList()));
             return rsp;
         } catch (Exception e) {
             throw new OciException(-1, "获取实例信息失败");

@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.bean.response;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -26,6 +27,9 @@ public class OciCfgDetailsRsp {
     private List<InstanceInfo> instanceList;
 
     @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
     public static class InstanceInfo {
         private String ocId;
         private String region;
@@ -33,6 +37,10 @@ public class OciCfgDetailsRsp {
         private List<String> publicIp;
         private String shape;
         private Integer enableChangeIp = 0;
+        private String ocpus;
+        private String memory;
+        private String bootVolumeSize;
+        private String createTime;
     }
 
 }

@@ -21,24 +21,25 @@ import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
 import com.yohann.ocihelper.enums.ArchitectureEnum;
 import com.yohann.ocihelper.enums.ErrorEnum;
 import com.yohann.ocihelper.enums.InstanceStateEnum;
 import com.yohann.ocihelper.enums.OperationSystemEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Closeable;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.oracle.bmc.core.model.CreatePublicIpDetails.Lifetime.Ephemeral;
-import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
+import static com.yohann.ocihelper.service.impl.OciServiceImpl.TASK_MAP;
 
 /**
  * <p>
@@ -52,16 +53,20 @@ import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
 public class OracleInstanceFetcher implements Closeable {
 
     private final SysUserDTO user;
-    private ComputeClient computeClient;
+    private final SimpleAuthenticationDetailsProvider provider;
+    private final ComputeClient computeClient;
     private final IdentityClient identityClient;
     private final WorkRequestClient workRequestClient;
     private final ComputeWaiters computeWaiters;
-    private VirtualNetworkClient virtualNetworkClient;
-    private BlockstorageClient blockstorageClient;
+    private final VirtualNetworkClient virtualNetworkClient;
+    private final BlockstorageClient blockstorageClient;
     private final String compartmentId;
 
+    private static final String CIDR_BLOCK = "10.0.0.0/16";
+
+    @SneakyThrows
     @Override
-    public void close() throws IOException {
+    public void close() {
         computeClient.close();
         identityClient.close();
         workRequestClient.close();
@@ -72,7 +77,7 @@ public class OracleInstanceFetcher implements Closeable {
     public OracleInstanceFetcher(SysUserDTO user) {
         this.user = user;
         SysUserDTO.OciCfg ociCfg = user.getOciCfg();
-        SimpleAuthenticationDetailsProvider provider = SimpleAuthenticationDetailsProvider.builder()
+        provider = SimpleAuthenticationDetailsProvider.builder()
                 .tenantId(ociCfg.getTenantId())
                 .userId(ociCfg.getUserId())
                 .fingerprint(ociCfg.getFingerprint())
@@ -87,10 +92,6 @@ public class OracleInstanceFetcher implements Closeable {
                 .region(Region.valueOf(ociCfg.getRegion()))
                 .build();
 
-        computeClient = ComputeClient.builder().build(provider);
-        virtualNetworkClient = VirtualNetworkClient.builder().build(provider);
-        blockstorageClient = BlockstorageClient.builder().build(provider);
-
         identityClient = IdentityClient.builder().build(provider);
         compartmentId = findRootCompartment(identityClient, provider.getTenantId());
         identityClient.setRegion(ociCfg.getRegion());
@@ -98,15 +99,15 @@ public class OracleInstanceFetcher implements Closeable {
         computeClient = ComputeClient.builder().build(provider);
         computeClient.setRegion(ociCfg.getRegion());
 
+        blockstorageClient = BlockstorageClient.builder().build(provider);
+        blockstorageClient.setRegion(ociCfg.getRegion());
+
         workRequestClient = WorkRequestClient.builder().build(provider);
         workRequestClient.setRegion(ociCfg.getRegion());
         computeWaiters = computeClient.newWaiters(workRequestClient);
 
         virtualNetworkClient = VirtualNetworkClient.builder().build(provider);
         virtualNetworkClient.setRegion(ociCfg.getRegion());
-
-        blockstorageClient = BlockstorageClient.builder().build(provider);
-        blockstorageClient.setRegion(ociCfg.getRegion());
     }
 
     public InstanceDetailDTO createInstanceData() {
@@ -237,7 +238,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .build();
         ListInstancesResponse response = computeClient.listInstances(request);
 
-        return response.getItems().stream()
+        return response.getItems().parallelStream()
                 .filter(x -> x.getLifecycleState().getValue().equals(InstanceStateEnum.LIFECYCLE_STATE_RUNNING.getState()))
                 .collect(Collectors.toList());
     }
@@ -281,12 +282,12 @@ public class OracleInstanceFetcher implements Closeable {
         // 发送请求并获取响应
         ListVcnsResponse listVcnsResponse = virtualNetworkClient.listVcns(listVcnsRequest);
         if (CollectionUtil.isEmpty(listVcnsResponse.getItems())) {
-            return "10.0.0.0/16";
+            return CIDR_BLOCK;
         }
         return listVcnsResponse.getItems().get(0).getCidrBlock();
     }
 
-    private static List<AvailabilityDomain> getAvailabilityDomains(
+    private List<AvailabilityDomain> getAvailabilityDomains(
             IdentityClient identityClient, String compartmentId) {
         ListAvailabilityDomainsResponse listAvailabilityDomainsResponse =
                 identityClient.listAvailabilityDomains(ListAvailabilityDomainsRequest.builder()
@@ -295,7 +296,7 @@ public class OracleInstanceFetcher implements Closeable {
         return listAvailabilityDomainsResponse.getItems();
     }
 
-    private static List<Shape> getShape(
+    private List<Shape> getShape(
             ComputeClient computeClient,
             String compartmentId,
             AvailabilityDomain availabilityDomain,
@@ -330,7 +331,7 @@ public class OracleInstanceFetcher implements Closeable {
         return shapesNewList;
     }
 
-    private static Image getImage(ComputeClient computeClient, String compartmentId, Shape shape, SysUserDTO user) {
+    private Image getImage(ComputeClient computeClient, String compartmentId, Shape shape, SysUserDTO user) {
         OperationSystemEnum systemType = OperationSystemEnum.getSystemType(user.getOperationSystem());
         ListImagesRequest listImagesRequest =
                 ListImagesRequest.builder()
@@ -353,7 +354,7 @@ public class OracleInstanceFetcher implements Closeable {
         return images.get(0);
     }
 
-    private static Vcn createVcn(VirtualNetworkClient virtualNetworkClient, String compartmentId, String cidrBlock)
+    private Vcn createVcn(VirtualNetworkClient virtualNetworkClient, String compartmentId, String cidrBlock)
             throws Exception {
         String vcnName = "oci-helper-vcn";
         ListVcnsRequest build = ListVcnsRequest.builder().compartmentId(compartmentId)
@@ -380,7 +381,7 @@ public class OracleInstanceFetcher implements Closeable {
         return getVcnResponse.getVcn();
     }
 
-    private static void deleteVcn(VirtualNetworkClient virtualNetworkClient, Vcn vcn) throws Exception {
+    private void deleteVcn(VirtualNetworkClient virtualNetworkClient, Vcn vcn) throws Exception {
         DeleteVcnRequest deleteVcnRequest = DeleteVcnRequest.builder().vcnId(vcn.getId()).build();
         virtualNetworkClient.deleteVcn(deleteVcnRequest);
 
@@ -399,7 +400,7 @@ public class OracleInstanceFetcher implements Closeable {
         return response.getItems();
     }
 
-    private static InternetGateway createInternetGateway(
+    private InternetGateway createInternetGateway(
             VirtualNetworkClient virtualNetworkClient, String compartmentId, Vcn vcn)
             throws Exception {
         String internetGatewayName = "oci-helper-gateway";
@@ -437,7 +438,7 @@ public class OracleInstanceFetcher implements Closeable {
         return getInternetGatewayResponse.getInternetGateway();
     }
 
-    private static void deleteInternetGateway(VirtualNetworkClient virtualNetworkClient, InternetGateway internetGateway)
+    private void deleteInternetGateway(VirtualNetworkClient virtualNetworkClient, InternetGateway internetGateway)
             throws Exception {
         DeleteInternetGatewayRequest deleteInternetGatewayRequest = DeleteInternetGatewayRequest.builder()
                 .igId(internetGateway.getId())
@@ -451,7 +452,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .execute();
     }
 
-    private static void addInternetGatewayToDefaultRouteTable(
+    private void addInternetGatewayToDefaultRouteTable(
             VirtualNetworkClient virtualNetworkClient,
             Vcn vcn, InternetGateway internetGateway) throws Exception {
         GetRouteTableRequest getRouteTableRequest = GetRouteTableRequest.builder()
@@ -498,7 +499,7 @@ public class OracleInstanceFetcher implements Closeable {
         routeRules = getRouteTableResponse.getRouteTable().getRouteRules();
     }
 
-    private static void clearRouteRulesFromDefaultRouteTable(
+    private void clearRouteRulesFromDefaultRouteTable(
             VirtualNetworkClient virtualNetworkClient, Vcn vcn) throws Exception {
         List<RouteRule> routeRules = new ArrayList<>();
         UpdateRouteTableDetails updateRouteTableDetails =
@@ -523,7 +524,7 @@ public class OracleInstanceFetcher implements Closeable {
 
     }
 
-    private static Subnet createSubnet(
+    private Subnet createSubnet(
             VirtualNetworkClient virtualNetworkClient,
             String compartmentId,
             AvailabilityDomain availabilityDomain,
@@ -588,7 +589,7 @@ public class OracleInstanceFetcher implements Closeable {
         return subnet;
     }
 
-    private static void deleteSubnet(VirtualNetworkClient virtualNetworkClient, Subnet subnet) {
+    private void deleteSubnet(VirtualNetworkClient virtualNetworkClient, Subnet subnet) {
         try {
             DeleteSubnetRequest deleteSubnetRequest =
                     DeleteSubnetRequest.builder().subnetId(subnet.getId()).build();
@@ -622,7 +623,7 @@ public class OracleInstanceFetcher implements Closeable {
         return response.getItems();
     }
 
-    private static NetworkSecurityGroup createNetworkSecurityGroup(
+    private NetworkSecurityGroup createNetworkSecurityGroup(
             VirtualNetworkClient virtualNetworkClient, String compartmentId, Vcn vcn)
             throws Exception {
         String networkSecurityGroupName = System.currentTimeMillis() + "-nsg";
@@ -676,7 +677,7 @@ public class OracleInstanceFetcher implements Closeable {
         return networkSecurityGroup;
     }
 
-    private static void deleteNetworkSecurityGroup(
+    private void deleteNetworkSecurityGroup(
             VirtualNetworkClient virtualNetworkClient, NetworkSecurityGroup networkSecurityGroup)
             throws Exception {
         DeleteNetworkSecurityGroupRequest deleteNetworkSecurityGroupRequest =
@@ -716,7 +717,7 @@ public class OracleInstanceFetcher implements Closeable {
         return response.getItems();
     }
 
-    private static void addNetworkSecurityGroupSecurityRules(
+    private void addNetworkSecurityGroupSecurityRules(
             VirtualNetworkClient virtualNetworkClient,
             NetworkSecurityGroup networkSecurityGroup,
             String networkCidrBlock) {
@@ -777,7 +778,7 @@ public class OracleInstanceFetcher implements Closeable {
 
     }
 
-    private static void clearNetworkSecurityGroupSecurityRules(
+    private void clearNetworkSecurityGroupSecurityRules(
             VirtualNetworkClient virtualNetworkClient, NetworkSecurityGroup networkSecurityGroup) {
         ListNetworkSecurityGroupSecurityRulesRequest listNetworkSecurityGroupSecurityRulesRequest =
                 ListNetworkSecurityGroupSecurityRulesRequest.builder()
@@ -812,7 +813,7 @@ public class OracleInstanceFetcher implements Closeable {
         System.out.println();
     }
 
-    private static Instance createInstance(ComputeWaiters computeWaiters, LaunchInstanceDetails launchInstanceDetails)
+    private Instance createInstance(ComputeWaiters computeWaiters, LaunchInstanceDetails launchInstanceDetails)
             throws Exception {
         LaunchInstanceRequest launchInstanceRequest = LaunchInstanceRequest.builder()
                 .launchInstanceDetails(launchInstanceDetails)
@@ -834,7 +835,7 @@ public class OracleInstanceFetcher implements Closeable {
         return instance;
     }
 
-    private static LaunchInstanceDetails createLaunchInstanceDetails(
+    private LaunchInstanceDetails createLaunchInstanceDetails(
             String compartmentId,
             AvailabilityDomain availabilityDomain,
             Shape shape,
@@ -859,7 +860,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .nsgIds(networkSecurityGroup == null ? null : Arrays.asList(networkSecurityGroup.getId()))
                 .build();
         LaunchInstanceAgentConfigDetails launchInstanceAgentConfigDetails = LaunchInstanceAgentConfigDetails.builder()
-                .isMonitoringDisabled(false)
+                .isMonitoringDisabled(true)
                 .build();
         return LaunchInstanceDetails.builder()
                 .availabilityDomain(availabilityDomain.getName())
@@ -888,22 +889,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .build();
     }
 
-    private static void terminateInstance(ComputeClient computeClient, Instance instance) throws Exception {
-        TerminateInstanceRequest terminateInstanceRequest = TerminateInstanceRequest.builder()
-                .instanceId(instance.getId())
-                .build();
-        computeClient.terminateInstance(terminateInstanceRequest);
-
-        GetInstanceRequest getInstanceRequest = GetInstanceRequest.builder()
-                .instanceId(instance.getId())
-                .build();
-
-        computeClient.getWaiters()
-                .forInstance(getInstanceRequest, Instance.LifecycleState.Terminated)
-                .execute();
-    }
-
-    private static void printInstance(
+    private void printInstance(
             ComputeClient computeClient,
             VirtualNetworkClient virtualNetworkClient,
             Instance instance,
@@ -925,7 +911,7 @@ public class OracleInstanceFetcher implements Closeable {
         instanceDetailDTO.setPublicIp(vnic.getPublicIp());
     }
 
-    private static BootVolume createBootVolume(
+    public BootVolume createBootVolume(
             BlockstorageClient blockstorageClient,
             String compartmentId,
             AvailabilityDomain availabilityDomain,
@@ -975,7 +961,7 @@ public class OracleInstanceFetcher implements Closeable {
         return getBootVolumeResponse.getBootVolume();
     }
 
-    private static LaunchInstanceDetails createLaunchInstanceDetailsFromBootVolume(
+    public LaunchInstanceDetails createLaunchInstanceDetailsFromBootVolume(
             LaunchInstanceDetails launchInstanceDetails,
             BootVolume bootVolume) throws Exception {
         String bootVolumeName = "oci-helper-instance-from-boot-volume";
@@ -1111,4 +1097,54 @@ public class OracleInstanceFetcher implements Closeable {
         return null;
     }
 
+    public OciCfgDetailsRsp.InstanceInfo getInstanceInfo(String instanceId) {
+        Instance instance = getInstanceById(instanceId);
+        String bootVolumeSize = null;
+        try {
+            List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
+            for (AvailabilityDomain availabilityDomain : availabilityDomains) {
+                GetInstanceConfigurationRequest.builder()
+                        .instanceConfigurationId(instance.getInstanceConfigurationId())
+                        .build();
+                List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
+                                .availabilityDomain(availabilityDomain.getName())
+                                .compartmentId(compartmentId)
+                                .instanceId(instance.getId())
+                                .build()).getItems()
+                        .stream().map(BootVolumeAttachment::getBootVolumeId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+                if (CollectionUtil.isNotEmpty(BootVolumeIdList)) {
+                    GetBootVolumeRequest getBootVolumeRequest = GetBootVolumeRequest.builder()
+                            .bootVolumeId(BootVolumeIdList.get(0))
+                            .build();
+                    GetBootVolumeResponse getBootVolumeResponse = blockstorageClient.getBootVolume(getBootVolumeRequest);
+                    BootVolume bootVolume = getBootVolumeResponse.getBootVolume();
+                    bootVolumeSize = bootVolume.getSizeInGBs() + "";
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            log.error("用户：[{}] ，区域：[{}] ， 实例：[{}] 的引导卷不存在~",
+                    user.getUsername(), user.getOciCfg().getRegion(),
+                    instance.getDisplayName());
+        }
+
+
+        // 打印引导卷大小（以 GB 为单位）
+        return OciCfgDetailsRsp.InstanceInfo.builder()
+                .ocId(instanceId)
+                .region(instance.getRegion())
+                .name(instance.getDisplayName())
+                .shape(instance.getShape())
+                .publicIp(listInstanceIPs(instanceId).stream()
+                        .map(Vnic::getPublicIp)
+                        .collect(Collectors.toList()))
+                .enableChangeIp(TASK_MAP.get(CommonUtils.CREATE_TASK_PREFIX + instanceId) != null ? 1 : 0)
+                .ocpus(String.valueOf(instance.getShapeConfig().getOcpus()))
+                .memory(String.valueOf(instance.getShapeConfig().getMemoryInGBs()))
+                .bootVolumeSize(bootVolumeSize)
+                .createTime(CommonUtils.dateFmt2String(instance.getTimeCreated()))
+                .build();
+    }
 }

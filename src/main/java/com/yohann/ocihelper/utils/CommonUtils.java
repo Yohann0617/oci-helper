@@ -16,6 +16,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -143,6 +144,11 @@ public class CommonUtils {
             return exp < System.currentTimeMillis() / 1000; // 将毫秒转换为秒
         }
         return true;
+    }
+
+    public static String dateFmt2String(Date date) {
+        SimpleDateFormat formatter = new SimpleDateFormat(DatePattern.NORM_DATETIME_PATTERN);
+        return formatter.format(date);
     }
 
     private static final String CIDR_REGEX =
