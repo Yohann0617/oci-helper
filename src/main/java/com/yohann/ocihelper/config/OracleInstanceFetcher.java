@@ -26,7 +26,6 @@ import com.yohann.ocihelper.enums.ArchitectureEnum;
 import com.yohann.ocihelper.enums.ErrorEnum;
 import com.yohann.ocihelper.enums.InstanceStateEnum;
 import com.yohann.ocihelper.enums.OperationSystemEnum;
-import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -53,7 +52,6 @@ import static com.yohann.ocihelper.service.impl.OciServiceImpl.TASK_MAP;
 public class OracleInstanceFetcher implements Closeable {
 
     private final SysUserDTO user;
-    private final SimpleAuthenticationDetailsProvider provider;
     private final ComputeClient computeClient;
     private final IdentityClient identityClient;
     private final WorkRequestClient workRequestClient;
@@ -77,7 +75,7 @@ public class OracleInstanceFetcher implements Closeable {
     public OracleInstanceFetcher(SysUserDTO user) {
         this.user = user;
         SysUserDTO.OciCfg ociCfg = user.getOciCfg();
-        provider = SimpleAuthenticationDetailsProvider.builder()
+        SimpleAuthenticationDetailsProvider provider = SimpleAuthenticationDetailsProvider.builder()
                 .tenantId(ociCfg.getTenantId())
                 .userId(ociCfg.getUserId())
                 .fingerprint(ociCfg.getFingerprint())
