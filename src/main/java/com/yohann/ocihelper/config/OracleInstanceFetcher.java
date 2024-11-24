@@ -27,12 +27,9 @@ import com.yohann.ocihelper.enums.ErrorEnum;
 import com.yohann.ocihelper.enums.InstanceStateEnum;
 import com.yohann.ocihelper.enums.OperationSystemEnum;
 import com.yohann.ocihelper.utils.CommonUtils;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.Closeable;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.*;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -62,7 +59,6 @@ public class OracleInstanceFetcher implements Closeable {
 
     private static final String CIDR_BLOCK = "10.0.0.0/16";
 
-    @SneakyThrows
     @Override
     public void close() {
         computeClient.close();
@@ -80,10 +76,15 @@ public class OracleInstanceFetcher implements Closeable {
                 .userId(ociCfg.getUserId())
                 .fingerprint(ociCfg.getFingerprint())
                 .privateKeySupplier(() -> {
-                    try {
-                        return new FileInputStream(ociCfg.getPrivateKeyPath());
-                    } catch (FileNotFoundException e) {
-                        e.printStackTrace();
+                    try (FileInputStream fis = new FileInputStream(ociCfg.getPrivateKeyPath());
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                            byte[] buffer = new byte[1024];
+                            int bytesRead;
+                            while ((bytesRead = fis.read(buffer)) != -1) {
+                                baos.write(buffer, 0, bytesRead);
+                            }
+                        return new ByteArrayInputStream(baos.toByteArray());
+                    } catch (Exception e) {
                         throw new RuntimeException("获取密钥失败");
                     }
                 })
