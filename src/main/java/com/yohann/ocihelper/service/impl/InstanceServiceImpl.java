@@ -97,10 +97,11 @@ public class InstanceServiceImpl implements IInstanceService {
                         instanceDetail.getShape(),
                         instanceDetail.getPublicIp(),
                         instanceDetail.getRootPassword());
+                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
                 try {
                     messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
                 } catch (Exception e) {
-                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机成功，实例IP：{} ，但是消息发送失败",
+                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机成功，实例IP：{} ，但是TG消息发送失败",
                             instanceDetail.getUsername(), instanceDetail.getRegion(),
                             instanceDetail.getShape(), instanceDetail.getPublicIp());
                 }

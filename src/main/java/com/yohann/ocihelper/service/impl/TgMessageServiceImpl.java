@@ -1,5 +1,6 @@
 package com.yohann.ocihelper.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import com.yohann.ocihelper.service.IMessageService;
@@ -32,7 +33,9 @@ public class TgMessageServiceImpl implements IMessageService {
 
     @Override
     public void sendMessage(String message) {
-        doSend(message);
+        if (StrUtil.isNotBlank(chatId) && StrUtil.isNotBlank(botToken)) {
+            doSend(message);
+        }
     }
 
     private void doSend(String message) {

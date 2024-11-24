@@ -216,6 +216,7 @@ public class OciServiceImpl implements IOciService {
                 Long.valueOf(params.getDisk()),
                 params.getCreateNumbers(),
                 params.getRootPassword());
+        messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(beginCreateMsg);
         messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(beginCreateMsg);
     }
 
@@ -489,14 +490,15 @@ public class OciServiceImpl implements IOciService {
         log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
                 username, region, instanceName,
                 publicIp);
+        String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
+                username,
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                region, instanceName, publicIp);
+        messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
         try {
-            String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
-                    username,
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                    region, instanceName, publicIp);
             messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
         } catch (Exception e) {
-            log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是消息发送失败",
+            log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是TG消息发送失败",
                     username, region,
                     instanceName, publicIp);
         }

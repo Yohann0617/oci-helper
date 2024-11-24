@@ -11,6 +11,11 @@ web:
 tg-cfg:
   token: xxxx:xxxx
   chat-id: xxxxxx
+
+# 钉钉机器人通知配置 （可选）
+ding-cfg:
+  access-token:
+  secret:
 # --------------------------------------- 用户自定义修改项 ------------------------------------
 
 spring:
