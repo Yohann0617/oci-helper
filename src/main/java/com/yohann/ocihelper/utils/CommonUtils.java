@@ -44,9 +44,9 @@ public class CommonUtils {
 
     public static List<OciUser> parseConfigContent(String configContent) throws IOException {
         // 检查并移除 UTF-8 BOM
-        if (configContent.startsWith("\uFEFF")) {
-            configContent = configContent.substring(1);
-        }
+//        if (configContent.startsWith("\uFEFF")) {
+//            configContent = configContent.substring(1);
+//        }
 
         List<OciUser> ociUsers = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new StringReader(configContent))) {

@@ -41,7 +41,7 @@ import com.yohann.ocihelper.mapper.OciUserMapper;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -361,7 +361,7 @@ public class OciServiceImpl implements IOciService {
         List<OciUser> ociUserList = params.getFileList().parallelStream()
                 .map(file -> {
                     try {
-                        String read = IoUtil.read(file.getInputStream(), Charset.forName("GBK"));
+                        String read = IoUtil.read(file.getInputStream(), StandardCharsets.UTF_8);
                         return CommonUtils.parseConfigContent(read);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
