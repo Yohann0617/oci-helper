@@ -21,10 +21,10 @@ public interface IInstanceService {
     /**
      * 获取已开机实例信息
      *
-     * @param fetcher oci配置
+     * @param sysUserDTO oci配置
      * @return 已开机实例信息
      */
-    List<SysUserDTO.CloudInstance> listRunningInstances(OracleInstanceFetcher fetcher);
+    List<SysUserDTO.CloudInstance> listRunningInstances(SysUserDTO sysUserDTO);
 
     /**
      * 开机

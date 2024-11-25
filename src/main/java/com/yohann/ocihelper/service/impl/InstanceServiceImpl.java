@@ -10,6 +10,7 @@ import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.MessageTypeEnum;
+import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.MessageServiceFactory;
@@ -42,7 +43,7 @@ public class InstanceServiceImpl implements IInstanceService {
     private MessageServiceFactory messageServiceFactory;
 
     private static final String LEGACY_MESSAGE_TEMPLATE =
-            "🎉 用户：[%s] 开机成功 🎉\n\n" +
+            "【开机任务】 🎉 用户：[%s] 开机成功 🎉\n\n" +
                     "时间： %s\n" +
                     "Region： %s\n" +
                     "CPU类型： %s\n" +
@@ -55,16 +56,21 @@ public class InstanceServiceImpl implements IInstanceService {
                     "⭐注意： 如果没有开机任务请及时清理API";
 
     @Override
-    public List<SysUserDTO.CloudInstance> listRunningInstances(OracleInstanceFetcher fetcher) {
-        return fetcher.listInstances().parallelStream()
-                .map(x -> SysUserDTO.CloudInstance.builder()
-                        .region(x.getRegion())
-                        .name(x.getDisplayName())
-                        .ocId(x.getId())
-                        .shape(x.getShape())
-                        .publicIp(fetcher.listInstanceIPs(x.getId()).stream().map(Vnic::getPublicIp).collect(Collectors.toList()))
-                        .build())
-                .collect(Collectors.toList());
+    public List<SysUserDTO.CloudInstance> listRunningInstances(SysUserDTO sysUserDTO) {
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            return fetcher.listInstances().parallelStream()
+                    .map(x -> SysUserDTO.CloudInstance.builder()
+                            .region(x.getRegion())
+                            .name(x.getDisplayName())
+                            .ocId(x.getId())
+                            .shape(x.getShape())
+                            .publicIp(fetcher.listInstanceIPs(x.getId()).stream().map(Vnic::getPublicIp).collect(Collectors.toList()))
+                            .build())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new OciException(-1, "获取实例信息失败");
+        }
+
     }
 
     @Override

@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oracle.bmc.core.model.Instance;
+import com.oracle.bmc.core.model.Vnic;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
@@ -86,7 +87,7 @@ public class OciServiceImpl implements IOciService {
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
 
     private static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
-            "用户：[%s] 开始执行开机任务\n\n" +
+            "【开机任务】 用户：[%s] 开始执行开机任务\n\n" +
                     "时间： %s\n" +
                     "Region： %s\n" +
                     "CPU类型： %s\n" +
@@ -95,8 +96,14 @@ public class OciServiceImpl implements IOciService {
                     "磁盘大小（GB）： %s\n" +
                     "数量： %s\n" +
                     "root密码： %s";
+    private static final String BEGIN_CHANGE_IP_MESSAGE_TEMPLATE =
+            "【更换IP任务】 用户：[%s] 开始执行更换公网IP任务\n\n" +
+                    "时间： %s\n" +
+                    "区域： %s\n" +
+                    "实例： %s\n" +
+                    "当前公网IP： %s";
     private static final String CHANGE_IP_MESSAGE_TEMPLATE =
-            "🎉 用户：[%s] 更换公共IP成功 🎉\n\n" +
+            "【更换IP任务】 🎉 用户：[%s] 更换公共IP成功 🎉\n\n" +
                     "时间： %s\n" +
                     "区域： %s\n" +
                     "实例： %s\n" +
@@ -261,9 +268,33 @@ public class OciServiceImpl implements IOciService {
                         .build())
                 .username(ociUser.getUsername())
                 .build();
-        log.info("【更换公共IP】用户：[{}] ，区域：[{}] 开始执行更换IP任务...",
-                sysUserDTO.getUsername(),
-                sysUserDTO.getOciCfg().getRegion());
+
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            Instance instance = fetcher.getInstanceById(params.getInstanceId());
+            String currentIp = fetcher.listInstanceIPs(params.getInstanceId()).stream()
+                    .map(Vnic::getPublicIp)
+                    .collect(Collectors.toList()).get(0);
+            String message = String.format(BEGIN_CHANGE_IP_MESSAGE_TEMPLATE,
+                    sysUserDTO.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                    sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName(), currentIp);
+            log.info("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，当前公网IP：[{}] 开始执行更换公网IP任务...",
+                    sysUserDTO.getUsername(),
+                    sysUserDTO.getOciCfg().getRegion(),
+                    instance.getDisplayName(), currentIp);
+            messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
+            try {
+                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
+            } catch (Exception e) {
+                log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] 开始执行更换IP任务，但是TG消息发送失败",
+                        sysUserDTO.getUsername(),
+                        sysUserDTO.getOciCfg().getRegion(),
+                        instance.getDisplayName());
+            }
+        } catch (Exception e) {
+            throw new OciException(-1, "获取实例信息失败");
+        }
+
         addTask(CommonUtils.CHANGE_IP_TASK_PREFIX + params.getInstanceId(), () -> execChange(
                 params.getInstanceId(),
                 sysUserDTO,
