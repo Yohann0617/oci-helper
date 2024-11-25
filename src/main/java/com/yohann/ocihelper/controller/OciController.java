@@ -59,7 +59,7 @@ public class OciController {
                                      BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.uploadCfg(params);
-        return ResponseData.successData("上传配置成功，请耐心等待后台校验");
+        return ResponseData.successData("上传配置成功");
     }
 
     @PostMapping(path = "/removeCfg")

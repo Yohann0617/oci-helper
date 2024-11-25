@@ -30,7 +30,7 @@
             </if>
         </where>
         GROUP BY t1.id, t1.username, t1.oci_region, t1.create_time
-        order by t1.create_time DESC limit #{offset}, #{size}
+        order by t1.username, t1.create_time DESC limit #{offset}, #{size}
     </select>
     <select id="userPageTotal" resultType="java.lang.Long">
         SELECT COUNT(DISTINCT t1.id)
