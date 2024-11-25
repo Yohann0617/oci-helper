@@ -2,7 +2,6 @@ package com.yohann.ocihelper.service.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.IdUtil;
@@ -10,9 +9,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oracle.bmc.core.model.Instance;
-import com.oracle.bmc.core.model.Vnic;
 import com.yohann.ocihelper.bean.Tuple2;
-import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
@@ -333,7 +330,7 @@ public class OciServiceImpl implements IOciService {
         List<OciUser> ociUserList = params.getFileList().parallelStream()
                 .map(file -> {
                     try {
-                        String read = IoUtil.read(file.getInputStream(), Charset.defaultCharset());
+                        String read = IoUtil.read(file.getInputStream(), Charset.forName("GBK"));
                         return CommonUtils.parseConfigContent(read);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
