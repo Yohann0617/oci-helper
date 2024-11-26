@@ -23,6 +23,7 @@ import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
 import com.yohann.ocihelper.enums.*;
+import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,6 +56,8 @@ public class OracleInstanceFetcher implements Closeable {
     private final String compartmentId;
 
     private static final String CIDR_BLOCK = "10.0.0.0/16";
+    private static final String IPV6_CIDR_BLOCK = "2603:c021:c009:4200::/56";
+    private static final String SUBNET_V6_CIDR = "2603:c021:c005:fe7e::/64";
 
     @Override
     public void close() {
@@ -363,6 +366,37 @@ public class OracleInstanceFetcher implements Closeable {
         }
         CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
                 .cidrBlock(cidrBlock)
+                .isIpv6Enabled(true)
+//                .isOracleGuaAllocationEnabled(true)
+                .compartmentId(compartmentId)
+                .displayName(vcnName)
+                .build();
+        CreateVcnRequest createVcnRequest = CreateVcnRequest.builder().createVcnDetails(createVcnDetails).build();
+        CreateVcnResponse createVcnResponse = virtualNetworkClient.createVcn(createVcnRequest);
+
+        GetVcnRequest getVcnRequest = GetVcnRequest.builder().vcnId(createVcnResponse.getVcn().getId()).build();
+        GetVcnResponse getVcnResponse = virtualNetworkClient
+                .getWaiters()
+                .forVcn(getVcnRequest, Vcn.LifecycleState.Available)
+                .execute();
+        return getVcnResponse.getVcn();
+    }
+
+    public Vcn createVcn(String cidrBlock)
+            throws Exception {
+        String vcnName = "oci-helper-vcn";
+        ListVcnsRequest build = ListVcnsRequest.builder().compartmentId(compartmentId)
+                .displayName(vcnName)
+                .build();
+
+        ListVcnsResponse listVcnsResponse = virtualNetworkClient.listVcns(build);
+        if (listVcnsResponse.getItems().size() > 0) {
+            return listVcnsResponse.getItems().get(0);
+        }
+        CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
+                .cidrBlock(cidrBlock)
+                .isIpv6Enabled(true)
+//                .isOracleGuaAllocationEnabled(true)
                 .compartmentId(compartmentId)
                 .displayName(vcnName)
                 .build();
@@ -533,7 +567,7 @@ public class OracleInstanceFetcher implements Closeable {
         ListSubnetsRequest listRequest = ListSubnetsRequest.builder()
                 .compartmentId(compartmentId)
                 .vcnId(vcn.getId())
-                //.displayName(subnetName)
+                .displayName(subnetName)
                 .build();
         ListSubnetsResponse listResponse = virtualNetworkClient.listSubnets(listRequest);
         if (listResponse.getItems().size() > 0) {
@@ -559,6 +593,7 @@ public class OracleInstanceFetcher implements Closeable {
                             .compartmentId(compartmentId)
                             .displayName(subnetName)
                             .cidrBlock(networkCidrBlock)
+                            .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
                             .vcnId(vcn.getId())
                             .routeTableId(vcn.getDefaultRouteTableId())
                             .build();
@@ -1168,5 +1203,205 @@ public class OracleInstanceFetcher implements Closeable {
 
         /* Send request to the Client */
         TerminateInstanceResponse response = computeClient.terminateInstance(terminateInstanceRequest);
+    }
+
+    public Vnic getVnicByInstanceId(String instanceId) {
+        List<Vnic> vnics = listInstanceIPs(instanceId);
+        if (vnics.isEmpty()) {
+            return null;
+        }
+        return vnics.get(0);
+    }
+
+    public Vcn getVcnById(String vcnId) {
+        if (vcnId == null) {
+            return null;
+        }
+        for (Vcn vcn : listVcn()) {
+            if (vcn.getId().equals(vcnId)) {
+                return vcn;
+            }
+        }
+        return null;
+    }
+
+    public Ipv6 createIpv6(Vnic vnic, Vcn vcn) {
+        if (vcn == null) {
+            try {
+                vcn = createVcn(virtualNetworkClient, compartmentId, CIDR_BLOCK);
+                createInternetGateway(virtualNetworkClient, compartmentId, vcn);
+            } catch (Exception e) {
+                log.error("用户：[{}] ，区域：[{}] 创建VCN失败", user.getUsername(), user.getOciCfg().getRegion());
+                throw new OciException(-1, "创建VCN失败");
+            }
+        }
+
+        String vcnId = vcn.getId();
+        Subnet subnet;
+        InternetGateway gateway;
+
+        // 添加ipv6 cidr 前缀
+        List<String> oldIpv6CidrBlocks = vcn.getIpv6CidrBlocks();
+        System.out.println(oldIpv6CidrBlocks);
+        if (oldIpv6CidrBlocks == null || oldIpv6CidrBlocks.isEmpty()) {
+            virtualNetworkClient.addIpv6VcnCidr(AddIpv6VcnCidrRequest.builder()
+                    .vcnId(vcnId)
+                    .addVcnIpv6CidrDetails(AddVcnIpv6CidrDetails.builder()
+                            .isOracleGuaAllocationEnabled(true)
+                            .ipv6PrivateCidrBlock(IPV6_CIDR_BLOCK)
+                            .build())
+                    .build());
+        }
+
+        // 子网
+        List<Subnet> oldSubnet = listSubnets(vcnId);
+        if (oldSubnet.isEmpty()) {
+            try {
+                log.warn("用户：[{}] ，区域：[{}] 正在创建子网~", user.getUsername(), user.getOciCfg().getRegion());
+                subnet = createSubnet(virtualNetworkClient,
+                        compartmentId,
+                        getAvailabilityDomains(identityClient, compartmentId).get(0),
+                        CIDR_BLOCK, vcn);
+            } catch (Exception e) {
+                log.error("用户：[{}] ，区域：[{}] 创建子网失败，原因：[{}]", user.getUsername(), user.getOciCfg().getRegion(), e.getLocalizedMessage());
+                throw new OciException(-1, "创建子网失败");
+            }
+        } else {
+            subnet = oldSubnet.get(0);
+        }
+
+        if (subnet.getIpv6CidrBlocks().isEmpty()) {
+            virtualNetworkClient.updateSubnet(UpdateSubnetRequest.builder()
+                    .subnetId(subnet.getId())
+                    .updateSubnetDetails(UpdateSubnetDetails.builder()
+                            .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
+                            .build())
+                    .build());
+        }
+        System.out.println(subnet);
+
+
+        ListInternetGatewaysResponse listInternetGatewaysResponse = virtualNetworkClient.listInternetGateways(
+                ListInternetGatewaysRequest.builder()
+                        .compartmentId(compartmentId)
+                        .vcnId(vcnId)
+                        .limit(1)
+                        .build());
+        if (!listInternetGatewaysResponse.getItems().isEmpty()) {
+            gateway = listInternetGatewaysResponse.getItems().get(0);
+        } else {
+            try {
+                gateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
+            } catch (Exception e) {
+                log.error("用户：[{}] ，区域：[{}] 创建网关失败，原因：[{}]", user.getUsername(), user.getOciCfg().getRegion(), e.getLocalizedMessage());
+                throw new OciException(-1, "创建网关失败");
+            }
+        }
+
+//        System.out.println(gateway);
+
+        // 更新路由表（默认存在）
+        List<RouteRule> routeRules = new ArrayList<>();
+        RouteRule v4Route = RouteRule.builder()
+//                .cidrBlock("0.0.0.0/0")
+                .destination("0.0.0.0/0")
+                .destinationType(RouteRule.DestinationType.CidrBlock)
+                .routeType(RouteRule.RouteType.Static)
+                .networkEntityId(gateway.getId())
+                .build();
+        RouteRule v6Route = RouteRule.builder()
+//                .cidrBlock("::/0")
+                .destination("::/0")
+                .destinationType(RouteRule.DestinationType.CidrBlock)
+                .routeType(RouteRule.RouteType.Static)
+                .networkEntityId(gateway.getId())
+                .build();
+        GetRouteTableRequest getRouteTableRequest = GetRouteTableRequest.builder().rtId(vcn.getDefaultRouteTableId()).build();
+        GetRouteTableResponse getRouteTableResponse = virtualNetworkClient.getRouteTable(getRouteTableRequest);
+        RouteTable routeTable = getRouteTableResponse.getRouteTable();
+        if (routeTable.getRouteRules().isEmpty()) {
+            routeRules.add(v4Route);
+            routeRules.add(v6Route);
+        } else {
+            for (RouteRule rule : routeTable.getRouteRules()) {
+                if (!rule.getDescription().contains(v4Route.getDescription())) {
+                    routeRules.add(v4Route);
+                }
+                if (!rule.getDescription().contains(v6Route.getDescription())) {
+                    routeRules.add(v6Route);
+                }
+            }
+        }
+
+        System.out.println(routeRules);
+        UpdateRouteTableRequest updateRouteTableRequest = UpdateRouteTableRequest.builder()
+                .rtId(vcn.getDefaultRouteTableId())
+                .updateRouteTableDetails(UpdateRouteTableDetails.builder()
+                        .routeRules(routeRules)
+                        .build())
+                .build();
+        virtualNetworkClient.updateRouteTable(updateRouteTableRequest);
+
+        // 安全列表（默认存在）
+        IngressSecurityRule in = IngressSecurityRule.builder()
+                .sourceType(IngressSecurityRule.SourceType.CidrBlock)
+                .source("::/0")
+                .protocol("all")
+                .build();
+        EgressSecurityRule out = EgressSecurityRule.builder()
+                .destinationType(EgressSecurityRule.DestinationType.CidrBlock)
+                .description("::/0")
+                .protocol("all")
+                .build();
+        List<IngressSecurityRule> inList = new ArrayList<>();
+        List<EgressSecurityRule> outList = new ArrayList<>();
+        GetSecurityListRequest getSecurityListRequest = GetSecurityListRequest.builder().securityListId(vcn.getDefaultSecurityListId()).build();
+        GetSecurityListResponse getSecurityListResponse = virtualNetworkClient.getSecurityList(getSecurityListRequest);
+        List<IngressSecurityRule> ingressSecurityRules = getSecurityListResponse.getSecurityList().getIngressSecurityRules();
+        if (ingressSecurityRules == null || ingressSecurityRules.isEmpty()) {
+            inList.add(in);
+        } else {
+            for (IngressSecurityRule rule : ingressSecurityRules) {
+                if (!rule.getSource().contains(in.getSource())) {
+                    inList.add(in);
+                }
+            }
+        }
+        List<EgressSecurityRule> egressSecurityRules = getSecurityListResponse.getSecurityList().getEgressSecurityRules();
+        if (egressSecurityRules == null || egressSecurityRules.isEmpty()) {
+            outList.add(out);
+        } else {
+            for (EgressSecurityRule rule : egressSecurityRules) {
+                if (!rule.getDescription().contains(out.getDescription())) {
+                    outList.add(out);
+                }
+            }
+        }
+        virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
+                .securityListId(vcn.getDefaultSecurityListId())
+                .updateSecurityListDetails(UpdateSecurityListDetails.builder()
+                        .ingressSecurityRules(inList)
+                        .egressSecurityRules(outList)
+                        .build())
+                .build());
+
+//        System.out.println("网络安全组更新完成");
+//
+//        virtualNetworkClient.updateInternetGateway(UpdateInternetGatewayRequest.builder()
+//                .igId(gateway.getId())
+//                .updateInternetGatewayDetails(UpdateInternetGatewayDetails.builder()
+//                        .isEnabled(true)
+//                        .routeTableId(vcn.getDefaultRouteTableId())
+//                        .build())
+//                .build());
+//        System.out.println(gateway);
+
+        CreateIpv6Response createIpv6Response = virtualNetworkClient.createIpv6(CreateIpv6Request.builder()
+                .createIpv6Details(CreateIpv6Details.builder()
+                        .vnicId(vnic.getId())
+                        .build())
+                .build());
+
+        return createIpv6Response.getIpv6();
     }
 }
