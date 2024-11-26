@@ -152,11 +152,11 @@ public class OciServiceImpl implements IOciService {
                         .privateKeyPath(ociUser.getOciKeyPath())
                         .build())
                 .build();
-        try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            ociFetcher.listInstances();
-        } catch (Exception e) {
-            throw new OciException(-1, "配置不生效，请检查密钥与配置项是否准确无误");
-        }
+        //try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
+        //    ociFetcher.listInstances();
+        //} catch (Exception e) {
+        //    throw new OciException(-1, "配置不生效，请检查密钥与配置项是否准确无误");
+        //}
         userService.save(ociUser);
     }
 
