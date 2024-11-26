@@ -22,10 +22,7 @@ import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
-import com.yohann.ocihelper.enums.ArchitectureEnum;
-import com.yohann.ocihelper.enums.ErrorEnum;
-import com.yohann.ocihelper.enums.InstanceStateEnum;
-import com.yohann.ocihelper.enums.OperationSystemEnum;
+import com.yohann.ocihelper.enums.*;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -77,12 +74,12 @@ public class OracleInstanceFetcher implements Closeable {
                 .fingerprint(ociCfg.getFingerprint())
                 .privateKeySupplier(() -> {
                     try (FileInputStream fis = new FileInputStream(ociCfg.getPrivateKeyPath());
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                            byte[] buffer = new byte[1024];
-                            int bytesRead;
-                            while ((bytesRead = fis.read(buffer)) != -1) {
-                                baos.write(buffer, 0, bytesRead);
-                            }
+                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                        byte[] buffer = new byte[1024];
+                        int bytesRead;
+                        while ((bytesRead = fis.read(buffer)) != -1) {
+                            baos.write(buffer, 0, bytesRead);
+                        }
                         return new ByteArrayInputStream(baos.toByteArray());
                     } catch (Exception e) {
                         throw new RuntimeException("获取密钥失败");
@@ -1106,10 +1103,10 @@ public class OracleInstanceFetcher implements Closeable {
                         .instanceConfigurationId(instance.getInstanceConfigurationId())
                         .build();
                 List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                                .availabilityDomain(availabilityDomain.getName())
-                                .compartmentId(compartmentId)
-                                .instanceId(instance.getId())
-                                .build()).getItems()
+                        .availabilityDomain(availabilityDomain.getName())
+                        .compartmentId(compartmentId)
+                        .instanceId(instance.getId())
+                        .build()).getItems()
                         .stream().map(BootVolumeAttachment::getBootVolumeId)
                         .filter(Objects::nonNull)
                         .collect(Collectors.toList());
@@ -1145,5 +1142,31 @@ public class OracleInstanceFetcher implements Closeable {
                 .bootVolumeSize(bootVolumeSize)
                 .createTime(CommonUtils.dateFmt2String(instance.getTimeCreated()))
                 .build();
+    }
+
+    private String updateInstanceState(String instanceId, InstanceActionEnum action) {
+        InstanceActionRequest request = InstanceActionRequest.builder()
+                .instanceId(instanceId)
+                .action(action.getAction()) // "START" or "STOP"
+                .build();
+
+        InstanceActionResponse response = computeClient.instanceAction(request);
+        String currentState = response.getInstance().getLifecycleState().getValue();
+        log.info("用户：[{}] ，区域：[{}] 修改实例：[{}] 状态成功！实例当前状态: [{}]",
+                user.getUsername(), user.getOciCfg().getRegion(),
+                response.getInstance().getDisplayName(), currentState);
+        return currentState;
+    }
+
+    private void terminateInstance(String instanceId, boolean preserveBootVolume, boolean preserveDataVolumesCreatedAtLaunch) {
+        TerminateInstanceRequest terminateInstanceRequest = TerminateInstanceRequest.builder()
+                .instanceId(instanceId)
+//                .ifMatch("EXAMPLE-ifMatch-Value")
+                .preserveBootVolume(preserveBootVolume) // 是否删除或保留引导卷 ，默认false不保留
+                .preserveDataVolumesCreatedAtLaunch(preserveDataVolumesCreatedAtLaunch) // 是否删除或保留启动期间创建的数据卷，默认true保留
+                .build();
+
+        /* Send request to the Client */
+        TerminateInstanceResponse response = computeClient.terminateInstance(terminateInstanceRequest);
     }
 }
