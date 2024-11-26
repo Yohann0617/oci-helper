@@ -1179,7 +1179,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .build();
     }
 
-    private String updateInstanceState(String instanceId, InstanceActionEnum action) {
+    public String updateInstanceState(String instanceId, InstanceActionEnum action) {
         InstanceActionRequest request = InstanceActionRequest.builder()
                 .instanceId(instanceId)
                 .action(action.getAction()) // "START" or "STOP"
@@ -1193,7 +1193,7 @@ public class OracleInstanceFetcher implements Closeable {
         return currentState;
     }
 
-    private void terminateInstance(String instanceId, boolean preserveBootVolume, boolean preserveDataVolumesCreatedAtLaunch) {
+    public void terminateInstance(String instanceId, boolean preserveBootVolume, boolean preserveDataVolumesCreatedAtLaunch) {
         TerminateInstanceRequest terminateInstanceRequest = TerminateInstanceRequest.builder()
                 .instanceId(instanceId)
 //                .ifMatch("EXAMPLE-ifMatch-Value")
