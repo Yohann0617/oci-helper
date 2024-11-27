@@ -308,7 +308,10 @@ public class CommonUtils {
                 "      fi\n" +
                 "      \n" +
                 "      # Set up warning message\n" +
-                "      echo \"WARNING: Please change the root password immediately after login!\" | tee /etc/motd\n" +
+                "      {\n" +
+                "        echo \"🎉 欢迎使用Y探长 🎉\"\n" +
+                "        echo \"Source code address: https://github.com/Yohann0617/oci-helper\"\n" +
+                "      } | tee /etc/motd\n" +
                 "      \n" +
                 "      # OS-specific configurations\n" +
                 "      case $OS in\n" +
@@ -324,9 +327,6 @@ public class CommonUtils {
                 "          echo \"Unsupported OS: $OS\" >&2\n" +
                 "          ;;\n" +
                 "      esac\n" +
-                "      \n" +
-                "      # Additional security measures\n" +
-                "      chage -d 0 root  # Force password change on next login\n" +
                 "runcmd:\n" +
                 "  - bash /tmp/setup_root_access.sh\n" +
                 "  - rm /tmp/setup_root_access.sh\n";
