@@ -77,12 +77,12 @@ public class OracleInstanceFetcher implements Closeable {
                 .fingerprint(ociCfg.getFingerprint())
                 .privateKeySupplier(() -> {
                     try (FileInputStream fis = new FileInputStream(ociCfg.getPrivateKeyPath());
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                            byte[] buffer = new byte[1024];
-                            int bytesRead;
-                            while ((bytesRead = fis.read(buffer)) != -1) {
-                                baos.write(buffer, 0, bytesRead);
-                            }
+                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                        byte[] buffer = new byte[1024];
+                        int bytesRead;
+                        while ((bytesRead = fis.read(buffer)) != -1) {
+                            baos.write(buffer, 0, bytesRead);
+                        }
                         return new ByteArrayInputStream(baos.toByteArray());
                     } catch (Exception e) {
                         throw new RuntimeException("获取密钥失败");
@@ -236,8 +236,8 @@ public class OracleInstanceFetcher implements Closeable {
                 .compartmentId(user.getOciCfg().getTenantId())
                 .build();
         ListInstancesResponse response = computeClient.listInstances(request);
-
-        return response.getItems().parallelStream()
+        List<Instance> instanceList = response.getItems();
+        return CollectionUtil.isEmpty(instanceList) ? Collections.emptyList() : instanceList.parallelStream()
                 .filter(x -> x.getLifecycleState().getValue().equals(InstanceStateEnum.LIFECYCLE_STATE_RUNNING.getState()))
                 .collect(Collectors.toList());
     }
@@ -1106,10 +1106,10 @@ public class OracleInstanceFetcher implements Closeable {
                         .instanceConfigurationId(instance.getInstanceConfigurationId())
                         .build();
                 List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                                .availabilityDomain(availabilityDomain.getName())
-                                .compartmentId(compartmentId)
-                                .instanceId(instance.getId())
-                                .build()).getItems()
+                        .availabilityDomain(availabilityDomain.getName())
+                        .compartmentId(compartmentId)
+                        .instanceId(instance.getId())
+                        .build()).getItems()
                         .stream().map(BootVolumeAttachment::getBootVolumeId)
                         .filter(Objects::nonNull)
                         .collect(Collectors.toList());
