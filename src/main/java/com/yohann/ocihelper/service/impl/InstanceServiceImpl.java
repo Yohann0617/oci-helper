@@ -84,7 +84,7 @@ public class InstanceServiceImpl implements IInstanceService {
                 fetcher.getUser().getArchitecture(), fetcher.getUser().getCreateNumbers(), currentCount);
 
         List<InstanceDetailDTO> instanceList = new ArrayList<>();
-        IntStream.range(0, fetcher.getUser().getCreateNumbers()).parallel().forEach(i -> {
+        IntStream.range(0, fetcher.getUser().getCreateNumbers()).forEach(i -> {
             InstanceDetailDTO instanceDetail = fetcher.createInstanceData();
             instanceList.add(instanceDetail);
 

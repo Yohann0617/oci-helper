@@ -300,6 +300,18 @@ public class CommonUtils {
                 "      sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config\n" +
                 "      sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config\n" +
                 "      \n" +
+                "      # Ensure PrintMotd is set to yes\n" +
+                "      if grep -q \"^#\\?PrintMotd\" /etc/ssh/sshd_config; then\n" +
+                "        sed -i 's/^#\\?PrintMotd.*/PrintMotd yes/' /etc/ssh/sshd_config\n" +
+                "      else\n" +
+                "        echo \"PrintMotd yes\" >> /etc/ssh/sshd_config\n" +
+                "      fi\n" +
+                "      # Ensure PrintLastLog is set to yes\n" +
+                "      if grep -q \"^#\\?PrintLastLog\" /etc/ssh/sshd_config; then\n" +
+                "        sed -i 's/^#\\?PrintLastLog.*/PrintLastLog yes/' /etc/ssh/sshd_config\n" +
+                "      else\n" +
+                "        echo \"PrintLastLog yes\" >> /etc/ssh/sshd_config\n" +
+                "      fi\n\n"+
                 "      # Restart SSH service\n" +
                 "      if command -v systemctl >/dev/null 2>&1; then\n" +
                 "        systemctl restart sshd\n" +
@@ -308,7 +320,10 @@ public class CommonUtils {
                 "      fi\n" +
                 "      \n" +
                 "      # Set up warning message\n" +
-                "      echo \"WARNING: Please change the root password immediately after login!\" | tee /etc/motd\n" +
+                "      {\n" +
+                "        echo \"🎉 欢迎使用Y探长 🎉\"\n" +
+                "        echo \"Source code address: https://github.com/Yohann0617/oci-helper\"\n" +
+                "      } | tee /etc/motd\n" +
                 "      \n" +
                 "      # OS-specific configurations\n" +
                 "      case $OS in\n" +
@@ -324,11 +339,12 @@ public class CommonUtils {
                 "          echo \"Unsupported OS: $OS\" >&2\n" +
                 "          ;;\n" +
                 "      esac\n" +
-                "      \n" +
-                "      # Additional security measures\n" +
-                "      chage -d 0 root  # Force password change on next login\n" +
                 "runcmd:\n" +
                 "  - bash /tmp/setup_root_access.sh\n" +
                 "  - rm /tmp/setup_root_access.sh\n";
+    }
+
+    public static void main(String[] args) {
+        System.out.println(getPwdShell("123"));
     }
 }

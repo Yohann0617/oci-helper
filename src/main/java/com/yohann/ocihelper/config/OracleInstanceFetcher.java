@@ -236,8 +236,8 @@ public class OracleInstanceFetcher implements Closeable {
                 .compartmentId(user.getOciCfg().getTenantId())
                 .build();
         ListInstancesResponse response = computeClient.listInstances(request);
-
-        return response.getItems().parallelStream()
+        List<Instance> instanceList = response.getItems();
+        return CollectionUtil.isEmpty(instanceList) ? Collections.emptyList() : instanceList.parallelStream()
                 .filter(x -> x.getLifecycleState().getValue().equals(InstanceStateEnum.LIFECYCLE_STATE_RUNNING.getState()))
                 .collect(Collectors.toList());
     }

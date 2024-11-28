@@ -155,6 +155,8 @@ public class OciServiceImpl implements IOciService {
         try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
             ociFetcher.listInstances();
         } catch (Exception e) {
+            log.error("配置：[{}] ，区域：[{}] ，不生效，错误信息：[{}]",
+                    ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
             throw new OciException(-1, "配置不生效，请检查密钥与配置项是否准确无误");
         }
         userService.save(ociUser);
@@ -388,7 +390,8 @@ public class OciServiceImpl implements IOciService {
                     try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
                         ociFetcher.listInstances();
                     } catch (Exception e) {
-                        log.error("配置：{} 不生效，请检查密钥与配置项是否准确无误，错误信息：{}", ociUser.getUsername(), e.getLocalizedMessage());
+                        log.error("配置：[{}] ，区域：[{}] 不生效，请检查密钥与配置项是否准确无误，错误信息：{}",
+                                ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
                         throw new OciException(-1, "配置：" + ociUser.getUsername() + " 不生效，请检查密钥与配置项是否准确无误");
                     }
                 })
