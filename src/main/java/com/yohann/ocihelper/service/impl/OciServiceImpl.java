@@ -5,6 +5,7 @@ import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -20,6 +21,7 @@ import com.yohann.ocihelper.bean.response.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.OciUserListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
+import com.yohann.ocihelper.enums.InstanceActionEnum;
 import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.enums.OciCfgEnum;
 import com.yohann.ocihelper.exception.OciException;
@@ -85,29 +87,6 @@ public class OciServiceImpl implements IOciService {
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors() * 2,
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
-
-    private static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
-            "【开机任务】 用户：[%s] 开始执行开机任务\n\n" +
-                    "时间： %s\n" +
-                    "Region： %s\n" +
-                    "CPU类型： %s\n" +
-                    "CPU： %s\n" +
-                    "内存（GB）： %s\n" +
-                    "磁盘大小（GB）： %s\n" +
-                    "数量： %s\n" +
-                    "root密码： %s";
-    private static final String BEGIN_CHANGE_IP_MESSAGE_TEMPLATE =
-            "【更换IP任务】 用户：[%s] 开始执行更换公网IP任务\n\n" +
-                    "时间： %s\n" +
-                    "区域： %s\n" +
-                    "实例： %s\n" +
-                    "当前公网IP： %s";
-    private static final String CHANGE_IP_MESSAGE_TEMPLATE =
-            "【更换IP任务】 🎉 用户：[%s] 更换公共IP成功 🎉\n\n" +
-                    "时间： %s\n" +
-                    "区域： %s\n" +
-                    "实例： %s\n" +
-                    "新的公网IP： %s";
 
     @Override
     public String login(LoginParams params) {
@@ -212,7 +191,7 @@ public class OciServiceImpl implements IOciService {
         addTask(CommonUtils.CREATE_TASK_PREFIX + taskId, () ->
                         execCreate(sysUserDTO, instanceService, createTaskService),
                 0, params.getInterval(), TimeUnit.SECONDS);
-        String beginCreateMsg = String.format(BEGIN_CREATE_MESSAGE_TEMPLATE,
+        String beginCreateMsg = String.format(CommonUtils.BEGIN_CREATE_MESSAGE_TEMPLATE,
                 ociUser.getUsername(),
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                 ociUser.getOciRegion(),
@@ -259,24 +238,13 @@ public class OciServiceImpl implements IOciService {
             }
         });
 
-        OciUser ociUser = userService.getById(params.getOciCfgId());
-        SysUserDTO sysUserDTO = SysUserDTO.builder()
-                .ociCfg(SysUserDTO.OciCfg.builder()
-                        .userId(ociUser.getOciUserId())
-                        .tenantId(ociUser.getOciTenantId())
-                        .region(ociUser.getOciRegion())
-                        .fingerprint(ociUser.getOciFingerprint())
-                        .privateKeyPath(ociUser.getOciKeyPath())
-                        .build())
-                .username(ociUser.getUsername())
-                .build();
-
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             Instance instance = fetcher.getInstanceById(params.getInstanceId());
             String currentIp = fetcher.listInstanceIPs(params.getInstanceId()).stream()
                     .map(Vnic::getPublicIp)
                     .collect(Collectors.toList()).get(0);
-            String message = String.format(BEGIN_CHANGE_IP_MESSAGE_TEMPLATE,
+            String message = String.format(CommonUtils.BEGIN_CHANGE_IP_MESSAGE_TEMPLATE,
                     sysUserDTO.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                     sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName(), currentIp);
@@ -397,6 +365,90 @@ public class OciServiceImpl implements IOciService {
                 })
                 .collect(Collectors.toList());
         userService.saveBatch(ociUserList);
+    }
+
+    @Override
+    public void updateInstanceState(UpdateInstanceStateParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            fetcher.updateInstanceState(params.getInstanceId(), InstanceActionEnum.getActionEnum(params.getAction()));
+        } catch (Exception e) {
+            log.error("用户：[{}] ，区域：[{}] 更新实例状态失败，错误详情：[{}]",
+                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), e.getLocalizedMessage());
+            throw new OciException(-1, "更新实例状态失败");
+        }
+    }
+
+    @Override
+    public void terminateInstance(TerminateInstanceParams params) {
+        String code = (String) TEMP_MAP.get(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId());
+        if (!params.getCaptcha().equals(code)) {
+            throw new OciException(-1, "无效的验证码");
+        }
+
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        CompletableFuture.runAsync(() -> {
+            try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+                fetcher.terminateInstance(params.getInstanceId(), params.getPreserveBootVolume().equals(1), false);
+                String message = String.format(CommonUtils.TERMINATE_INSTANCE_MESSAGE_TEMPLATE,
+                        sysUserDTO.getUsername(),
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                        sysUserDTO.getOciCfg().getRegion());
+                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
+                try {
+                    messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
+                } catch (Exception e) {
+                    log.error("【终止实例】用户：[{}] ，区域：[{}] 正在执行终止实例任务，但是TG消息发送失败",
+                            sysUserDTO.getUsername(),
+                            sysUserDTO.getOciCfg().getRegion());
+                }
+            } catch (Exception e) {
+                log.error("用户：[{}] ，区域：[{}] 终止实例失败，错误详情：[{}]",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), e.getLocalizedMessage());
+                throw new OciException(-1, "终止实例失败");
+            }
+        });
+        TEMP_MAP.remove(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId());
+    }
+
+    @Override
+    public void sendCaptcha(SendCaptchaParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        String verificationCode = RandomUtil.randomString(6);
+        TEMP_MAP.put(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId(), verificationCode);
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            OciCfgDetailsRsp.InstanceInfo instanceInfo = fetcher.getInstanceInfo(params.getInstanceId());
+            String message = String.format(CommonUtils.TERMINATE_INSTANCE_CODE_MESSAGE_TEMPLATE,
+                    sysUserDTO.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                    sysUserDTO.getOciCfg().getRegion(),
+                    instanceInfo.getName(), instanceInfo.getShape(),
+                    verificationCode);
+            messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
+            try {
+                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
+            } catch (Exception e) {
+                log.error("【终止实例】用户：[{}] ，区域：[{}] 正在执行终止实例前发送验证码任务，但是TG消息发送失败",
+                        sysUserDTO.getUsername(),
+                        sysUserDTO.getOciCfg().getRegion());
+            }
+        } catch (Exception e) {
+            throw new OciException(-1, "发送验证码失败");
+        }
+    }
+
+    public SysUserDTO getOciUser(String ociCfgId) {
+        OciUser ociUser = userService.getById(ociCfgId);
+        return SysUserDTO.builder()
+                .ociCfg(SysUserDTO.OciCfg.builder()
+                        .userId(ociUser.getOciUserId())
+                        .tenantId(ociUser.getOciTenantId())
+                        .region(ociUser.getOciRegion())
+                        .fingerprint(ociUser.getOciFingerprint())
+                        .privateKeyPath(ociUser.getOciKeyPath())
+                        .build())
+                .username(ociUser.getUsername())
+                .build();
     }
 
     public static void addTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {
@@ -521,7 +573,7 @@ public class OciServiceImpl implements IOciService {
         log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
                 username, region, instanceName,
                 publicIp);
-        String message = String.format(CHANGE_IP_MESSAGE_TEMPLATE,
+        String message = String.format(CommonUtils.CHANGE_IP_MESSAGE_TEMPLATE,
                 username,
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                 region, instanceName, publicIp);

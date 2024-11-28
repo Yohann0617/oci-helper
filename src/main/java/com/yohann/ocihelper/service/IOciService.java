@@ -41,4 +41,10 @@ public interface IOciService {
     void createInstanceBatch(CreateInstanceBatchParams params);
 
     void uploadCfg(UploadCfgParams params);
+
+    void updateInstanceState(UpdateInstanceStateParams params);
+
+    void terminateInstance(TerminateInstanceParams params);
+
+    void sendCaptcha(SendCaptchaParams params);
 }

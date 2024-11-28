@@ -28,4 +28,13 @@ public enum InstanceActionEnum {
         this.action = action;
         this.desc = desc;
     }
+
+    public static InstanceActionEnum getActionEnum(String action) {
+        for (InstanceActionEnum actionEnum : InstanceActionEnum.values()) {
+            if (action.equals(actionEnum.getAction())) {
+                return actionEnum;
+            }
+        }
+        return null;
+    }
 }

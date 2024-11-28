@@ -56,7 +56,7 @@ public class OciController {
 
     @PostMapping(path = "/uploadCfg")
     public ResponseData<Void> uploadCfg(@Validated UploadCfgParams params,
-                                     BindingResult bindingResult) {
+                                        BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.uploadCfg(params);
         return ResponseData.successData("上传配置成功");
@@ -111,14 +111,14 @@ public class OciController {
 
     @PostMapping(path = "/createTaskPage")
     public ResponseData<Page<CreateTaskRsp>> createTaskPage(@Validated @RequestBody CreateTaskPageParams params,
-                                                      BindingResult bindingResult) {
+                                                            BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
-        return ResponseData.successData(ociService.createTaskPage(params),"获取开机任务列表成功");
+        return ResponseData.successData(ociService.createTaskPage(params), "获取开机任务列表成功");
     }
 
     @PostMapping(path = "/stopCreateBatch")
     public ResponseData<Void> stopCreateBatch(@Validated @RequestBody IdListParams params,
-                                           BindingResult bindingResult) {
+                                              BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.stopCreateBatch(params);
         return ResponseData.successData("停止开机任务成功");
@@ -126,9 +126,33 @@ public class OciController {
 
     @PostMapping(path = "/createInstanceBatch")
     public ResponseData<Void> createInstanceBatch(@Validated @RequestBody CreateInstanceBatchParams params,
-                                           BindingResult bindingResult) {
+                                                  BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.createInstanceBatch(params);
         return ResponseData.successData("批量创建开机任务成功");
+    }
+
+    @PostMapping(path = "/updateInstanceState")
+    public ResponseData<Void> updateInstanceState(@Validated @RequestBody UpdateInstanceStateParams params,
+                                                  BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.updateInstanceState(params);
+        return ResponseData.successData("更新实例状态成功");
+    }
+
+    @PostMapping(path = "/sendCaptcha")
+    public ResponseData<Void> sendCaptcha(@Validated @RequestBody SendCaptchaParams params,
+                                          BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.sendCaptcha(params);
+        return ResponseData.successData("验证码已发送，请查看TG或钉钉消息");
+    }
+
+    @PostMapping(path = "/terminateInstance")
+    public ResponseData<Void> terminateInstance(@Validated @RequestBody TerminateInstanceParams params,
+                                                BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.terminateInstance(params);
+        return ResponseData.successData("终止实例命令已下发");
     }
 }

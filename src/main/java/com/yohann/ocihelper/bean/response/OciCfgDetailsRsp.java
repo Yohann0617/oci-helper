@@ -41,6 +41,7 @@ public class OciCfgDetailsRsp {
         private String memory;
         private String bootVolumeSize;
         private String createTime;
+        private String state;
     }
 
 }

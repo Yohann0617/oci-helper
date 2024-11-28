@@ -238,7 +238,7 @@ public class OracleInstanceFetcher implements Closeable {
         ListInstancesResponse response = computeClient.listInstances(request);
         List<Instance> instanceList = response.getItems();
         return CollectionUtil.isEmpty(instanceList) ? Collections.emptyList() : instanceList.parallelStream()
-                .filter(x -> x.getLifecycleState().getValue().equals(InstanceStateEnum.LIFECYCLE_STATE_RUNNING.getState()))
+                .filter(x -> !x.getLifecycleState().getValue().equals(InstanceStateEnum.LIFECYCLE_STATE_TERMINATED.getState()))
                 .collect(Collectors.toList());
     }
 
@@ -1009,7 +1009,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .build();
     }
 
-    public static String findRootCompartment(IdentityClient identityClient, String tenantId) {
+    private String findRootCompartment(IdentityClient identityClient, String tenantId) {
         // 使用`compartmentIdInSubtree`参数来获取所有子区间
         ListCompartmentsRequest request = ListCompartmentsRequest.builder()
                 .compartmentId(tenantId)
@@ -1138,10 +1138,10 @@ public class OracleInstanceFetcher implements Closeable {
                         .instanceConfigurationId(instance.getInstanceConfigurationId())
                         .build();
                 List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                        .availabilityDomain(availabilityDomain.getName())
-                        .compartmentId(compartmentId)
-                        .instanceId(instance.getId())
-                        .build()).getItems()
+                                .availabilityDomain(availabilityDomain.getName())
+                                .compartmentId(compartmentId)
+                                .instanceId(instance.getId())
+                                .build()).getItems()
                         .stream().map(BootVolumeAttachment::getBootVolumeId)
                         .filter(Objects::nonNull)
                         .collect(Collectors.toList());
@@ -1161,7 +1161,6 @@ public class OracleInstanceFetcher implements Closeable {
                     instance.getDisplayName());
         }
 
-
         // 打印引导卷大小（以 GB 为单位）
         return OciCfgDetailsRsp.InstanceInfo.builder()
                 .ocId(instanceId)
@@ -1176,10 +1175,15 @@ public class OracleInstanceFetcher implements Closeable {
                 .memory(String.valueOf(instance.getShapeConfig().getMemoryInGBs()))
                 .bootVolumeSize(bootVolumeSize)
                 .createTime(CommonUtils.dateFmt2String(instance.getTimeCreated()))
+                .state(instance.getLifecycleState().getValue())
                 .build();
     }
 
     public String updateInstanceState(String instanceId, InstanceActionEnum action) {
+        if (action == null) {
+            throw new OciException(-1, "实例操作不存在");
+        }
+
         InstanceActionRequest request = InstanceActionRequest.builder()
                 .instanceId(instanceId)
                 .action(action.getAction()) // "START" or "STOP"

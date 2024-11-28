@@ -39,8 +39,49 @@ public class CommonUtils {
     public static final String CHANGE_IP_TASK_PREFIX = "CREATE_TASK_PREFIX_";
     public static final String CREATE_COUNTS_PREFIX = "CREATE_COUNTS_PREFIX_";
     public static final String CHANGE_IP_ERROR_COUNTS_PREFIX = "CHANGE_IP_ERROR_COUNTS_PREFIX_";
+    public static final String TERMINATE_INSTANCE_PREFIX = "TERMINATE_INSTANCE_PREFIX_";
     public static final String LOG_FILE_PATH = "/var/log/oci-helper.log";
+    private static final String CIDR_REGEX =
+            "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$";
+    private static final Pattern CIDR_PATTERN = Pattern.compile(CIDR_REGEX);
     public static final DateTimeFormatter DATETIME_FMT_PURE = DateTimeFormatter.ofPattern(DatePattern.PURE_DATETIME_PATTERN);
+
+    public static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
+            "【开机任务】 用户：[%s] 开始执行开机任务\n\n" +
+                    "时间： %s\n" +
+                    "Region： %s\n" +
+                    "CPU类型： %s\n" +
+                    "CPU： %s\n" +
+                    "内存（GB）： %s\n" +
+                    "磁盘大小（GB）： %s\n" +
+                    "数量： %s\n" +
+                    "root密码： %s";
+    public static final String BEGIN_CHANGE_IP_MESSAGE_TEMPLATE =
+            "【更换IP任务】 用户：[%s] 开始执行更换公网IP任务\n\n" +
+                    "时间： %s\n" +
+                    "区域： %s\n" +
+                    "实例： %s\n" +
+                    "当前公网IP： %s";
+    public static final String CHANGE_IP_MESSAGE_TEMPLATE =
+            "【更换IP任务】 🎉 用户：[%s] 更换公共IP成功 🎉\n\n" +
+                    "时间： %s\n" +
+                    "区域： %s\n" +
+                    "实例： %s\n" +
+                    "新的公网IP： %s";
+    public static final String TERMINATE_INSTANCE_MESSAGE_TEMPLATE =
+            "【终止实例任务】 用户：[%s] 正在执行终止实例任务 \n\n" +
+                    "时间： %s\n" +
+                    "区域： %s\n" +
+                    "请耐心等待，稍后自行刷新详情查看";
+
+    public static final String TERMINATE_INSTANCE_CODE_MESSAGE_TEMPLATE =
+            "【验证码】 用户：[%s] 正在执行终止实例任务 \n\n" +
+                    "时间： %s\n" +
+                    "区域： %s\n" +
+                    "实例： %s\n" +
+                    "Shape： %s\n" +
+                    "验证码： %s\n" +
+                    "⭐注意：终止实例后，数据无法恢复，请谨慎操作！！！";
 
     public static List<OciUser> parseConfigContent(String configContent) throws IOException {
         // 检查并移除 UTF-8 BOM
@@ -155,11 +196,6 @@ public class CommonUtils {
         SimpleDateFormat formatter = new SimpleDateFormat(DatePattern.NORM_DATETIME_PATTERN);
         return formatter.format(date);
     }
-
-    private static final String CIDR_REGEX =
-            "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$";
-
-    private static final Pattern CIDR_PATTERN = Pattern.compile(CIDR_REGEX);
 
     /**
      * 校验输入的 CIDR 字符串是否为合法网段
@@ -311,7 +347,7 @@ public class CommonUtils {
                 "        sed -i 's/^#\\?PrintLastLog.*/PrintLastLog yes/' /etc/ssh/sshd_config\n" +
                 "      else\n" +
                 "        echo \"PrintLastLog yes\" >> /etc/ssh/sshd_config\n" +
-                "      fi\n\n"+
+                "      fi\n\n" +
                 "      # Restart SSH service\n" +
                 "      if command -v systemctl >/dev/null 2>&1; then\n" +
                 "        systemctl restart sshd\n" +
@@ -321,7 +357,7 @@ public class CommonUtils {
                 "      \n" +
                 "      # Set up warning message\n" +
                 "      {\n" +
-                "        echo \"🎉 欢迎使用Y探长 🎉\"\n" +
+                "        echo \"🎉 欢迎使用Y探长~ 🎉\"\n" +
                 "        echo \"Source code address: https://github.com/Yohann0617/oci-helper\"\n" +
                 "      } | tee /etc/motd\n" +
                 "      \n" +
@@ -344,7 +380,4 @@ public class CommonUtils {
                 "  - rm /tmp/setup_root_access.sh\n";
     }
 
-    public static void main(String[] args) {
-        System.out.println(getPwdShell("123"));
-    }
 }
