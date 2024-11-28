@@ -79,6 +79,8 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
         }
         isSenderRunning = true;
 
+        log.info("-------------- 开始推送服务日志 --------------");
+
         pushThreadExecutor.submit(() -> {
             try {
                 while (!close) {
