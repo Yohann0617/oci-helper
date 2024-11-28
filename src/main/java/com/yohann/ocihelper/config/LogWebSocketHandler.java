@@ -50,6 +50,8 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
             }
         }
         currentSession = session;
+
+        log.info("-------------- 开始推送服务日志 --------------");
         startMessageSender();
     }
 
@@ -78,8 +80,6 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
             return;
         }
         isSenderRunning = true;
-
-        log.info("-------------- 开始推送服务日志 --------------");
 
         pushThreadExecutor.submit(() -> {
             try {
