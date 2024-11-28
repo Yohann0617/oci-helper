@@ -389,7 +389,7 @@ public class OciServiceImpl implements IOciService {
         SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
         CompletableFuture.runAsync(() -> {
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-                fetcher.terminateInstance(params.getInstanceId(), params.getPreserveBootVolume().equals(1), false);
+                fetcher.terminateInstance(params.getInstanceId(), params.getPreserveBootVolume().equals(1), params.getPreserveBootVolume().equals(1));
                 String message = String.format(CommonUtils.TERMINATE_INSTANCE_MESSAGE_TEMPLATE,
                         sysUserDTO.getUsername(),
                         LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
