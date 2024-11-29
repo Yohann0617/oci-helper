@@ -49,6 +49,11 @@ public class OciTask implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         TEMP_MAP.put("password", password);
+        cleanLogTask();
+        cleanAndRestartTask();
+    }
+
+    private void cleanLogTask() {
         addAtFixedRateTask(account, () -> {
             try (FileWriter fw = new FileWriter(CommonUtils.LOG_FILE_PATH, false)) {
                 fw.write("");
@@ -57,7 +62,9 @@ public class OciTask implements ApplicationRunner {
                 log.error("【日志清理任务】清理日志文件时出错：{}", e.getMessage());
             }
         }, 4, 4, TimeUnit.HOURS);
+    }
 
+    private void cleanAndRestartTask() {
         Optional.ofNullable(createTaskService.list())
                 .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
                 .forEach(task -> {
@@ -90,5 +97,4 @@ public class OciTask implements ApplicationRunner {
                     }
                 });
     }
-
 }
