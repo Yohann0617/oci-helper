@@ -12,6 +12,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.Deque;
 import java.util.concurrent.*;
 
 /**
@@ -28,16 +29,10 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
     private final BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
     private final ExecutorService logThreadExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService pushThreadExecutor = Executors.newSingleThreadExecutor();
+    private final Deque<String> recentLogs = new ConcurrentLinkedDeque<>();
+    private static final int MAX_RECENT_LOGS = 20;
     private volatile boolean close = false;
     private volatile boolean isSenderRunning = false;
-
-    public LogWebSocketHandler() {
-        try {
-            startLogTailer(CommonUtils.LOG_FILE_PATH);
-        } catch (Exception e) {
-            log.error("启动日志监听服务失败：{}", e.getLocalizedMessage());
-        }
-    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -51,8 +46,30 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
         }
         currentSession = session;
 
-        log.info("-------------- 开始推送服务日志 --------------");
+        try {
+            startLogTailer(CommonUtils.LOG_FILE_PATH);
+        } catch (Exception e) {
+            log.error("启动日志监听服务失败：{}", e.getLocalizedMessage());
+        }
+
+        sendRecentLogs();
         startMessageSender();
+    }
+
+    private void sendRecentLogs() {
+        if (currentSession == null || !currentSession.isOpen()) {
+            return;
+        }
+
+        synchronized (LogWebSocketHandler.class) {
+            recentLogs.forEach(recentLog -> {
+                try {
+                    currentSession.sendMessage(new TextMessage(recentLog));
+                } catch (IOException e) {
+                    log.error("Error while sending recent log: {}", e.getLocalizedMessage());
+                }
+            });
+        }
     }
 
     private void startLogTailer(String filePath) {
@@ -65,14 +82,20 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
         logThreadExecutor.submit(() -> new Tailer(logFile, Charset.defaultCharset(), line -> {
             try {
                 if (!close) {
-                    messageQueue.put(line); // 将日志行加入队列
+                    messageQueue.put(line);
+
+                    synchronized (recentLogs) {
+                        if (recentLogs.size() >= MAX_RECENT_LOGS) {
+                            recentLogs.pollFirst();
+                        }
+                        recentLogs.addLast(line);
+                    }
                 }
             } catch (Exception e) {
                 Thread.currentThread().interrupt();
                 log.error("Failed to enqueue log line: {}", e.getLocalizedMessage());
             }
-        }, 10, 1000).start());
-        // 每 1 秒检查一次
+        }, MAX_RECENT_LOGS, 1000).start());
     }
 
     private void startMessageSender() {
