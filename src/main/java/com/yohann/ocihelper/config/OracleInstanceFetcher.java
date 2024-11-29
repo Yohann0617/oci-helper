@@ -199,8 +199,10 @@ public class OracleInstanceFetcher implements Closeable {
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                             return instanceDetailDTO;
                         } else if (error.getStatusCode() == 429 || error.getMessage().contains(ErrorEnum.TOO_MANY_REQUESTS.getErrorType())) {
+                            instanceDetailDTO.setTooManyReq(true);
                             log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机请求频繁，[{}]秒后将重试......",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
+                            return instanceDetailDTO;
                         } else {
 //                            instanceDetailDTO.setOut(true);
                             log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",

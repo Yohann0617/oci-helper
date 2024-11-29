@@ -22,6 +22,7 @@ public class InstanceDetailDTO {
     private String taskId;
     private boolean isSuccess = false;
     private boolean isOut = false;
+    private boolean isTooManyReq = false;
     private String publicIp;
     private String image;
     private String shape;

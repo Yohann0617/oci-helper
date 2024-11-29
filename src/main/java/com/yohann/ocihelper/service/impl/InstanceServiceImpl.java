@@ -84,8 +84,15 @@ public class InstanceServiceImpl implements IInstanceService {
                 fetcher.getUser().getArchitecture(), fetcher.getUser().getCreateNumbers(), currentCount);
 
         List<InstanceDetailDTO> instanceList = new ArrayList<>();
-        IntStream.range(0, fetcher.getUser().getCreateNumbers()).forEach(i -> {
+        for (int i = 0; i < fetcher.getUser().getCreateNumbers(); i++) {
             InstanceDetailDTO instanceDetail = fetcher.createInstanceData();
+            if (instanceDetail.isTooManyReq()) {
+                log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] ，执行第 [{}] 次创建实例操作时创建第 [{}] 台时请求频繁，本次任务暂停",
+                        fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(),
+                        fetcher.getUser().getArchitecture(), fetcher.getUser().getCreateNumbers(), currentCount, i + 1
+                );
+                break;
+            }
             instanceList.add(instanceDetail);
 
             if (instanceDetail.isSuccess()) {
@@ -112,7 +119,7 @@ public class InstanceServiceImpl implements IInstanceService {
                             instanceDetail.getShape(), instanceDetail.getPublicIp());
                 }
             }
-        });
+        }
 
         return new CreateInstanceDTO(instanceList);
     }

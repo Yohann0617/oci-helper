@@ -43,9 +43,12 @@ public class OciTask implements ApplicationRunner {
 
     @Value("${web.account}")
     private String account;
+    @Value("${web.password}")
+    private String password;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
+        TEMP_MAP.put("password", password);
         addAtFixedRateTask(account, () -> {
             try (FileWriter fw = new FileWriter(CommonUtils.LOG_FILE_PATH, false)) {
                 fw.write("");

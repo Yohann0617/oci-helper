@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.config;
 
 import cn.hutool.core.io.file.Tailer;
+import cn.hutool.jwt.JWTUtil;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,8 @@ import java.nio.charset.Charset;
 import java.util.Deque;
 import java.util.concurrent.*;
 
+import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
+
 /**
  * @projectName: oci-helper
  * @package: com.yohann.ocihelper.utils
@@ -27,15 +30,34 @@ import java.util.concurrent.*;
 public class LogWebSocketHandler extends TextWebSocketHandler {
     private static WebSocketSession currentSession;
     private final BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
-    private final ExecutorService logThreadExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService pushThreadExecutor = Executors.newSingleThreadExecutor();
     private final Deque<String> recentLogs = new ConcurrentLinkedDeque<>();
     private static final int MAX_RECENT_LOGS = 20;
+    Tailer tailer;
+    Future<?> logPushTask;
     private volatile boolean close = false;
     private volatile boolean isSenderRunning = false;
 
+    private String getTokenFromSession(WebSocketSession session) {
+        // 解析 URI 中的 token 参数
+        String query = session.getUri().getQuery();
+        if (query != null && query.contains("token=")) {
+            return query.replaceAll(".*token=([^&]*).*", "$1");
+        }
+        return null;
+    }
+
+    private boolean validateToken(String token) {
+        return !CommonUtils.isTokenExpired(token) && JWTUtil.verify(token, ((String) TEMP_MAP.get("password")).getBytes());
+    }
+
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
+        String token = getTokenFromSession(session);
+        if (token == null || !validateToken(token)) {
+            return;
+        }
+
         close = false;
         if (currentSession != null && currentSession.isOpen()) {
             try {
@@ -57,7 +79,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendRecentLogs() {
-        if (currentSession == null || !currentSession.isOpen()) {
+        if (currentSession == null || !currentSession.isOpen() || !close) {
             return;
         }
 
@@ -79,7 +101,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        logThreadExecutor.submit(() -> new Tailer(logFile, Charset.defaultCharset(), line -> {
+        tailer = new Tailer(logFile, Charset.defaultCharset(), line -> {
             try {
                 if (!close) {
                     messageQueue.put(line);
@@ -95,7 +117,8 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
                 Thread.currentThread().interrupt();
                 log.error("Failed to enqueue log line: {}", e.getLocalizedMessage());
             }
-        }, MAX_RECENT_LOGS, 1000).start());
+        }, MAX_RECENT_LOGS, 1000);
+        tailer.start(true);
     }
 
     private void startMessageSender() {
@@ -104,7 +127,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
         }
         isSenderRunning = true;
 
-        pushThreadExecutor.submit(() -> {
+        logPushTask = pushThreadExecutor.submit(() -> {
             try {
                 while (!close) {
                     String message = messageQueue.take();
@@ -125,6 +148,12 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         try {
+            tailer.stop();
+            recentLogs.poll();
+            messageQueue.poll();
+            if (logPushTask != null) {
+                logPushTask.cancel(false);
+            }
             if (session == currentSession) {
                 currentSession.close();
                 currentSession = null;
@@ -132,7 +161,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
                 session.close();
             }
             close = true;
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("WebSocket session closed: {}", session.getId());
         }
     }
