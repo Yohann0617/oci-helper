@@ -26,6 +26,9 @@ spring:
     druid:
       pool-prepared-statements: false
       max-pool-prepared-statement-per-connection-size: -1
+  sql:
+    init:
+      mode: always
 
 mybatis-plus:
   mapper-locations: classpath*:com/yohann/ocihelper/mapper/xml/*.xml

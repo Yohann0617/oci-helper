@@ -12,7 +12,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import javax.annotation.Resource;
 import java.io.File;
 import java.nio.charset.Charset;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -55,19 +57,23 @@ class OciHelperApplicationTests {
 
         String readJsonStr = FileUtil.readUtf8String(dateFilePath);
         Map<String, List> map = JSONUtil.toBean(readJsonStr, Map.class);
-        System.out.println(map);
 
         impls.forEach(x -> {
             List list = map.get(x);
-            list.forEach(obj -> {
-                try {
-                    BeanUtil.setFieldValue(obj, "createTime", LocalDateTime.now()); // 设置为 null 或移除
-                } catch (Exception ignored) {
-                }
-            });
-
-            System.out.println(list);
-            serviceMap.get(x).saveBatch(list);
+            if (null != list) {
+                list.forEach(obj -> {
+                    try {
+                        String time = String.valueOf(BeanUtil.getFieldValue(obj, "createTime"));
+                        Long timestamp = Long.valueOf(time);
+                        LocalDateTime localDateTime = Instant.ofEpochMilli(timestamp)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDateTime();
+                        BeanUtil.setFieldValue(obj, "createTime", localDateTime); // 设置为 null 或移除
+                    } catch (Exception ignored) {
+                    }
+                });
+                serviceMap.get(x).saveBatch(list);
+            }
         });
     }
 
