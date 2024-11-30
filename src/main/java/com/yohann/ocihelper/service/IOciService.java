@@ -2,9 +2,10 @@ package com.yohann.ocihelper.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.params.*;
-import com.yohann.ocihelper.bean.response.CreateTaskRsp;
-import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
-import com.yohann.ocihelper.bean.response.OciUserListRsp;
+import com.yohann.ocihelper.bean.params.oci.*;
+import com.yohann.ocihelper.bean.response.oci.CreateTaskRsp;
+import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
+import com.yohann.ocihelper.bean.response.oci.OciUserListRsp;
 
 /**
  * <p>
@@ -15,8 +16,6 @@ import com.yohann.ocihelper.bean.response.OciUserListRsp;
  * @since 2024/11/12 11:15
  */
 public interface IOciService {
-
-    String login(LoginParams params);
 
     Page<OciUserListRsp> userPage(GetOciUserListParams params);
 

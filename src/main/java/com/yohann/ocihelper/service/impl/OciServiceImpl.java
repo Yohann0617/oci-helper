@@ -17,21 +17,17 @@ import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.params.*;
-import com.yohann.ocihelper.bean.response.CreateTaskRsp;
-import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
-import com.yohann.ocihelper.bean.response.OciUserListRsp;
+import com.yohann.ocihelper.bean.params.oci.*;
+import com.yohann.ocihelper.bean.response.oci.CreateTaskRsp;
+import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
+import com.yohann.ocihelper.bean.response.oci.OciUserListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.InstanceActionEnum;
-import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.enums.OciCfgEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.mapper.OciCreateTaskMapper;
-import com.yohann.ocihelper.service.IInstanceService;
-import com.yohann.ocihelper.service.IOciCreateTaskService;
-import com.yohann.ocihelper.service.IOciService;
-import com.yohann.ocihelper.service.IOciUserService;
+import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
-import com.yohann.ocihelper.utils.MessageServiceFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +36,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 
 import com.yohann.ocihelper.mapper.OciUserMapper;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
@@ -69,16 +66,12 @@ public class OciServiceImpl implements IOciService {
     @Resource
     private IOciCreateTaskService createTaskService;
     @Resource
-    private MessageServiceFactory messageServiceFactory;
+    private ISysService sysService;
     @Resource
     private OciUserMapper userMapper;
     @Resource
     private OciCreateTaskMapper createTaskMapper;
 
-    @Value("${web.account}")
-    private String account;
-    @Value("${web.password}")
-    private String password;
     @Value("${oci-cfg.key-dir-path}")
     private String keyDirPath;
 
@@ -89,16 +82,6 @@ public class OciServiceImpl implements IOciService {
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
 
     @Override
-    public String login(LoginParams params) {
-        if (!params.getAccount().equals(account) || !params.getPassword().equals(password)) {
-            throw new OciException(-1, "账号或密码不正确");
-        }
-        Map<String, Object> payload = new HashMap<>(1);
-        payload.put("account", CommonUtils.getMD5(account));
-        return CommonUtils.genToken(payload, password);
-    }
-
-    @Override
     public Page<OciUserListRsp> userPage(GetOciUserListParams params) {
         long offset = (params.getCurrentPage() - 1) * params.getPageSize();
         List<OciUserListRsp> list = userMapper.userPage(offset, params.getPageSize(), params.getKeyword(), params.getIsEnableCreate());
@@ -107,6 +90,7 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void addCfg(AddCfgParams params) {
         List<OciUser> ociUserList = userService.list(new LambdaQueryWrapper<OciUser>().eq(OciUser::getUsername, params.getUsername()));
         if (ociUserList.size() != 0) {
@@ -142,6 +126,7 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void removeCfg(IdListParams params) {
         params.getIdList().forEach(id -> {
             if (createTaskService.count(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getUserId, id)) > 0) {
@@ -152,6 +137,7 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void createInstance(CreateInstanceParams params) {
         String taskId = IdUtil.randomUUID();
         OciUser ociUser = userService.getById(params.getUserId());
@@ -201,8 +187,8 @@ public class OciServiceImpl implements IOciService {
                 Long.valueOf(params.getDisk()),
                 params.getCreateNumbers(),
                 params.getRootPassword());
-        messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(beginCreateMsg);
-        messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(beginCreateMsg);
+
+        sysService.sendMessage(beginCreateMsg);
     }
 
     @Override
@@ -252,15 +238,7 @@ public class OciServiceImpl implements IOciService {
                     sysUserDTO.getUsername(),
                     sysUserDTO.getOciCfg().getRegion(),
                     instance.getDisplayName(), currentIp);
-            messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
-            try {
-                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-            } catch (Exception e) {
-                log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] 开始执行更换IP任务，但是TG消息发送失败",
-                        sysUserDTO.getUsername(),
-                        sysUserDTO.getOciCfg().getRegion(),
-                        instance.getDisplayName());
-            }
+            sysService.sendMessage(message);
         } catch (Exception e) {
             throw new OciException(-1, "获取实例信息失败");
         }
@@ -274,6 +252,7 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void stopCreate(StopCreateParams params) {
         List<String> taskIds = createTaskService.listObjs(new LambdaQueryWrapper<OciCreateTask>()
                 .eq(OciCreateTask::getUserId, params.getUserId())
@@ -304,6 +283,7 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void stopCreateBatch(IdListParams params) {
         createTaskService.removeBatchByIds(params.getIdList());
         params.getIdList().parallelStream().forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
@@ -311,6 +291,7 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void createInstanceBatch(CreateInstanceBatchParams params) {
         params.getUserIds().stream().map(userId -> {
             CreateInstanceParams instanceParams = new CreateInstanceParams();
@@ -321,6 +302,7 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void uploadCfg(UploadCfgParams params) {
         params.getFileList().forEach(x -> {
             if (!x.getOriginalFilename().contains(".ini") && !x.getOriginalFilename().contains(".txt")) {
@@ -394,14 +376,7 @@ public class OciServiceImpl implements IOciService {
                         sysUserDTO.getUsername(),
                         LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                         sysUserDTO.getOciCfg().getRegion());
-                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
-                try {
-                    messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-                } catch (Exception e) {
-                    log.error("【终止实例】用户：[{}] ，区域：[{}] 正在执行终止实例任务，但是TG消息发送失败",
-                            sysUserDTO.getUsername(),
-                            sysUserDTO.getOciCfg().getRegion());
-                }
+                sysService.sendMessage(message);
             } catch (Exception e) {
                 log.error("用户：[{}] ，区域：[{}] 终止实例失败，错误详情：[{}]",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), e.getLocalizedMessage());
@@ -424,14 +399,7 @@ public class OciServiceImpl implements IOciService {
                     sysUserDTO.getOciCfg().getRegion(),
                     instanceInfo.getName(), instanceInfo.getShape(),
                     verificationCode);
-            messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
-            try {
-                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-            } catch (Exception e) {
-                log.error("【终止实例】用户：[{}] ，区域：[{}] 正在执行终止实例前发送验证码任务，但是TG消息发送失败",
-                        sysUserDTO.getUsername(),
-                        sysUserDTO.getOciCfg().getRegion());
-            }
+            sysService.sendMessage(message);
         } catch (Exception e) {
             throw new OciException(-1, "发送验证码失败");
         }
@@ -577,13 +545,6 @@ public class OciServiceImpl implements IOciService {
                 username,
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                 region, instanceName, publicIp);
-        messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
-        try {
-            messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-        } catch (Exception e) {
-            log.error("【开机任务】用户：[{}] ，区域：[{}] ，实例：[{}] 更换公共IP成功，新的实例IP：{} ，但是TG消息发送失败",
-                    username, region,
-                    instanceName, publicIp);
-        }
+        sysService.sendMessage(message);
     }
 }

@@ -2,7 +2,7 @@ package com.yohann.ocihelper.mapper;
 
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.yohann.ocihelper.bean.response.CreateTaskRsp;
+import com.yohann.ocihelper.bean.response.oci.CreateTaskRsp;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;

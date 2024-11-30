@@ -42,4 +42,5 @@ create table if not exists `oci_kv`
     primary key ("id")
 );
 CREATE INDEX if not exists oci_kv_code ON oci_kv (code DESC);
+CREATE INDEX if not exists oci_kv_type ON oci_kv (type DESC);
 CREATE INDEX if not exists oci_kv_create_time ON oci_kv (create_time DESC);

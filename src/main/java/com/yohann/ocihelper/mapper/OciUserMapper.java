@@ -2,7 +2,7 @@ package com.yohann.ocihelper.mapper;
 
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.yohann.ocihelper.bean.response.OciUserListRsp;
+import com.yohann.ocihelper.bean.response.oci.OciUserListRsp;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;

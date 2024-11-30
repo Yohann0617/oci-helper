@@ -9,11 +9,10 @@ import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
-import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IInstanceService;
+import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.utils.CommonUtils;
-import com.yohann.ocihelper.utils.MessageServiceFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +22,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
 
@@ -40,7 +38,7 @@ import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
 public class InstanceServiceImpl implements IInstanceService {
 
     @Resource
-    private MessageServiceFactory messageServiceFactory;
+    private ISysService sysService;
 
     private static final String LEGACY_MESSAGE_TEMPLATE =
             "【开机任务】 🎉 用户：[%s] 开机成功 🎉\n\n" +
@@ -110,14 +108,8 @@ public class InstanceServiceImpl implements IInstanceService {
                         instanceDetail.getShape(),
                         instanceDetail.getPublicIp(),
                         instanceDetail.getRootPassword());
-                messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
-                try {
-                    messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
-                } catch (Exception e) {
-                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机成功，实例IP：{} ，但是TG消息发送失败",
-                            instanceDetail.getUsername(), instanceDetail.getRegion(),
-                            instanceDetail.getShape(), instanceDetail.getPublicIp());
-                }
+
+                sysService.sendMessage(message);
             }
         }
 

@@ -21,7 +21,7 @@ import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
-import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
+import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
 import com.yohann.ocihelper.enums.*;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;

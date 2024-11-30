@@ -35,7 +35,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         String authorizationHeader = request.getHeader("Authorization");
-        if (request.getRequestURI().contains("/api") && !request.getRequestURI().equals("/api/oci/login")) {
+        if (request.getRequestURI().contains("/api") && !request.getRequestURI().equals("/api/sys/login")) {
             if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
                 String token = authorizationHeader.substring(7); // 去掉"Bearer "前缀
                 // 验证token（这里可以调用你的验证逻辑）

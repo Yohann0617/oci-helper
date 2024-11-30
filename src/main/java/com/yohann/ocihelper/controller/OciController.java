@@ -3,9 +3,10 @@ package com.yohann.ocihelper.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.*;
-import com.yohann.ocihelper.bean.response.CreateTaskRsp;
-import com.yohann.ocihelper.bean.response.OciCfgDetailsRsp;
-import com.yohann.ocihelper.bean.response.OciUserListRsp;
+import com.yohann.ocihelper.bean.params.oci.*;
+import com.yohann.ocihelper.bean.response.oci.CreateTaskRsp;
+import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
+import com.yohann.ocihelper.bean.response.oci.OciUserListRsp;
 import com.yohann.ocihelper.service.IOciService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import org.springframework.validation.BindingResult;
@@ -31,13 +32,6 @@ public class OciController {
 
     @Resource
     private IOciService ociService;
-
-    @PostMapping(path = "/login")
-    public ResponseData<String> addCfg(@Validated @RequestBody LoginParams params,
-                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
-        return ResponseData.successData(ociService.login(params), "登录成功");
-    }
 
     @PostMapping(path = "/userPage")
     public ResponseData<Page<OciUserListRsp>> userPage(@Validated @RequestBody GetOciUserListParams params,

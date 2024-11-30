@@ -1,13 +1,17 @@
 package com.yohann.ocihelper.service.impl;
 
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yohann.ocihelper.bean.entity.OciKv;
+import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.service.IMessageService;
+import com.yohann.ocihelper.service.IOciKvService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.OutputStream;
@@ -30,19 +34,21 @@ import java.util.Map;
 @Slf4j
 public class DingMessageServiceImpl implements IMessageService {
 
-    @Value("${ding-cfg.access-token}")
-    private String token;
-    @Value("${ding-cfg.secret}")
-    private String secret;
+    @Resource
+    private IOciKvService kvService;
 
     private static final String DING_URL = "https://oapi.dingtalk.com/robot/send?access_token=%s";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Override
     public void sendMessage(String message) {
-        if (StrUtil.isNotBlank(token) && StrUtil.isNotBlank(secret)) {
+        OciKv dingToken = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_DING_BOT_TOKEN.getCode()));
+        OciKv dingSecret = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_DING_BOT_SECRET.getCode()));
+
+        if (null != dingToken && StrUtil.isNotBlank(dingToken.getValue()) &&
+                null != dingSecret && StrUtil.isNotBlank(dingSecret.getValue())) {
             try {
-                sendDingTalkMessage(String.format(DING_URL, token), secret, message);
+                sendDingTalkMessage(String.format(DING_URL, dingToken.getValue()), dingSecret.getValue(), message);
             } catch (Exception e) {
                 log.info("Failed to send dingding message, error: {}", e.getLocalizedMessage());
             }
