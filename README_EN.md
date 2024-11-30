@@ -33,6 +33,10 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 This command can also be used to update the image and restart the container without deleting the existing configuration.
 
+### Update log
+
+> November 30, 2024 - A new table was added to the database. TG and DingTalk message notifications were changed to be configured on the web page. If you encounter a configuration exception, please delete the `application.yml` file, then re-execute the one-click command, modify the custom account password, and restart the container.
+
 ## Manual deployment
 
 ### 1. Create a new directory
