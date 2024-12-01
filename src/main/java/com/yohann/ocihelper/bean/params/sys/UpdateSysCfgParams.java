@@ -16,4 +16,5 @@ public class UpdateSysCfgParams {
     private String dingSecret;
     private String tgChatId;
     private String tgBotToken;
+    private boolean enableMfa;
 }

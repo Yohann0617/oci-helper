@@ -16,6 +16,7 @@ public enum SysCfgTypeEnum {
      * 配置类型
      */
     SYS_INIT_CFG("Y001","系统基本配置"),
+    SYS_MFA_CFG("Y002","系统MFA配置"),
 
     ;
 

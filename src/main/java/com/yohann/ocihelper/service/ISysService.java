@@ -13,4 +13,5 @@ public interface ISysService {
 
     GetSysCfgRsp getSysCfg();
 
+    boolean getEnableMfa();
 }

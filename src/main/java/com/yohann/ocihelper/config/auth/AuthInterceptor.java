@@ -10,6 +10,8 @@ import org.springframework.web.servlet.ModelAndView;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author: Yohann
@@ -20,6 +22,12 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Value("${web.password}")
     private String password;
+
+    List<String> noTokenList = Arrays.asList(
+            "/api/sys/login",
+            "/api/sys/getEnableMfa"
+    );
+
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -35,7 +43,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         String authorizationHeader = request.getHeader("Authorization");
-        if (request.getRequestURI().contains("/api") && !request.getRequestURI().equals("/api/sys/login")) {
+        if (request.getRequestURI().contains("/api") && !noTokenList.contains(request.getRequestURI())) {
             if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
                 String token = authorizationHeader.substring(7); // 去掉"Bearer "前缀
                 // 验证token（这里可以调用你的验证逻辑）

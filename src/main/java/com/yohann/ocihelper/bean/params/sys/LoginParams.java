@@ -19,4 +19,5 @@ public class LoginParams {
     private String account;
     @NotBlank(message = "密码不能为空")
     private String password;
+    private Integer mfaCode;
 }

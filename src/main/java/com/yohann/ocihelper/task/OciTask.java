@@ -1,10 +1,14 @@
 package com.yohann.ocihelper.task;
 
 import cn.hutool.core.collection.CollectionUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
+import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.service.IOciCreateTaskService;
+import com.yohann.ocihelper.service.IOciKvService;
 import com.yohann.ocihelper.service.IOciUserService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +43,8 @@ public class OciTask implements ApplicationRunner {
     @Resource
     private IOciUserService userService;
     @Resource
+    private IOciKvService kvService;
+    @Resource
     private IOciCreateTaskService createTaskService;
 
     @Value("${web.account}")
@@ -51,6 +57,7 @@ public class OciTask implements ApplicationRunner {
         TEMP_MAP.put("password", password);
         cleanLogTask();
         cleanAndRestartTask();
+        initGenMfaPng();
     }
 
     private void cleanLogTask() {
@@ -96,5 +103,13 @@ public class OciTask implements ApplicationRunner {
                                 0, task.getInterval(), TimeUnit.SECONDS);
                     }
                 });
+    }
+
+    private void initGenMfaPng() {
+        Optional.ofNullable(kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()))).ifPresent(mfa -> {
+            String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, account);
+            CommonUtils.genQRPic(CommonUtils.MFA_QR_PNG_PATH, qrCodeURL);
+        });
     }
 }

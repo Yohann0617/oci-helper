@@ -1,19 +1,24 @@
 package com.yohann.ocihelper.utils;
 
 import cn.hutool.core.date.DatePattern;
+import cn.hutool.core.img.ImgUtil;
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.net.Ipv4Util;
+import cn.hutool.extra.qrcode.QrCodeUtil;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.warrenstrange.googleauth.GoogleAuthenticator;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.exception.OciException;
 import org.springframework.validation.BindingResult;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.StringReader;
+import java.io.*;
 import java.net.InetAddress;
+import java.net.URLEncoder;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
@@ -41,6 +46,7 @@ public class CommonUtils {
     public static final String CHANGE_IP_ERROR_COUNTS_PREFIX = "CHANGE_IP_ERROR_COUNTS_PREFIX_";
     public static final String TERMINATE_INSTANCE_PREFIX = "TERMINATE_INSTANCE_PREFIX_";
     public static final String LOG_FILE_PATH = "/var/log/oci-helper.log";
+    public static final String MFA_QR_PNG_PATH = System.getProperty("user.dir") + "mfa.png";
     private static final String CIDR_REGEX =
             "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$";
     private static final Pattern CIDR_PATTERN = Pattern.compile(CIDR_REGEX);
@@ -82,6 +88,38 @@ public class CommonUtils {
                     "Shape： %s\n" +
                     "验证码： %s\n" +
                     "⭐注意：终止实例后，数据无法恢复，请谨慎操作！！！";
+
+    public static String generateSecretKey() {
+        GoogleAuthenticator gAuth = new GoogleAuthenticator();
+
+        GoogleAuthenticatorKey key = gAuth.createCredentials();
+        return key.getKey();
+    }
+
+    public static String generateQRCodeURL(String secretKey, String account, String issuer) {
+        String encodedIssuer;
+        String encodedAccount;
+        try {
+            encodedIssuer = URLEncoder.encode(issuer, StandardCharsets.UTF_8.displayName());
+            encodedAccount = URLEncoder.encode(account, StandardCharsets.UTF_8.displayName());
+        } catch (UnsupportedEncodingException e) {
+            throw new OciException(-1, "生成url失败");
+        }
+
+        return String.format("otpauth://totp/%s:%s?secret=%s&issuer=%s",
+                encodedIssuer, encodedAccount, secretKey, encodedIssuer);
+    }
+
+    public static String genQRPic(String pngPath, String qrCodeURL) {
+        File file = new File(pngPath);
+        QrCodeUtil.generate(qrCodeURL, 300, 300, ImgUtil.IMAGE_TYPE_PNG, FileUtil.getOutputStream(file));
+        return file.getAbsolutePath();
+    }
+
+    public static boolean verifyMfaCode(String secretKey, int userInputOtp) {
+        GoogleAuthenticator gAuth = new GoogleAuthenticator();
+        return gAuth.authorize(secretKey, userInputOtp);
+    }
 
     public static List<OciUser> parseConfigContent(String configContent) throws IOException {
         // 检查并移除 UTF-8 BOM

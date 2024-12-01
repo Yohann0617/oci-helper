@@ -23,6 +23,7 @@ public enum SysCfgEnum {
     SYS_TG_CHAT_ID("Y102", "telegram个人ID", SysCfgTypeEnum.SYS_INIT_CFG),
     SYS_DING_BOT_TOKEN("Y103", "钉钉机器人accessToken", SysCfgTypeEnum.SYS_INIT_CFG),
     SYS_DING_BOT_SECRET("Y104", "钉钉机器人secret", SysCfgTypeEnum.SYS_INIT_CFG),
+    SYS_MFA_SECRET("Y105", "谷歌MFA", SysCfgTypeEnum.SYS_MFA_CFG),
 
 
     ;

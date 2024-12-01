@@ -35,6 +35,11 @@ public class SysCfgController {
         return ResponseData.successData(sysService.login(params), "登录成功");
     }
 
+    @PostMapping(path = "/getEnableMfa")
+    public ResponseData<Boolean> getEnableMfa() {
+        return ResponseData.successData(sysService.getEnableMfa(), "获取系统是否启用MFA成功");
+    }
+
     @PostMapping(path = "/getSysCfg")
     public ResponseData<GetSysCfgRsp> getSysCfg() {
         return ResponseData.successData(sysService.getSysCfg(),"获取系统配置成功");
