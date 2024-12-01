@@ -108,7 +108,7 @@ public class OciTask implements ApplicationRunner {
     private void initGenMfaPng() {
         Optional.ofNullable(kvService.getOne(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()))).ifPresent(mfa -> {
-            String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, account);
+            String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, "oci-helper");
             CommonUtils.genQRPic(CommonUtils.MFA_QR_PNG_PATH, qrCodeURL);
         });
     }

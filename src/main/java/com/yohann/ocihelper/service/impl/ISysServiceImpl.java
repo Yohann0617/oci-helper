@@ -115,7 +115,7 @@ public class ISysServiceImpl implements ISysService {
                 mfa.setCode(SysCfgEnum.SYS_MFA_SECRET.getCode());
                 mfa.setValue(secretKey);
                 mfa.setType(SysCfgTypeEnum.SYS_MFA_CFG.getCode());
-                String qrCodeURL = CommonUtils.generateQRCodeURL(secretKey, account, account);
+                String qrCodeURL = CommonUtils.generateQRCodeURL(secretKey, account, "oci-helper");
                 CommonUtils.genQRPic(CommonUtils.MFA_QR_PNG_PATH, qrCodeURL);
                 kvService.save(mfa);
             }
