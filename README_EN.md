@@ -85,21 +85,13 @@ docker compose pull && docker compose up -d
 
 ## Page display
 
-![image.png](https://pic5.58cdn.com.cn/nowater/webim/big/n_v2c1f8e3c934c7493983f2d6e6a83d8378.png)
-
-![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v2a710d7c751374b21acae99435daba526.png)
-
-![image.png](https://pic6.58cdn.com.cn/nowater/webim/big/n_v27a9be3a128ef4b87a7cbe4b45c763f92.png)
-
-![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v293184a474a9846a984988c17c1d28793.png)
-
-![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v2a4c76efd15234f58a1e816e2d261ffdf.png)
-
-![image.png](https://pic3.58cdn.com.cn/nowater/webim/big/n_v24fdb3306c7c1454790e123bb6ea2f384.png)
-
-![image.png](https://pic8.58cdn.com.cn/nowater/webim/big/n_v293a82d0fbede4b8699a1d06f1e4e0f8d.png)
-
-![image.png](https://pic2.58cdn.com.cn/nowater/webim/big/n_v2520fa8e9b66a4cb192ce26a177dd0133.png)
+![image.png](./img/1-login.png)
+![image.png](./img/2-user.png)
+![image.png](./img/3-task.png)
+![image.png](./img/4-log.png)
+![image.png](./img/5-basic-cfg.png)
+![image.png](./img/6-backup.png)
+![image.png](./img/7-inform.png)
 
 ## Stargazers over time
 
