@@ -47,8 +47,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.yohann.ocihelper.service.impl.OciServiceImpl.addTask;
-import static com.yohann.ocihelper.service.impl.OciServiceImpl.execCreate;
+import static com.yohann.ocihelper.service.impl.OciServiceImpl.*;
 
 /**
  * @projectName: oci-helper
@@ -332,6 +331,7 @@ public class ISysServiceImpl implements ISysService {
                                 .operationSystem(task.getOperationSystem())
                                 .rootPassword(task.getRootPassword())
                                 .build();
+                        stopTask(CommonUtils.CREATE_TASK_PREFIX + task.getId());
                         addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
                                         execCreate(sysUserDTO, instanceService, createTaskService),
                                 0, task.getInterval(), TimeUnit.SECONDS);
