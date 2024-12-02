@@ -14,4 +14,8 @@ public interface ISysService {
     GetSysCfgRsp getSysCfg();
 
     boolean getEnableMfa();
+
+    void backup(BackupParams params);
+
+    void recover(RecoverParams params);
 }

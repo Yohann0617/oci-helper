@@ -60,4 +60,17 @@ public class SysCfgController {
         sysService.sendMessage(params.getMessage());
         return ResponseData.successData("发送消息成功");
     }
+
+    @PostMapping(path = "/backup")
+    public void backup(@Validated @RequestBody BackupParams params) {
+        sysService.backup(params);
+    }
+
+    @PostMapping(path = "/recover")
+    public ResponseData<Void> recover(@Validated RecoverParams params,
+                                      BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        sysService.recover(params);
+        return ResponseData.successData("恢复数据成功");
+    }
 }
