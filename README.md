@@ -86,11 +86,12 @@ docker compose pull && docker compose up -d
 
 ![image.png](./img/1-login.png)
 ![image.png](./img/2-user.png)
-![image.png](./img/3-task.png)
-![image.png](./img/4-log.png)
-![image.png](./img/5-basic-cfg.png)
-![image.png](./img/6-backup.png)
-![image.png](./img/7-inform.png)
+![image.png](./img/3-instance.png)
+![image.png](./img/4-task.png)
+![image.png](./img/5-log.png)
+![image.png](./img/6-basic-cfg.png)
+![image.png](./img/7-backup.png)
+![image.png](./img/8-inform.png)
 
 ## Stargazers over time
 
