@@ -12,6 +12,12 @@ import com.warrenstrange.googleauth.GoogleAuthenticator;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.exception.OciException;
+import lombok.extern.slf4j.Slf4j;
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.model.enums.CompressionLevel;
+import net.lingala.zip4j.model.enums.EncryptionMethod;
 import org.springframework.validation.BindingResult;
 
 import java.io.*;
@@ -19,6 +25,7 @@ import java.net.InetAddress;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
@@ -38,6 +45,7 @@ import java.util.regex.Pattern;
  * @author yuhui.fan
  * @since 2024/11/7 18:54
  */
+@Slf4j
 public class CommonUtils {
 
     public static final String CREATE_TASK_PREFIX = "CREATE_TASK_PREFIX_";
@@ -88,6 +96,73 @@ public class CommonUtils {
                     "Shape： %s\n" +
                     "验证码： %s\n" +
                     "⭐注意：终止实例后，数据无法恢复，请谨慎操作！！！";
+
+    public static ZipFile zipFile(boolean enableEnc, String sourceFolderPath, String password, String zipFilePath) {
+        ZipFile zipFile;
+        try {
+            zipFile = new ZipFile(zipFilePath, password.toCharArray());
+
+            ZipParameters parameters = new ZipParameters();
+            parameters.setCompressionLevel(CompressionLevel.NORMAL);
+            parameters.setEncryptFiles(enableEnc);
+            parameters.setEncryptionMethod(enableEnc ? EncryptionMethod.ZIP_STANDARD : EncryptionMethod.NONE);
+
+            File sourceFolder = FileUtil.file(sourceFolderPath);
+            if (sourceFolder.isDirectory()) {
+                zipFile.addFolder(sourceFolder, parameters);
+            } else {
+                zipFile.addFile(sourceFolder, parameters);
+            }
+
+            return zipFile;
+        } catch (Exception e) {
+            log.error("压缩文件失败：{}", e.getLocalizedMessage());
+            throw new OciException(-1, "压缩文件失败");
+        }
+    }
+
+    public static void unzipFile(String outFolderPath, String password, String zipFilePath) {
+        try {
+            // 创建 ZipFile 实例并传入密码
+            ZipFile zipFile = new ZipFile(zipFilePath, password.toCharArray());
+
+            // 检查是否加密
+            if (zipFile.isEncrypted()) {
+                log.info("备份 ZIP 文件已加密，正在解密...");
+            }
+
+            // 解压所有文件到目标目录
+            File outputDir = new File(outFolderPath);
+            if (!outputDir.exists()) {
+                outputDir.mkdirs();
+            }
+            zipFile.extractAll(outputDir.getAbsolutePath());
+
+            // 递归读取文件内容
+//            readFilesRecursively(outputDir);
+        } catch (ZipException e) {
+            log.error("解密备份 ZIP 文件失败：{}", e.getMessage());
+            throw new OciException(-1, "解密 ZIP 文件失败");
+        }
+    }
+
+    private static void readFilesRecursively(File file) {
+        if (file.isDirectory()) {
+            // 如果是目录，递归处理子文件或子目录
+            for (File subFile : file.listFiles()) {
+                readFilesRecursively(subFile);
+            }
+        } else {
+            // 如果是文件，读取文件内容
+            try {
+                log.info("读取文件: " + file.getAbsolutePath());
+                String content = new String(Files.readAllBytes(file.toPath()));
+                log.info("文件内容: " + content);
+            } catch (IOException e) {
+                log.info("读取文件失败：" + file.getAbsolutePath() + "，错误：" + e.getMessage());
+            }
+        }
+    }
 
     public static String generateSecretKey() {
         GoogleAuthenticator gAuth = new GoogleAuthenticator();

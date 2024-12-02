@@ -2,6 +2,7 @@ package com.yohann.ocihelper.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yohann.ocihelper.bean.entity.OciKv;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * @author Administrator
@@ -11,6 +12,7 @@ import com.yohann.ocihelper.bean.entity.OciKv;
  */
 public interface OciKvMapper extends BaseMapper<OciKv> {
 
+    void  removeAllData(@Param("tableName") String table);
 }
 
 
