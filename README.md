@@ -2,16 +2,16 @@
 
 # oci-helper
 
-> 一个基于 Oracle OCI SDK 开发的WEB端可视化甲骨文云助手，目前实现的功能有：支持批量添加多个租户配置、查询租户实例信息、根据多个CIDR网段更换实例公共IP、多租户同时抢机、断点续抢等功能。
+> 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手，目前实现的功能有：批量添加多个租户配置、查询或操作租户实例、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、断点续抢、备份恢复、日志实时查看、消息通知、绑定MFA等功能。
 
 ## 注意事项及免责声明
 
-- 建议使用低权限的API，参考[@金箍棒](https://t.me/jin_gubang)的教程：[如何生成低权限API](https://telegra.ph/oralce-api-role-05-05)
-- 因开机、换IP频率过高而导致的封号本人概不负责。
-- 开发此项目纯属个人爱好，无后门，放心使用。
-- 强烈建议不要裸HTTP访问，应使用Nginx反向代理配置HTTPS访问。
-- 建议使用密钥登录服务器，防止服务器被SSH爆破导致API数据及密钥泄露。
-- 记得定时清理docker日志~
+- 🔑建议使用低权限的API，参考 [@金箍棒](https://t.me/jin_gubang) 的教程：[如何生成低权限API](https://telegra.ph/oralce-api-role-05-05)
+- ⚠️因开机、换IP频率过高而导致的封号本人概不负责。
+- ❤️开发此项目纯属个人爱好，无后门，放心使用。
+- 🔒强烈建议不要裸HTTP访问，应使用Nginx反向代理配置HTTPS访问。
+- 🔐建议使用密钥登录服务器，防止服务器被SSH爆破导致API数据及密钥泄露。
+- 📃记得定时清理docker日志~
 
 ## 核心功能
 
@@ -21,10 +21,11 @@
 4. 支持**断点续抢**，配置以及抢机任务都保存在本地数据库，服务重启会继续执行抢机任务，无需重复配置。
 5. 支持多区号（配置项以`region`区分），例：我有一个4区号，则新增4个配置，修改`region`即可，其他配置项都一样。
 6. 支持前端页面**实时查看后端日志**。
+7. 支持**加密备份恢复**，方便数据迁移。
 
 ## 一键 docker-compose 部署或更新
 
-安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，如需修改请更改`application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。`密钥文件.pem`需使用英文命名，并全部上传到`/app/oci-helper/keys`目录下，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
+安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，如需修改请更改`application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。`密钥文件.pem`建议使用英文命名，并全部上传到`/app/oci-helper/keys`目录下，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
 
 ```bash
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
@@ -32,11 +33,14 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
 
-### ⭐更新日志
+### 📃更新日志
 
-> 2024年11月30日——数据库新增了一张表，TG、钉钉消息通知都改成了在web页面配置，如遇到配置异常，请删除`application.yml`文件，然后重新执行一键命令，修改自定义的账号密码，重启容器即可。
+> 2024年11月30日——数据库新增了一张表，TG、钉钉消息通知都改成了在web页面配置，如遇到配置异常，请删除`application.yml`文件，然后重新执行一键命令，修改自定义的账号密码，`docker restart oci-helper`重启容器即可。
 
 ## 手动部署
+
+<details>
+    <summary> ☜ Read more 👨‍💻</summary>
 
 ### 1. 新建目录
 
@@ -81,6 +85,8 @@ docker compose up -d
 ```bash
 docker compose pull && docker compose up -d
 ```
+
+</details>
 
 ## 页面展示
 

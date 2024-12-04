@@ -2,17 +2,17 @@
 
 # oci-helper
 
-> A web-based visual Oracle Cloud Assistant developed based on Oracle OCI SDK. Currently implemented functions include: support for adding multiple tenant configurations, querying tenant instance information, changing instance public IP according to multiple CIDR network segments, multi-tenant grabbing, breakpoint resumption, etc.
+> A web-based visual Oracle Cloud Assistant developed based on Oracle OCI SDK 🐢 . Currently implemented functions include: batch adding multiple tenant configurations, querying or operating tenant instances, changing instance public IPs according to multiple CIDR network segments, batch grabbing of multiple tenants at the same time, breakpoint resumption, backup and recovery, real-time log viewing, message notification, MFA binding and other functions.
 
 ## Notes and Disclaimer
 
-- It is recommended to use low-privilege APIs. Please refer to the tutorial of [@ Jin Gu Bang](https://t.me/jin_gubang): [How to generate 
+- 🔑It is recommended to use low-privilege APIs. Please refer to the tutorial of [@ Jin Gu Bang](https://t.me/jin_gubang): [How to generate 
   low-privilege APIs](https://telegra.ph/oralce-api-role-05-05)
-- I am not responsible for account suspension due to high frequency of booting and changing IP.
-- The development of this project is purely personal hobby, no backdoor, and safe to use.
-- It is strongly recommended not to use naked HTTP access, and HTTPS access should be configured using Nginx reverse proxy.
-- It is recommended to use a key to log in to the server to prevent the server from being blasted by SSH, resulting in API data and key leakage.
-- Remember to clean up the docker logs regularly~
+- ⚠️I am not responsible for account suspension due to high frequency of booting and changing IP.
+- ❤️The development of this project is purely personal hobby, no backdoor, and safe to use.
+- 🔒It is strongly recommended not to use naked HTTP access, and HTTPS access should be configured using Nginx reverse proxy.
+- 🔐It is recommended to use a key to log in to the server to prevent the server from being blasted by SSH, resulting in API data and key leakage.
+- 📃Remember to clean up the docker logs regularly~
 
 ## Core functions
 
@@ -22,10 +22,11 @@
 4. Support **breakpoint continuation**, the configuration and grabbing tasks are saved in the local database, and the grabbing tasks will continue to be executed after the service restart, without repeated configuration.
 5. Support multiple area codes (configuration items are distinguished by `region`). For example: I have a 4-area code, then add 4 configurations, modify `region`, and other configuration items are the same.
 6. Support front-end page **real-time viewing of back-end logs**.
+7. Support **encrypted backup and recovery** to facilitate data migration.
 
 ## One-click docker-compose deployment or update
 
-After the installation is complete, you can access it directly in the browser `ip:8818` (it is recommended to access it through https later). The default account and password are: `yohann`. If you need to modify it, please change the configuration in `application.yml` and execute `docker restart oci-helper` to restart the docker container. `Key_file.pem` must be named in English and uploaded to the `/app/oci-helper/keys` directory. When adding oci configuration, you only need to enter `key_file_name.pem`, and the full path of this directory will be added by default.
+After the installation is complete, you can directly access it through `ip:8818` in the browser (it is recommended to access it through https later). The default account and password are: `yohann`. If you need to modify it, please change the configuration in `application.yml` and execute `docker restart oci-helper` to restart the docker container. It is recommended to use English names for `keyfile.pem` and upload them all to the `/app/oci-helper/keys` directory. When adding oci configuration, you only need to enter `keyfileName.pem`, and the full path of this directory will be added by default.
 
 ```bash
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
@@ -33,11 +34,14 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 This command can also be used to update the image and restart the container without deleting the existing configuration.
 
-### ⭐Update log
+### 📃Update log
 
-> November 30, 2024 - A new table was added to the database. TG and DingTalk message notifications were changed to be configured on the web page. If you encounter a configuration exception, please delete the `application.yml` file, then re-execute the one-click command, modify the custom account password, and restart the container.
+> November 30, 2024 - A new table was added to the database. TG and DingTalk message notifications are changed to be configured on the web page. If you encounter a configuration exception, please delete the `application.yml` file, then re-execute the one-click command, modify the custom account password, and restart the container with `docker restart oci-helper`.
 
 ## Manual deployment
+
+<details>
+    <summary> ☜ Read more 👨‍💻</summary>
 
 ### 1. Create a new directory
 
@@ -82,6 +86,8 @@ Update the latest image:
 ```bash
 docker compose pull && docker compose up -d
 ```
+
+</details>
 
 ## Page display
 
