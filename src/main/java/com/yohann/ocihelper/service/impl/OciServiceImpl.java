@@ -420,11 +420,13 @@ public class OciServiceImpl implements IOciService {
     }
 
     public static void addTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {
+        stopTask(taskId);
         ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleWithFixedDelay(task, initialDelay, period, timeUnit);
         TASK_MAP.put(taskId, future);
     }
 
     public static void addAtFixedRateTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {
+        stopTask(taskId);
         ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleAtFixedRate(task, initialDelay, period, timeUnit);
         TASK_MAP.put(taskId, future);
     }
@@ -432,7 +434,7 @@ public class OciServiceImpl implements IOciService {
     public static void stopTask(String taskId) {
         ScheduledFuture<?> future = TASK_MAP.get(taskId);
         if (future != null) {
-            future.cancel(false);
+            future.cancel(true);
             TASK_MAP.remove(taskId);
         }
     }
