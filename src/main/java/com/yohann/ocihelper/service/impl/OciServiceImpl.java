@@ -258,10 +258,10 @@ public class OciServiceImpl implements IOciService {
                 .eq(OciCreateTask::getUserId, params.getUserId())
                 .select(OciCreateTask::getId), String::valueOf);
         if (CollectionUtil.isNotEmpty(taskIds)) {
-            taskIds.parallelStream().forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
+            taskIds.forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
+            taskIds.forEach(taskId -> stopTask(CommonUtils.CREATE_TASK_PREFIX + taskId));
         }
         createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getUserId, params.getUserId()));
-        taskIds.parallelStream().forEach(taskId -> stopTask(CommonUtils.CREATE_TASK_PREFIX + taskId));
     }
 
     @Override
@@ -286,8 +286,8 @@ public class OciServiceImpl implements IOciService {
     @Transactional(rollbackFor = Exception.class)
     public void stopCreateBatch(IdListParams params) {
         createTaskService.removeBatchByIds(params.getIdList());
-        params.getIdList().parallelStream().forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
-        params.getIdList().parallelStream().forEach(taskId -> stopTask(CommonUtils.CREATE_TASK_PREFIX + taskId));
+        params.getIdList().forEach(x -> TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + x));
+        params.getIdList().forEach(taskId -> stopTask(CommonUtils.CREATE_TASK_PREFIX + taskId));
     }
 
     @Override
@@ -433,8 +433,8 @@ public class OciServiceImpl implements IOciService {
 
     public static void stopTask(String taskId) {
         ScheduledFuture<?> future = TASK_MAP.get(taskId);
-        if (future != null) {
-            future.cancel(true);
+        if (null != future) {
+            future.cancel(false);
             TASK_MAP.remove(taskId);
         }
     }
