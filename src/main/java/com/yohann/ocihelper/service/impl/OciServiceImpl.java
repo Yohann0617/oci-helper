@@ -451,6 +451,7 @@ public class OciServiceImpl implements IOciService {
             TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
             stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
 //            throw new OciException(-1, "任务终止");
+            return;
         }
 
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
