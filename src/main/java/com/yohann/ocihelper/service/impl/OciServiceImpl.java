@@ -442,15 +442,15 @@ public class OciServiceImpl implements IOciService {
             IInstanceService instanceService,
             IOciCreateTaskService createTaskService) {
 
-        if (createTaskService.getById(sysUserDTO.getTaskId()) == null) {
-            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务终止......",
-                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
-                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
-            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
-//            throw new OciException(-1, "任务终止");
-            return;
-        }
+//        if (createTaskService.getById(sysUserDTO.getTaskId()) == null) {
+//            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务终止......",
+//                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+//                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+//            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
+//            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
+////            throw new OciException(-1, "任务终止");
+//            return;
+//        }
 
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
 
