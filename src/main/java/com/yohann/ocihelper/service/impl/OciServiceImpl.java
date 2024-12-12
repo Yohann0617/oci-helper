@@ -206,6 +206,8 @@ public class OciServiceImpl implements IOciService {
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
             OciCfgDetailsRsp rsp = new OciCfgDetailsRsp();
             BeanUtils.copyProperties(sysUserDTO.getOciCfg(), rsp);
+            String privateKeyPath = rsp.getPrivateKeyPath();
+            rsp.setPrivateKeyPath(privateKeyPath.substring(privateKeyPath.lastIndexOf(File.separator) + 1));
             rsp.setInstanceList(Optional.ofNullable(fetcher.listInstances())
                     .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
                     .map(x -> fetcher.getInstanceInfo(x.getId()))
