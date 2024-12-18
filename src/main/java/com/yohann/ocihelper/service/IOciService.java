@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.params.*;
 import com.yohann.ocihelper.bean.params.oci.*;
 import com.yohann.ocihelper.bean.response.oci.CreateTaskRsp;
@@ -46,4 +47,16 @@ public interface IOciService {
     void terminateInstance(TerminateInstanceParams params);
 
     void sendCaptcha(SendCaptchaParams params);
+
+    void releaseSecurityRule(ReleaseSecurityRuleParams params);
+
+    InstanceCfgDTO getInstanceCfgInfo(GetInstanceCfgInfoParams params);
+
+    void createIpv6(CreateIpv6Params params);
+
+    void updateInstanceName(UpdateInstanceNameParams params);
+
+    void updateInstanceCfg(UpdateInstanceCfgParams params);
+
+    void updateBootVolumeCfg(UpdateBootVolumeCfgParams params);
 }

@@ -2,6 +2,7 @@ package com.yohann.ocihelper.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.ResponseData;
+import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.params.*;
 import com.yohann.ocihelper.bean.params.oci.*;
 import com.yohann.ocihelper.bean.response.oci.CreateTaskRsp;
@@ -148,5 +149,52 @@ public class OciController {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.terminateInstance(params);
         return ResponseData.successData("终止实例命令已下发");
+    }
+
+    @PostMapping(path = "/releaseSecurityRule")
+    public ResponseData<Void> releaseSecurityRule(@Validated @RequestBody ReleaseSecurityRuleParams params,
+                                                  BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.releaseSecurityRule(params);
+        return ResponseData.successData("安全列表放行成功");
+    }
+
+    @PostMapping(path = "/getInstanceCfgInfo")
+    public ResponseData<InstanceCfgDTO> getInstanceCfgInfo(@Validated @RequestBody GetInstanceCfgInfoParams params,
+                                                           BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        return ResponseData.successData(ociService.getInstanceCfgInfo(params), "获取实例配置信息成功");
+    }
+
+    @PostMapping(path = "/createIpv6")
+    public ResponseData<Void> createIpv6(@Validated @RequestBody CreateIpv6Params params,
+                                         BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.createIpv6(params);
+        return ResponseData.successData("为实例附加 IPV6 成功");
+    }
+
+    @PostMapping(path = "/updateInstanceName")
+    public ResponseData<Void> updateInstanceName(@Validated @RequestBody UpdateInstanceNameParams params,
+                                         BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.updateInstanceName(params);
+        return ResponseData.successData("修改实例名称成功");
+    }
+
+    @PostMapping(path = "/updateInstanceCfg")
+    public ResponseData<Void> updateInstanceCfg(@Validated @RequestBody UpdateInstanceCfgParams params,
+                                         BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.updateInstanceCfg(params);
+        return ResponseData.successData("修改实例配置成功");
+    }
+
+    @PostMapping(path = "/updateBootVolumeCfg")
+    public ResponseData<Void> updateBootVolumeCfg(@Validated @RequestBody UpdateBootVolumeCfgParams params,
+                                         BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        ociService.updateBootVolumeCfg(params);
+        return ResponseData.successData("修改引导卷配置成功");
     }
 }

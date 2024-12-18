@@ -19,6 +19,7 @@ import com.oracle.bmc.identity.responses.ListAvailabilityDomainsResponse;
 import com.oracle.bmc.identity.responses.ListCompartmentsResponse;
 import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.workrequests.WorkRequestClient;
+import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
@@ -1130,33 +1131,38 @@ public class OracleInstanceFetcher implements Closeable {
         return null;
     }
 
+    public BootVolume getBootVolumeByInstanceId(String instanceId) {
+        BootVolume bootVolume = null;
+        List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
+        for (AvailabilityDomain availabilityDomain : availabilityDomains) {
+            List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
+                    .availabilityDomain(availabilityDomain.getName())
+                    .compartmentId(compartmentId)
+                    .instanceId(instanceId)
+                    .build()).getItems()
+                    .stream().map(BootVolumeAttachment::getBootVolumeId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            if (CollectionUtil.isNotEmpty(BootVolumeIdList)) {
+                GetBootVolumeRequest getBootVolumeRequest = GetBootVolumeRequest.builder()
+                        .bootVolumeId(BootVolumeIdList.get(0))
+                        .build();
+                GetBootVolumeResponse getBootVolumeResponse = blockstorageClient.getBootVolume(getBootVolumeRequest);
+                bootVolume = getBootVolumeResponse.getBootVolume();
+            }
+        }
+        if (null == bootVolume) {
+            throw new OciException(-1, "引导卷不存在");
+        }
+        return bootVolume;
+    }
+
     public OciCfgDetailsRsp.InstanceInfo getInstanceInfo(String instanceId) {
         Instance instance = getInstanceById(instanceId);
         String bootVolumeSize = null;
         try {
-            List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
-            for (AvailabilityDomain availabilityDomain : availabilityDomains) {
-                GetInstanceConfigurationRequest.builder()
-                        .instanceConfigurationId(instance.getInstanceConfigurationId())
-                        .build();
-                List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                                .availabilityDomain(availabilityDomain.getName())
-                                .compartmentId(compartmentId)
-                                .instanceId(instance.getId())
-                                .build()).getItems()
-                        .stream().map(BootVolumeAttachment::getBootVolumeId)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toList());
-                if (CollectionUtil.isNotEmpty(BootVolumeIdList)) {
-                    GetBootVolumeRequest getBootVolumeRequest = GetBootVolumeRequest.builder()
-                            .bootVolumeId(BootVolumeIdList.get(0))
-                            .build();
-                    GetBootVolumeResponse getBootVolumeResponse = blockstorageClient.getBootVolume(getBootVolumeRequest);
-                    BootVolume bootVolume = getBootVolumeResponse.getBootVolume();
-                    bootVolumeSize = bootVolume.getSizeInGBs() + "";
-                    break;
-                }
-            }
+            BootVolume bootVolume = getBootVolumeByInstanceId(instanceId);
+            bootVolumeSize = bootVolume.getSizeInGBs() + "";
         } catch (Exception e) {
             log.error("用户：[{}] ，区域：[{}] ， 实例：[{}] 的引导卷不存在~",
                     user.getUsername(), user.getOciCfg().getRegion(),
@@ -1231,6 +1237,112 @@ public class OracleInstanceFetcher implements Closeable {
         return null;
     }
 
+    public InstanceCfgDTO getInstanceCfg(String instanceId) {
+        Instance instance = getInstanceById(instanceId);
+        List<String> ipv6Addresses = getVnicByInstanceId(instanceId).getIpv6Addresses();
+        String ipv6 = (null == ipv6Addresses || ipv6Addresses.isEmpty()) ? null : ipv6Addresses.get(0);
+
+        String bootVolumeSize = null;
+        String bootVolumeVpu = null;
+        try {
+            BootVolume bootVolume = getBootVolumeByInstanceId(instanceId);
+            bootVolumeSize = bootVolume.getSizeInGBs() + "";
+            bootVolumeVpu = bootVolume.getVpusPerGB() + "";
+        } catch (Exception e) {
+            log.error("用户：[{}] ，区域：[{}] ， 实例：[{}] 的引导卷不存在~",
+                    user.getUsername(), user.getOciCfg().getRegion(),
+                    instance.getDisplayName());
+        }
+
+        return InstanceCfgDTO.builder()
+                .instanceName(instance.getDisplayName())
+                .ipv6(ipv6)
+                .ocpus(String.valueOf(instance.getShapeConfig().getOcpus()))
+                .memory(String.valueOf(instance.getShapeConfig().getMemoryInGBs()))
+                .bootVolumeSize(bootVolumeSize)
+                .bootVolumeVpu(bootVolumeVpu)
+                .build();
+    }
+
+    private void updateRouteRules(InternetGateway gateway, Vcn vcn) {
+        RouteRule v4Route = RouteRule.builder()
+//                .cidrBlock("0.0.0.0/0")
+                .destination("0.0.0.0/0")
+                .destinationType(RouteRule.DestinationType.CidrBlock)
+                .routeType(RouteRule.RouteType.Static)
+                .networkEntityId(gateway.getId())
+                .build();
+        RouteRule v6Route = RouteRule.builder()
+//                .cidrBlock("::/0")
+                .destination("::/0")
+                .destinationType(RouteRule.DestinationType.CidrBlock)
+                .routeType(RouteRule.RouteType.Static)
+                .networkEntityId(gateway.getId())
+                .build();
+        List<RouteRule> routeRules = Arrays.asList(v4Route, v6Route);
+//        GetRouteTableRequest getRouteTableRequest = GetRouteTableRequest.builder().rtId(vcn.getDefaultRouteTableId()).build();
+//        GetRouteTableResponse getRouteTableResponse = virtualNetworkClient.getRouteTable(getRouteTableRequest);
+//        RouteTable routeTable = getRouteTableResponse.getRouteTable();
+//        if (routeTable.getRouteRules().isEmpty()) {
+//            routeRules.add(v4Route);
+//            routeRules.add(v6Route);
+//        } else {
+//            for (RouteRule rule : routeTable.getRouteRules()) {
+//                if (!rule.getDestination().contains(v4Route.getDestination())) {
+//                    routeRules.add(v4Route);
+//                }
+//                if (!rule.getDestination().contains(v6Route.getDestination())) {
+//                    routeRules.add(v6Route);
+//                }
+//            }
+//        }
+
+//        System.out.println(routeRules);
+        UpdateRouteTableRequest updateRouteTableRequest = UpdateRouteTableRequest.builder()
+                .rtId(vcn.getDefaultRouteTableId())
+                .updateRouteTableDetails(UpdateRouteTableDetails.builder()
+                        .routeRules(routeRules)
+                        .build())
+                .build();
+        virtualNetworkClient.updateRouteTable(updateRouteTableRequest);
+        log.info("用户：[{}] ，区域：[{}] 更新了 VCN：{} 的路由表",
+                user.getUsername(), user.getOciCfg().getRegion(), vcn.getDisplayName());
+    }
+
+    public void releaseSecurityRule(Vcn vcn) {
+        IngressSecurityRule in4 = IngressSecurityRule.builder()
+                .sourceType(IngressSecurityRule.SourceType.CidrBlock)
+                .source("0.0.0.0/0")
+                .protocol("all")
+                .build();
+        EgressSecurityRule out4 = EgressSecurityRule.builder()
+                .destinationType(EgressSecurityRule.DestinationType.CidrBlock)
+                .destination("0.0.0.0/0")
+                .protocol("all")
+                .build();
+        IngressSecurityRule in6 = IngressSecurityRule.builder()
+                .sourceType(IngressSecurityRule.SourceType.CidrBlock)
+                .source("::/0")
+                .protocol("all")
+                .build();
+        EgressSecurityRule out6 = EgressSecurityRule.builder()
+                .destinationType(EgressSecurityRule.DestinationType.CidrBlock)
+                .destination("::/0")
+                .protocol("all")
+                .build();
+        List<IngressSecurityRule> inList = Arrays.asList(in4, in6);
+        List<EgressSecurityRule> outList = Arrays.asList(out4, out6);
+        virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
+                .securityListId(vcn.getDefaultSecurityListId())
+                .updateSecurityListDetails(UpdateSecurityListDetails.builder()
+                        .ingressSecurityRules(inList)
+                        .egressSecurityRules(outList)
+                        .build())
+                .build());
+        log.info("用户：[{}] ，区域：[{}] 放行了 VCN：{} 的安全列表所有端口",
+                user.getUsername(), user.getOciCfg().getRegion(), vcn.getDisplayName());
+    }
+
     public Ipv6 createIpv6(Vnic vnic, Vcn vcn) {
         if (vcn == null) {
             try {
@@ -1248,7 +1360,7 @@ public class OracleInstanceFetcher implements Closeable {
 
         // 添加ipv6 cidr 前缀
         List<String> oldIpv6CidrBlocks = vcn.getIpv6CidrBlocks();
-        System.out.println(oldIpv6CidrBlocks);
+//        System.out.println(oldIpv6CidrBlocks);
         if (oldIpv6CidrBlocks == null || oldIpv6CidrBlocks.isEmpty()) {
             virtualNetworkClient.addIpv6VcnCidr(AddIpv6VcnCidrRequest.builder()
                     .vcnId(vcnId)
@@ -1284,7 +1396,7 @@ public class OracleInstanceFetcher implements Closeable {
                             .build())
                     .build());
         }
-        System.out.println(subnet);
+//        System.out.println(subnet);
 
 
         ListInternetGatewaysResponse listInternetGatewaysResponse = virtualNetworkClient.listInternetGateways(
@@ -1307,89 +1419,10 @@ public class OracleInstanceFetcher implements Closeable {
 //        System.out.println(gateway);
 
         // 更新路由表（默认存在）
-        List<RouteRule> routeRules = new ArrayList<>();
-        RouteRule v4Route = RouteRule.builder()
-//                .cidrBlock("0.0.0.0/0")
-                .destination("0.0.0.0/0")
-                .destinationType(RouteRule.DestinationType.CidrBlock)
-                .routeType(RouteRule.RouteType.Static)
-                .networkEntityId(gateway.getId())
-                .build();
-        RouteRule v6Route = RouteRule.builder()
-//                .cidrBlock("::/0")
-                .destination("::/0")
-                .destinationType(RouteRule.DestinationType.CidrBlock)
-                .routeType(RouteRule.RouteType.Static)
-                .networkEntityId(gateway.getId())
-                .build();
-        GetRouteTableRequest getRouteTableRequest = GetRouteTableRequest.builder().rtId(vcn.getDefaultRouteTableId()).build();
-        GetRouteTableResponse getRouteTableResponse = virtualNetworkClient.getRouteTable(getRouteTableRequest);
-        RouteTable routeTable = getRouteTableResponse.getRouteTable();
-        if (routeTable.getRouteRules().isEmpty()) {
-            routeRules.add(v4Route);
-            routeRules.add(v6Route);
-        } else {
-            for (RouteRule rule : routeTable.getRouteRules()) {
-                if (!rule.getDescription().contains(v4Route.getDescription())) {
-                    routeRules.add(v4Route);
-                }
-                if (!rule.getDescription().contains(v6Route.getDescription())) {
-                    routeRules.add(v6Route);
-                }
-            }
-        }
-
-        System.out.println(routeRules);
-        UpdateRouteTableRequest updateRouteTableRequest = UpdateRouteTableRequest.builder()
-                .rtId(vcn.getDefaultRouteTableId())
-                .updateRouteTableDetails(UpdateRouteTableDetails.builder()
-                        .routeRules(routeRules)
-                        .build())
-                .build();
-        virtualNetworkClient.updateRouteTable(updateRouteTableRequest);
+        updateRouteRules(gateway, vcn);
 
         // 安全列表（默认存在）
-        IngressSecurityRule in = IngressSecurityRule.builder()
-                .sourceType(IngressSecurityRule.SourceType.CidrBlock)
-                .source("::/0")
-                .protocol("all")
-                .build();
-        EgressSecurityRule out = EgressSecurityRule.builder()
-                .destinationType(EgressSecurityRule.DestinationType.CidrBlock)
-                .description("::/0")
-                .protocol("all")
-                .build();
-        List<IngressSecurityRule> inList = new ArrayList<>();
-        List<EgressSecurityRule> outList = new ArrayList<>();
-        GetSecurityListRequest getSecurityListRequest = GetSecurityListRequest.builder().securityListId(vcn.getDefaultSecurityListId()).build();
-        GetSecurityListResponse getSecurityListResponse = virtualNetworkClient.getSecurityList(getSecurityListRequest);
-        List<IngressSecurityRule> ingressSecurityRules = getSecurityListResponse.getSecurityList().getIngressSecurityRules();
-        if (ingressSecurityRules == null || ingressSecurityRules.isEmpty()) {
-            inList.add(in);
-        } else {
-            for (IngressSecurityRule rule : ingressSecurityRules) {
-                if (!rule.getSource().contains(in.getSource())) {
-                    inList.add(in);
-                }
-            }
-        }
-        List<EgressSecurityRule> egressSecurityRules = getSecurityListResponse.getSecurityList().getEgressSecurityRules();
-        if (egressSecurityRules == null || egressSecurityRules.isEmpty()) {
-            outList.add(out);
-        } else {
-            for (EgressSecurityRule rule : egressSecurityRules) {
-                if (!rule.getDescription().contains(out.getDescription())) {
-                    outList.add(out);
-                }
-            }
-        }
-        virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
-                .securityListId(vcn.getDefaultSecurityListId())
-                .updateSecurityListDetails(UpdateSecurityListDetails.builder()
-                        .ingressSecurityRules(inList)
-                        .egressSecurityRules(outList)
-                        .build())
-                .build());
+        releaseSecurityRule(vcn);
 
 //        System.out.println("网络安全组更新完成");
 //
@@ -1409,5 +1442,36 @@ public class OracleInstanceFetcher implements Closeable {
                 .build());
 
         return createIpv6Response.getIpv6();
+    }
+
+    public void updateInstanceName(String instanceId, String name) {
+        computeClient.updateInstance(UpdateInstanceRequest.builder()
+                .instanceId(instanceId)
+                .updateInstanceDetails(UpdateInstanceDetails.builder()
+                        .displayName(name)
+                        .build())
+                .build());
+    }
+
+    public void updateInstanceCfg(String instanceId, float ocpus, float memory) {
+        computeClient.updateInstance(UpdateInstanceRequest.builder()
+                .instanceId(instanceId)
+                .updateInstanceDetails(UpdateInstanceDetails.builder()
+                        .shapeConfig(UpdateInstanceShapeConfigDetails.builder()
+                                .ocpus(ocpus)
+                                .memoryInGBs(memory)
+                                .build())
+                        .build())
+                .build());
+    }
+
+    public void updateBootVolumeCfg(String bootVolumeId, long size, long vpusPer) {
+        blockstorageClient.updateBootVolume(UpdateBootVolumeRequest.builder()
+                .bootVolumeId(bootVolumeId)
+                .updateBootVolumeDetails(UpdateBootVolumeDetails.builder()
+                        .sizeInGBs(size)
+                        .vpusPerGB(vpusPer)
+                        .build())
+                .build());
     }
 }

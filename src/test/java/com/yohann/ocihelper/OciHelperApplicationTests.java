@@ -1,85 +1,47 @@
 package com.yohann.ocihelper;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.extra.spring.SpringUtil;
-import cn.hutool.json.JSONUtil;
-import com.baomidou.mybatisplus.extension.service.IService;
-import com.yohann.ocihelper.service.IOciUserService;
+import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.OciUser;
+import com.yohann.ocihelper.service.IInstanceService;
+import com.yohann.ocihelper.utils.CommonUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import javax.annotation.Resource;
-import java.io.File;
+import java.io.IOException;
 import java.nio.charset.Charset;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+
 
 @SpringBootTest
 class OciHelperApplicationTests {
 
     @Resource
-    private IOciUserService ociUserService;
-
-    String dateFilePath = "C:\\Users\\Yohann\\Desktop\\data.json";
-
+    private IInstanceService instanceService;
 
     @Test
-    void contextLoads() {
+    void contextLoads() throws IOException {
+        String s = FileUtil.readString("C:\\Users\\Administrator\\Desktop\\test.txt", Charset.defaultCharset());
+        List<OciUser> ociUsers = CommonUtils.parseConfigContent(s);
+        OciUser ociUser = ociUsers.get(0);
 
-        // 获取所有带 @Service 注解的 Bean
-        Map<String, IService> serviceMap = SpringUtil.getBeanFactory().getBeansOfType(IService.class);
-        Map<String, List> listMap = serviceMap.entrySet().parallelStream()
-                .collect(Collectors.toMap(Map.Entry::getKey, (x) -> x.getValue().list()));
-        System.out.println(listMap);
+//        System.out.println(ociUser);
 
-        System.out.println("---------------------");
-        String jsonStr = JSONUtil.toJsonStr(listMap);
-        System.out.println(jsonStr);
+        String instanceId = "ocid1.instance.oc1.sa-saopaulo-1.xxx";
 
-        System.out.println("---------------------");
+        SysUserDTO sysUserDTO = SysUserDTO.builder()
+                .ociCfg(SysUserDTO.OciCfg.builder()
+                        .userId(ociUser.getOciUserId())
+                        .tenantId(ociUser.getOciTenantId())
+                        .region(ociUser.getOciRegion())
+                        .fingerprint(ociUser.getOciFingerprint())
+                        .privateKeyPath(ociUser.getOciKeyPath())
+                        .build())
+                .username(ociUser.getUsername())
+                .build();
 
-        File dataFile = FileUtil.touch(dateFilePath);
-        FileUtil.writeString(jsonStr, dataFile, Charset.defaultCharset());
-
-
-    }
-
-    @Test
-    void test1() {
-        Map<String, IService> serviceMap = SpringUtil.getBeanFactory().getBeansOfType(IService.class);
-        List<String> impls = new ArrayList<>(serviceMap.keySet());
-
-        String readJsonStr = FileUtil.readUtf8String(dateFilePath);
-        Map<String, List> map = JSONUtil.toBean(readJsonStr, Map.class);
-
-        impls.forEach(x -> {
-            List list = map.get(x);
-            if (null != list) {
-                list.forEach(obj -> {
-                    try {
-                        String time = String.valueOf(BeanUtil.getFieldValue(obj, "createTime"));
-                        Long timestamp = Long.valueOf(time);
-                        LocalDateTime localDateTime = Instant.ofEpochMilli(timestamp)
-                                .atZone(ZoneId.systemDefault())
-                                .toLocalDateTime();
-                        BeanUtil.setFieldValue(obj, "createTime", localDateTime); // 设置为 null 或移除
-                    } catch (Exception ignored) {
-                    }
-                });
-                serviceMap.get(x).saveBatch(list);
-            }
-        });
-    }
-
-    @Test
-    void test2() {
-        System.out.println(ociUserService.list());
+        System.out.println(instanceService.getInstanceCfgInfo(sysUserDTO, instanceId));
     }
 
 }

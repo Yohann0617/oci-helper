@@ -12,6 +12,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oracle.bmc.core.model.Instance;
 import com.oracle.bmc.core.model.Vnic;
 import com.yohann.ocihelper.bean.Tuple2;
+import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
@@ -193,16 +194,7 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public OciCfgDetailsRsp details(IdParams params) {
-        OciUser ociUser = userService.getById(params.getId());
-        SysUserDTO sysUserDTO = SysUserDTO.builder()
-                .ociCfg(SysUserDTO.OciCfg.builder()
-                        .userId(ociUser.getOciUserId())
-                        .tenantId(ociUser.getOciTenantId())
-                        .region(ociUser.getOciRegion())
-                        .fingerprint(ociUser.getOciFingerprint())
-                        .privateKeyPath(ociUser.getOciKeyPath())
-                        .build())
-                .build();
+        SysUserDTO sysUserDTO = getOciUser(params.getId());
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
             OciCfgDetailsRsp rsp = new OciCfgDetailsRsp();
             BeanUtils.copyProperties(sysUserDTO.getOciCfg(), rsp);
@@ -321,7 +313,7 @@ public class OciServiceImpl implements IOciService {
                         throw new RuntimeException(e);
                     }
                 })
-                .collect(Collectors.toList()).stream() // Convert to a single stream
+                .collect(Collectors.toList()).stream()
                 .flatMap(Collection::stream).parallel()
                 .peek(ociUser -> {
                     if (!seenUsernames.add(ociUser.getUsername())) {
@@ -405,6 +397,44 @@ public class OciServiceImpl implements IOciService {
         } catch (Exception e) {
             throw new OciException(-1, "发送验证码失败");
         }
+    }
+
+    @Override
+    public void releaseSecurityRule(ReleaseSecurityRuleParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        instanceService.releaseSecurityRule(sysUserDTO);
+    }
+
+    @Override
+    public InstanceCfgDTO getInstanceCfgInfo(GetInstanceCfgInfoParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        return instanceService.getInstanceCfgInfo(sysUserDTO, params.getInstanceId());
+    }
+
+    @Override
+    public void createIpv6(CreateIpv6Params params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        instanceService.createIpv6(sysUserDTO, params.getInstanceId());
+    }
+
+    @Override
+    public void updateInstanceName(UpdateInstanceNameParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        instanceService.updateInstanceName(sysUserDTO, params.getInstanceId(), params.getName());
+    }
+
+    @Override
+    public void updateInstanceCfg(UpdateInstanceCfgParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        instanceService.updateInstanceCfg(sysUserDTO, params.getInstanceId(),
+                Float.parseFloat(params.getOcpus()), Float.parseFloat(params.getMemory()));
+    }
+
+    @Override
+    public void updateBootVolumeCfg(UpdateBootVolumeCfgParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        instanceService.updateBootVolumeCfg(sysUserDTO, params.getInstanceId(),
+                Long.parseLong(params.getBootVolumeSize()), Long.parseLong(params.getBootVolumeVpu()));
     }
 
     public SysUserDTO getOciUser(String ociCfgId) {

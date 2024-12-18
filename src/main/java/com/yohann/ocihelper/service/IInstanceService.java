@@ -3,6 +3,7 @@ package com.yohann.ocihelper.service;
 import com.oracle.bmc.core.model.Instance;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
+import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 
@@ -43,4 +44,57 @@ public interface IInstanceService {
      * @return 新的实例公共IP，实例
      */
     Tuple2<String, Instance> changeInstancePublicIp(String instanceId, SysUserDTO sysUserDTO, List<String> cidrList);
+
+    /**
+     * 获取实例需修改的配置信息
+     *
+     * @param sysUserDTO oci配置
+     * @param instanceId 实例Id
+     * @return 实例需修改的配置信息
+     */
+    InstanceCfgDTO getInstanceCfgInfo(SysUserDTO sysUserDTO, String instanceId);
+
+    /**
+     * 安全列表放行
+     *
+     * @param sysUserDTO oci配置
+     */
+    void releaseSecurityRule(SysUserDTO sysUserDTO);
+
+    /**
+     * 附加IPV6
+     *
+     * @param sysUserDTO oci配置
+     * @param instanceId 实例Id
+     */
+    String createIpv6(SysUserDTO sysUserDTO, String instanceId);
+
+    /**
+     * 修改实例名称
+     *
+     * @param sysUserDTO oci配置
+     * @param instanceId 实例Id
+     * @param name       实例名称
+     */
+    void updateInstanceName(SysUserDTO sysUserDTO, String instanceId, String name);
+
+    /**
+     * 修改实例配置
+     *
+     * @param sysUserDTO oci配置
+     * @param instanceId 实例Id
+     * @param ocpus      cpu
+     * @param memory     内存
+     */
+    void updateInstanceCfg(SysUserDTO sysUserDTO, String instanceId, float ocpus, float memory);
+
+    /**
+     * 修改引导卷配置
+     *
+     * @param sysUserDTO oci配置
+     * @param instanceId 实例id
+     * @param size       引导卷大小
+     * @param vpusPer    引导卷vpu [10,120]
+     */
+    void updateBootVolumeCfg(SysUserDTO sysUserDTO, String instanceId, long size, long vpusPer);
 }
