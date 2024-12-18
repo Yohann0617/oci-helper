@@ -92,7 +92,11 @@ docker compose pull && docker compose up -d
 
 ![image.png](./img/1-login.png)
 ![image.png](./img/2-user.png)
-![image.png](./img/3-instance.png)
+![image.png](./img/3-add-1.png)
+![image.png](./img/3-add-2.png)
+![image.png](./img/3-create.png)
+![image.png](./img/3-instance-details.png)
+![image.png](./img/3-instance-cfg.png)
 ![image.png](./img/4-task.png)
 ![image.png](./img/5-log.png)
 ![image.png](./img/6-basic-cfg.png)
