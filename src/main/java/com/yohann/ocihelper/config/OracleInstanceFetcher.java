@@ -1345,11 +1345,40 @@ public class OracleInstanceFetcher implements Closeable {
                 inList = Arrays.asList(in4, in6);
                 outList = Arrays.asList(out4, out6);
         }
+
+        GetSecurityListRequest getSecurityListRequest = GetSecurityListRequest.builder().securityListId(vcn.getDefaultSecurityListId()).build();
+        GetSecurityListResponse getSecurityListResponse = virtualNetworkClient.getSecurityList(getSecurityListRequest);
+        List<IngressSecurityRule> ingressSecurityRules = getSecurityListResponse.getSecurityList().getIngressSecurityRules();
+        if (ingressSecurityRules.isEmpty()) {
+            ingressSecurityRules = inList;
+        } else {
+            for (IngressSecurityRule rule : ingressSecurityRules) {
+                for (IngressSecurityRule in : inList) {
+                    if (!rule.getSource().contains(in.getSource()) && !rule.getProtocol().equals(in.getProtocol())) {
+                        ingressSecurityRules.add(in);
+                    }
+                }
+            }
+        }
+        List<EgressSecurityRule> egressSecurityRules = getSecurityListResponse.getSecurityList().getEgressSecurityRules();
+        if (egressSecurityRules.isEmpty()) {
+            egressSecurityRules = outList;
+        } else {
+            for (EgressSecurityRule rule : egressSecurityRules) {
+                for (EgressSecurityRule out : outList) {
+                    if (!rule.getDestination().contains(out.getDestination()) &&
+                            !rule.getProtocol().equals(out.getProtocol()) &&
+                            !rule.getDestinationType().equals(out.getDestinationType())) {
+                        egressSecurityRules.add(out);
+                    }
+                }
+            }
+        }
         virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
                 .securityListId(vcn.getDefaultSecurityListId())
                 .updateSecurityListDetails(UpdateSecurityListDetails.builder()
-                        .ingressSecurityRules(inList)
-                        .egressSecurityRules(outList)
+                        .ingressSecurityRules(ingressSecurityRules)
+                        .egressSecurityRules(egressSecurityRules)
                         .build())
                 .build());
         log.info("用户：[{}] ，区域：[{}] 放行了 VCN：{} 的安全列表中 {} 的所有端口及协议",
