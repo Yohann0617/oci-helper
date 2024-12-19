@@ -164,7 +164,7 @@ public class InstanceServiceImpl implements IInstanceService {
     public void releaseSecurityRule(SysUserDTO sysUserDTO) {
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             Vcn vcn = fetcher.listVcn().get(0);
-            fetcher.releaseSecurityRule(vcn);
+            fetcher.releaseSecurityRule(vcn, 0);
             log.info("用户：[{}] ，区域：[{}] ，放行安全列表所有端口及协议成功",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion());
         } catch (Exception e) {

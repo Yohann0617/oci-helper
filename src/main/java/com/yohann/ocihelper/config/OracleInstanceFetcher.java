@@ -1309,7 +1309,7 @@ public class OracleInstanceFetcher implements Closeable {
                 user.getUsername(), user.getOciCfg().getRegion(), vcn.getDisplayName());
     }
 
-    public void releaseSecurityRule(Vcn vcn) {
+    public void releaseSecurityRule(Vcn vcn, Integer type) {
         IngressSecurityRule in4 = IngressSecurityRule.builder()
                 .sourceType(IngressSecurityRule.SourceType.CidrBlock)
                 .source("0.0.0.0/0")
@@ -1330,8 +1330,21 @@ public class OracleInstanceFetcher implements Closeable {
                 .destination("::/0")
                 .protocol("all")
                 .build();
-        List<IngressSecurityRule> inList = Arrays.asList(in4, in6);
-        List<EgressSecurityRule> outList = Arrays.asList(out4, out6);
+        List<IngressSecurityRule> inList;
+        List<EgressSecurityRule> outList;
+        switch (type) {
+            case 4:
+                inList = Collections.singletonList(in4);
+                outList = Collections.singletonList(out4);
+                break;
+            case 6:
+                inList = Collections.singletonList(in6);
+                outList = Collections.singletonList(out6);
+                break;
+            default:
+                inList = Arrays.asList(in4, in6);
+                outList = Arrays.asList(out4, out6);
+        }
         virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
                 .securityListId(vcn.getDefaultSecurityListId())
                 .updateSecurityListDetails(UpdateSecurityListDetails.builder()
@@ -1339,8 +1352,9 @@ public class OracleInstanceFetcher implements Closeable {
                         .egressSecurityRules(outList)
                         .build())
                 .build());
-        log.info("用户：[{}] ，区域：[{}] 放行了 VCN：{} 的安全列表所有端口",
-                user.getUsername(), user.getOciCfg().getRegion(), vcn.getDisplayName());
+        log.info("用户：[{}] ，区域：[{}] 放行了 VCN：{} 的安全列表中 {} 的所有端口及协议",
+                user.getUsername(), user.getOciCfg().getRegion(),
+                vcn.getDisplayName(), type == 0 ? "所有地址" : "IPV" + type);
     }
 
     public Ipv6 createIpv6(Vnic vnic, Vcn vcn) {
@@ -1422,7 +1436,7 @@ public class OracleInstanceFetcher implements Closeable {
         updateRouteRules(gateway, vcn);
 
         // 安全列表（默认存在）
-        releaseSecurityRule(vcn);
+        releaseSecurityRule(vcn, 6);
 
 //        System.out.println("网络安全组更新完成");
 //
