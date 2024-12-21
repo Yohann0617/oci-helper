@@ -117,7 +117,7 @@ public class OciServiceImpl implements IOciService {
                         .build())
                 .build();
         try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            ociFetcher.listInstances();
+            ociFetcher.getAvailabilityDomains();
         } catch (Exception e) {
             log.error("配置：[{}] ，区域：[{}] ，不生效，错误信息：[{}]",
                     ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
@@ -332,7 +332,7 @@ public class OciServiceImpl implements IOciService {
                                     .build())
                             .build();
                     try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
-                        ociFetcher.listInstances();
+                        ociFetcher.getAvailabilityDomains();
                     } catch (Exception e) {
                         log.error("配置：[{}] ，区域：[{}] 不生效，请检查密钥与配置项是否准确无误，错误信息：{}",
                                 ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());

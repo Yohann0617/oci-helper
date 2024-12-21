@@ -297,6 +297,14 @@ public class OracleInstanceFetcher implements Closeable {
         return listAvailabilityDomainsResponse.getItems();
     }
 
+    public List<AvailabilityDomain> getAvailabilityDomains() {
+        ListAvailabilityDomainsResponse listAvailabilityDomainsResponse =
+                identityClient.listAvailabilityDomains(ListAvailabilityDomainsRequest.builder()
+                        .compartmentId(compartmentId)
+                        .build());
+        return listAvailabilityDomainsResponse.getItems();
+    }
+
     private List<Shape> getShape(
             ComputeClient computeClient,
             String compartmentId,
