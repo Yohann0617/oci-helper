@@ -111,7 +111,7 @@ public class ISysServiceImpl implements ISysService {
     @Transactional(rollbackFor = Exception.class)
     public void updateSysCfg(UpdateSysCfgParams params) {
         kvService.remove(new LambdaQueryWrapper<OciKv>().eq(OciKv::getType, SysCfgTypeEnum.SYS_INIT_CFG.getCode()));
-        kvService.saveBatch(SysCfgEnum.getCodeListByType(SysCfgTypeEnum.SYS_INIT_CFG).parallelStream()
+        kvService.saveBatch(SysCfgEnum.getCodeListByType(SysCfgTypeEnum.SYS_INIT_CFG).stream()
                 .map(x -> {
                     OciKv ociKv = new OciKv();
                     ociKv.setId(IdUtil.getSnowflakeNextIdStr());
@@ -306,7 +306,7 @@ public class ISysServiceImpl implements ISysService {
 
     private void cleanAndRestartTask() {
         Optional.ofNullable(createTaskService.list())
-                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
+                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
                 .forEach(task -> {
                     if (task.getCreateNumbers() <= 0) {
                         createTaskService.removeById(task.getId());

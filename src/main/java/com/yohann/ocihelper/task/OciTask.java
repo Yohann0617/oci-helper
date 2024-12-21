@@ -70,7 +70,7 @@ public class OciTask implements ApplicationRunner {
 
     private void cleanAndRestartTask() {
         Optional.ofNullable(createTaskService.list())
-                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
+                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
                 .forEach(task -> {
                     if (task.getCreateNumbers() <= 0) {
                         createTaskService.removeById(task.getId());
