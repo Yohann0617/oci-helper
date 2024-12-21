@@ -1156,6 +1156,34 @@ public class OracleInstanceFetcher implements Closeable {
         return bootVolume;
     }
 
+    private List<BootVolume> listBootVolumeListByInstanceId(String instanceId) {
+        List<BootVolume> bootVolumes = new ArrayList<>();
+        List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
+        for (AvailabilityDomain availabilityDomain : availabilityDomains) {
+            List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
+                            .availabilityDomain(availabilityDomain.getName())
+                            .compartmentId(compartmentId)
+                            .instanceId(instanceId)
+                            .build()).getItems()
+                    .stream().map(BootVolumeAttachment::getBootVolumeId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            if (CollectionUtil.isNotEmpty(BootVolumeIdList)) {
+                bootVolumes.addAll(BootVolumeIdList.parallelStream().map(id -> {
+                    GetBootVolumeRequest getBootVolumeRequest = GetBootVolumeRequest.builder()
+                            .bootVolumeId(BootVolumeIdList.get(0))
+                            .build();
+                    GetBootVolumeResponse getBootVolumeResponse = blockstorageClient.getBootVolume(getBootVolumeRequest);
+                    return getBootVolumeResponse.getBootVolume();
+                }).collect(Collectors.toList()));
+            }
+        }
+        if (bootVolumes.isEmpty()) {
+            throw new OciException(-1, "实例引导卷不存在");
+        }
+        return bootVolumes;
+    }
+
     public OciCfgDetailsRsp.InstanceInfo getInstanceInfo(String instanceId) {
         Instance instance = getInstanceById(instanceId);
         String bootVolumeSize = null;
@@ -1493,6 +1521,16 @@ public class OracleInstanceFetcher implements Closeable {
                         .displayName(name)
                         .build())
                 .build());
+
+        List<BootVolume> bootVolumes = listBootVolumeListByInstanceId(instanceId);
+        bootVolumes.parallelStream().forEach(bootVolume -> {
+            blockstorageClient.updateBootVolume(UpdateBootVolumeRequest.builder()
+                    .bootVolumeId(bootVolume.getId())
+                    .updateBootVolumeDetails(UpdateBootVolumeDetails.builder()
+                            .displayName(name + " (Boot Volume)")
+                            .build())
+                    .build());
+        });
     }
 
     public void updateInstanceCfg(String instanceId, float ocpus, float memory) {
