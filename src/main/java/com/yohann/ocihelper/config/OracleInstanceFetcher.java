@@ -179,6 +179,7 @@ public class OracleInstanceFetcher implements Closeable {
                         instanceDetailDTO.setDisk(user.getDisk());
                         instanceDetailDTO.setRootPassword(user.getRootPassword());
                         instanceDetailDTO.setShape(shape.getShape());
+                        return instanceDetailDTO;
                     }
                 } catch (Exception e) {
                     if (e instanceof BmcException) {
