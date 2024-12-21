@@ -292,7 +292,7 @@ public class OciServiceImpl implements IOciService {
             BeanUtils.copyProperties(params.getInstanceInfo(), instanceParams);
             instanceParams.setUserId(userId);
             return instanceParams;
-        }).collect(Collectors.toList()).parallelStream().forEach(this::createInstance);
+        }).collect(Collectors.toList()).forEach(this::createInstance);
     }
 
     @Override
