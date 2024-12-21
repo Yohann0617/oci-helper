@@ -51,7 +51,6 @@ public class OracleInstanceFetcher implements Closeable {
     private final ComputeClient computeClient;
     private final IdentityClient identityClient;
     private final WorkRequestClient workRequestClient;
-    private final ComputeWaiters computeWaiters;
     private final VirtualNetworkClient virtualNetworkClient;
     private final BlockstorageClient blockstorageClient;
     private final String compartmentId;
@@ -104,7 +103,6 @@ public class OracleInstanceFetcher implements Closeable {
 
         workRequestClient = WorkRequestClient.builder().build(provider);
         workRequestClient.setRegion(ociCfg.getRegion());
-        computeWaiters = computeClient.newWaiters(workRequestClient);
 
         virtualNetworkClient = VirtualNetworkClient.builder().build(provider);
         virtualNetworkClient.setRegion(ociCfg.getRegion());
@@ -166,7 +164,7 @@ public class OracleInstanceFetcher implements Closeable {
                                 shape, image,
                                 subnet, networkSecurityGroup,
                                 cloudInitScript, user);
-                        instance = createInstance(computeWaiters, launchInstanceDetails);
+                        instance = createInstance(computeClient.newWaiters(workRequestClient), launchInstanceDetails);
                         printInstance(computeClient, virtualNetworkClient, instance, instanceDetailDTO);
 
                         log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机成功，正在为实例预配......",
@@ -1137,10 +1135,10 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                    .availabilityDomain(availabilityDomain.getName())
-                    .compartmentId(compartmentId)
-                    .instanceId(instanceId)
-                    .build()).getItems()
+                            .availabilityDomain(availabilityDomain.getName())
+                            .compartmentId(compartmentId)
+                            .instanceId(instanceId)
+                            .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
