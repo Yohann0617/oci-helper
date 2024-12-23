@@ -16,6 +16,8 @@ public class CreateTaskRsp {
 
     private String username;
 
+    private String region;
+
     private String ocpus;
 
     private String memory;

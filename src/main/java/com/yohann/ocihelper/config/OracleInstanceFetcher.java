@@ -1257,6 +1257,11 @@ public class OracleInstanceFetcher implements Closeable {
         if (vnics.isEmpty()) {
             return null;
         }
+        for (Vnic vnic : vnics) {
+            if (vnic.getIsPrimary()) {
+                return vnic;
+            }
+        }
         return vnics.get(0);
     }
 

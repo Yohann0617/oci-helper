@@ -59,4 +59,6 @@ public interface IOciService {
     void updateInstanceCfg(UpdateInstanceCfgParams params);
 
     void updateBootVolumeCfg(UpdateBootVolumeCfgParams params);
+
+    String checkAlive();
 }

@@ -6,6 +6,7 @@
 
     <select id="createTaskPage" resultType="com.yohann.ocihelper.bean.response.oci.CreateTaskRsp">
         select oct.id,
+        ou.oci_region as region,
         oct.ocpus,
         oct.`memory`,
         oct.disk,

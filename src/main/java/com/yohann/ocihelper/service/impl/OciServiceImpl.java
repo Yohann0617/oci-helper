@@ -437,6 +437,30 @@ public class OciServiceImpl implements IOciService {
                 Long.parseLong(params.getBootVolumeSize()), Long.parseLong(params.getBootVolumeVpu()));
     }
 
+    @Override
+    public String checkAlive() {
+        List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
+                .isNotNull(OciUser::getId)
+                .select(OciUser::getId), String::valueOf);
+        if (CollectionUtil.isEmpty(ids)) {
+            return null;
+        }
+
+        String rst = "总配置数：%s ，失效配置数：%s 。\n 失效配置：【%s】";
+
+        List<String> failNames = ids.parallelStream().filter(id -> {
+            SysUserDTO ociUser = getOciUser(id);
+            try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
+                fetcher.getAvailabilityDomains();
+            } catch (Exception e) {
+                return false;
+            }
+            return true;
+        }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
+
+        return String.format(rst, ids.size(), failNames.size(), String.join(" , ", failNames));
+    }
+
     public SysUserDTO getOciUser(String ociCfgId) {
         OciUser ociUser = userService.getById(ociCfgId);
         return SysUserDTO.builder()
