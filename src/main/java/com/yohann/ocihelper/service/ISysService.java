@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.service;
 
 import com.yohann.ocihelper.bean.params.sys.*;
+import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
 
 public interface ISysService {
@@ -18,4 +19,7 @@ public interface ISysService {
     void backup(BackupParams params);
 
     void recover(RecoverParams params);
+
+    GetGlanceRsp glance();
+
 }

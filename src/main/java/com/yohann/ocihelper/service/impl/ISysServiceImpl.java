@@ -14,10 +14,14 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
+
+import java.util.*;
+
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.params.sys.*;
+import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
 import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.enums.SysCfgEnum;
@@ -43,7 +47,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -281,7 +284,7 @@ public class ISysServiceImpl implements ISysService {
                             String tableName = annotation == null ? StrUtil.toUnderlineCase(simpleName) : annotation.value();
                             log.info("clear table:{}", tableName);
                             kvMapper.removeAllData(tableName);
-                            log.info("restore table:{},size:{}", tableName,list.size());
+                            log.info("restore table:{},size:{}", tableName, list.size());
                             service.saveBatch(list);
                         }
                     });
@@ -297,6 +300,11 @@ public class ISysServiceImpl implements ISysService {
             initGenMfaPng();
             cleanAndRestartTask();
         }
+    }
+
+    @Override
+    public GetGlanceRsp glance() {
+        return null;
     }
 
     private String getCfgValue(SysCfgEnum sysCfgEnum) {

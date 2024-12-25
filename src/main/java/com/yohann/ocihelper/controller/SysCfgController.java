@@ -2,17 +2,16 @@ package com.yohann.ocihelper.controller;
 
 import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.sys.*;
+import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
 import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.util.Map;
 
 /**
  * @projectName: oci-helper
@@ -72,5 +71,10 @@ public class SysCfgController {
         CommonUtils.checkAndThrow(bindingResult);
         sysService.recover(params);
         return ResponseData.successData("恢复数据成功");
+    }
+
+    @GetMapping(path = "/glance")
+    public ResponseData<GetGlanceRsp> glance() {
+        return ResponseData.successData(sysService.glance(),"获取仪表盘数据成功");
     }
 }
