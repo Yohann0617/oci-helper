@@ -197,4 +197,9 @@ public class OciController {
         ociService.updateBootVolumeCfg(params);
         return ResponseData.successData("修改引导卷配置成功");
     }
+
+    @PostMapping(path = "/checkAlive")
+    public ResponseData<Void> checkAlive() {
+        return ResponseData.successData(ociService.checkAlive());
+    }
 }

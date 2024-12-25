@@ -11,6 +11,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.servlet.ServletUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.hutool.json.JSONUtil;
+import cn.hutool.system.SystemUtil;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -18,11 +19,13 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import java.util.*;
 
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.params.sys.*;
 import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
+import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.enums.SysCfgTypeEnum;
@@ -47,6 +50,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -304,7 +308,80 @@ public class ISysServiceImpl implements ISysService {
 
     @Override
     public GetGlanceRsp glance() {
-        return null;
+        GetGlanceRsp rsp = new GetGlanceRsp();
+        List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
+                .isNotNull(OciUser::getId)
+                .select(OciUser::getId), String::valueOf);
+
+        CompletableFuture<String> usersFuture = CompletableFuture.supplyAsync(() -> {
+
+            if (CollectionUtil.isEmpty(ids)) {
+                return "0/0";
+            }
+
+            List<String> failNames = ids.parallelStream().filter(id -> {
+                SysUserDTO ociUser = getOciUser(id);
+                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
+                    fetcher.getAvailabilityDomains();
+                } catch (Exception e) {
+                    return true;
+                }
+                return false;
+            }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
+
+            return failNames.size() + "/" + ids.size();
+        });
+
+        CompletableFuture<String> tasksFuture = CompletableFuture.supplyAsync(() -> {
+            List<String> userIds = createTaskService.listObjs(new LambdaQueryWrapper<OciCreateTask>()
+                    .isNotNull(OciCreateTask::getId)
+                    .select(OciCreateTask::getUserId), String::valueOf);
+            return String.valueOf(userIds.size());
+        });
+
+        CompletableFuture<String> regionsFuture = CompletableFuture.supplyAsync(() -> {
+            if (CollectionUtil.isEmpty(ids)) {
+                return "0";
+            }
+
+            return String.valueOf(userService.listObjs(new LambdaQueryWrapper<OciUser>()
+                            .isNotNull(OciUser::getId)
+                            .select(OciUser::getOciRegion), String::valueOf)
+                    .stream().distinct().count());
+        });
+
+        CompletableFuture<String> daysFuture = CompletableFuture.supplyAsync(() -> {
+            long uptimeMillis = SystemUtil.getRuntimeMXBean().getUptime();
+            return String.valueOf(uptimeMillis / (24 * 60 * 60 * 1000));
+        });
+
+        CompletableFuture.allOf(usersFuture, tasksFuture, regionsFuture, daysFuture).join();
+
+        try {
+            rsp.setUsers(usersFuture.get());
+            rsp.setTasks(tasksFuture.get());
+            rsp.setRegions(regionsFuture.get());
+            rsp.setDays(daysFuture.get());
+        } catch (Exception e) {
+            log.error("获取系统信息失败", e);
+            throw new OciException(-1, "Error while fetching glance data");
+        }
+
+        return rsp;
+    }
+
+    public SysUserDTO getOciUser(String ociCfgId) {
+        OciUser ociUser = userService.getById(ociCfgId);
+        return SysUserDTO.builder()
+                .ociCfg(SysUserDTO.OciCfg.builder()
+                        .userId(ociUser.getOciUserId())
+                        .tenantId(ociUser.getOciTenantId())
+                        .region(ociUser.getOciRegion())
+                        .fingerprint(ociUser.getOciFingerprint())
+                        .privateKeyPath(ociUser.getOciKeyPath())
+                        .build())
+                .username(ociUser.getUsername())
+                .build();
     }
 
     private String getCfgValue(SysCfgEnum sysCfgEnum) {

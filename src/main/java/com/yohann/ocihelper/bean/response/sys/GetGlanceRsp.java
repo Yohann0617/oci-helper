@@ -13,5 +13,8 @@ import lombok.Data;
 @Data
 public class GetGlanceRsp {
 
-
+    private String users;
+    private String tasks;
+    private String regions;
+    private String days;
 }

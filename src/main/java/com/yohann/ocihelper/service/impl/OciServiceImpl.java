@@ -453,9 +453,9 @@ public class OciServiceImpl implements IOciService {
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
                 fetcher.getAvailabilityDomains();
             } catch (Exception e) {
-                return false;
+                return true;
             }
-            return true;
+            return false;
         }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
 
         return String.format(rst, ids.size(), failNames.size(), String.join(" , ", failNames));

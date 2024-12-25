@@ -93,7 +93,6 @@ public class MetricsWebSocketHandler {
      * @param message 消息
      */
     public void sendOneMessage(Session session, String message) {
-        System.out.println("发送消息->" + session.getId());
         if (session != null && session.isOpen()) {
             try {
                 synchronized (session) {
