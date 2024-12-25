@@ -21,6 +21,7 @@ import javax.websocket.Session;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -41,7 +42,7 @@ public class MetricsWebSocketHandler {
     private static final ConcurrentHashMap<String, Boolean> IS_OPEN_MAP = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Future<?>> FUTURE_MAP = new ConcurrentHashMap<>();
     Map<String, Object> metrics = new HashMap<>();
-    List<String> timestamps = new ArrayList<>();
+    List<String> timestamps = new LinkedList<>();
     List<Double> inRates = new LinkedList<>();
     List<Double> outRates = new LinkedList<>();
 
@@ -133,7 +134,12 @@ public class MetricsWebSocketHandler {
                 .put("free", String.format("%.2f", freeMemoryPercentage))
                 .build());
 
-        Collections.reverse(timestamps);
+        timestamps.sort((t1, t2) -> {
+            LocalTime time1 = LocalTime.parse(t1);
+            LocalTime time2 = LocalTime.parse(t2);
+            return time1.compareTo(time2);
+        });
+
         metrics.put("trafficData", MapUtil.builder()
                 .put("timestamps", timestamps)
                 .put("inbound", inRates)
@@ -176,9 +182,9 @@ public class MetricsWebSocketHandler {
                 previousRxBytes = currentRxBytes;
                 previousTxBytes = currentTxBytes;
 
-                Calendar calendar = Calendar.getInstance();
-
                 while (IS_OPEN_MAP.getOrDefault(token, false)) {
+                    Calendar calendar = Calendar.getInstance();
+
                     try {
                         Thread.sleep(interval * 1000); // 每秒更新一次
                     } catch (InterruptedException e) {
