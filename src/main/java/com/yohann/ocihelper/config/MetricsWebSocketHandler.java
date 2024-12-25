@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.config;
 
 import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import cn.hutool.jwt.JWTUtil;
 import com.yohann.ocihelper.exception.OciException;
@@ -152,13 +153,12 @@ public class MetricsWebSocketHandler {
             SystemInfo systemInfo = new SystemInfo();
             List<NetworkIF> networkIFs = systemInfo.getHardware().getNetworkIFs();
 
-            NetworkIF networkIF = null;
-            for (NetworkIF x : networkIFs) {
-                if (x.getName().startsWith("eth3")) {
-                    networkIF = x;
-                    break;
-                }
-            }
+            NetworkIF networkIF = networkIFs.stream()
+                    .filter(NetworkIF::isConnectorPresent) // 必须是有物理连接
+                    .filter(iface -> !Arrays.asList(iface.getIPv4addr()).isEmpty() || !Arrays.asList(iface.getIPv6addr()).isEmpty()) // 必须有 IP 地址
+                    .filter(iface -> iface.getName().startsWith("e"))
+                    .min((a, b) -> Long.compare(b.getSpeed(), a.getSpeed())) // 找到第一个匹配的网卡
+                    .orElse(null); // 如果没有匹配，返回 null
 
             if (null != networkIF) {
                 networkIF.updateAttributes();
