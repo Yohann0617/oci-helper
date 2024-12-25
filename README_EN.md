@@ -28,7 +28,7 @@
 
 ## One-click docker-compose deployment or update
 
-After the installation is complete, you can directly access it through `ip:8818` in the browser (it is recommended to access it through https later). The default account and password are: `yohann`. If you need to modify it, please change the configuration in `application.yml` and execute `docker restart oci-helper` to restart the docker container. It is recommended to use English names for `keyfile.pem` and upload them all to the `/app/oci-helper/keys` directory. When adding oci configuration, you only need to enter `keyfileName.pem`, and the full path of this directory will be added by default.
+After the installation is complete, you can directly access it through `ip:8818` in the browser (it is recommended to access it through https later). The default account and password are: `yohann`. If you need to modify it, please change the configuration in `/app/oci-helper/application.yml` and execute `docker restart oci-helper` to restart the docker container. It is recommended to use English names for `keyfile.pem` and upload them all to the `/app/oci-helper/keys` directory. When adding oci configuration, you only need to enter `keyfileName.pem`, and the full path of this directory will be added by default.
 
 ```bash
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
@@ -93,8 +93,9 @@ docker compose pull && docker compose up -d
 
 ## Page display
 
-![image.png](./img/1-login.png)
-![image.png](./img/2-user.png)
+![image.png](./img/0-login.png)
+![image.png](./img/1-home.png)
+![image.png](./img/1-user.png)
 ![image.png](./img/3-add-1.png)
 ![image.png](./img/3-add-2.png)
 ![image.png](./img/3-create.png)

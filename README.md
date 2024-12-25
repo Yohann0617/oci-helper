@@ -27,7 +27,7 @@
 
 ## 一键 docker-compose 部署或更新
 
-安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，如需修改请更改`application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。`密钥文件.pem`建议使用英文命名，并全部上传到`/app/oci-helper/keys`目录下，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
+安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，如需修改请更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。`密钥文件.pem`建议使用英文命名，并全部上传到`/app/oci-helper/keys`目录下，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
 
 ```bash
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
@@ -92,8 +92,9 @@ docker compose pull && docker compose up -d
 
 ## 页面展示
 
-![image.png](./img/1-login.png)
-![image.png](./img/2-user.png)
+![image.png](./img/0-login.png)
+![image.png](./img/1-home.png)
+![image.png](./img/1-user.png)
 ![image.png](./img/3-add-1.png)
 ![image.png](./img/3-add-2.png)
 ![image.png](./img/3-create.png)
