@@ -45,6 +45,8 @@ public class MetricsWebSocketHandler {
     List<String> timestamps = new LinkedList<>();
     List<Double> inRates = new LinkedList<>();
     List<Double> outRates = new LinkedList<>();
+    int interval = 5;
+    int size = 15;
 
     private boolean validateToken(String token) {
         return !CommonUtils.isTokenExpired(token) && JWTUtil.verify(token, ((String) TEMP_MAP.get("password")).getBytes());
@@ -155,7 +157,6 @@ public class MetricsWebSocketHandler {
 
     private void execGenTrafficData(String token) {
         Future<?> future = Executors.newSingleThreadExecutor().submit(() -> {
-            int interval = 5;
             SystemInfo systemInfo = new SystemInfo();
             List<NetworkIF> networkIFs = systemInfo.getHardware().getNetworkIFs();
 
@@ -186,7 +187,7 @@ public class MetricsWebSocketHandler {
                     Calendar calendar = Calendar.getInstance();
 
                     try {
-                        Thread.sleep(interval * 1000); // 每秒更新一次
+                        Thread.sleep(interval * 1000L); // 每秒更新一次
                     } catch (InterruptedException e) {
 
                     }

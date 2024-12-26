@@ -32,7 +32,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
     private final BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
     private final ExecutorService pushThreadExecutor = Executors.newSingleThreadExecutor();
     private final Deque<String> recentLogs = new ConcurrentLinkedDeque<>();
-    private static final int MAX_RECENT_LOGS = 20;
+    private static final int MAX_RECENT_LOGS = 50;
     Tailer tailer;
     Future<?> logPushTask;
     private volatile boolean close = false;
