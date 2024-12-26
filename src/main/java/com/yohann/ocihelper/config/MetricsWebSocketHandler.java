@@ -205,13 +205,13 @@ public class MetricsWebSocketHandler {
                     previousTxBytes = currentTxBytes;
 
                     // 维护队列大小为10
-                    if (inRates.size() == 10) {
+                    if (inRates.size() == size) {
                         inRates.remove(0);
                     }
-                    if (outRates.size() == 10) {
+                    if (outRates.size() == size) {
                         outRates.remove(0);
                     }
-                    if (timestamps.size() == 10) {
+                    if (timestamps.size() == size) {
                         timestamps.remove(0);
                     }
                     inRates.add(Double.valueOf(String.format("%.2f", rxRate)));
