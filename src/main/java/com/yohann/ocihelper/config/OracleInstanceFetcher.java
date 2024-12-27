@@ -1390,29 +1390,31 @@ public class OracleInstanceFetcher implements Closeable {
         if (ingressSecurityRules.isEmpty()) {
             ingressSecurityRules = inList;
         } else {
-            for (IngressSecurityRule rule : ingressSecurityRules) {
-                for (IngressSecurityRule in : inList) {
-                    if (!rule.getSource().equals(in.getSource()) &&
-                            !rule.getProtocol().equals(in.getProtocol()) &&
-                            !rule.getSourceType().equals(in.getSourceType())) {
-                        ingressSecurityRules.add(in);
-                    }
-                }
-            }
+//            for (IngressSecurityRule rule : ingressSecurityRules) {
+//                for (IngressSecurityRule in : inList) {
+//                    if (!rule.getSource().equals(in.getSource()) &&
+//                            !rule.getProtocol().equals(in.getProtocol()) &&
+//                            !rule.getSourceType().equals(in.getSourceType())) {
+//                        ingressSecurityRules.add(in);
+//                    }
+//                }
+//            }
+            ingressSecurityRules.addAll(inList);
         }
         List<EgressSecurityRule> egressSecurityRules = getSecurityListResponse.getSecurityList().getEgressSecurityRules();
         if (egressSecurityRules.isEmpty()) {
             egressSecurityRules = outList;
         } else {
-            for (EgressSecurityRule rule : egressSecurityRules) {
-                for (EgressSecurityRule out : outList) {
-                    if (!rule.getDestination().equals(out.getDestination()) &&
-                            !rule.getProtocol().equals(out.getProtocol()) &&
-                            !rule.getDestinationType().equals(out.getDestinationType())) {
-                        egressSecurityRules.add(out);
-                    }
-                }
-            }
+//            for (EgressSecurityRule rule : egressSecurityRules) {
+//                for (EgressSecurityRule out : outList) {
+//                    if (!rule.getDestination().equals(out.getDestination()) &&
+//                            !rule.getProtocol().equals(out.getProtocol()) &&
+//                            !rule.getDestinationType().equals(out.getDestinationType())) {
+//                        egressSecurityRules.add(out);
+//                    }
+//                }
+//            }
+            egressSecurityRules.addAll(outList);
         }
         virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
                 .securityListId(vcn.getDefaultSecurityListId())
