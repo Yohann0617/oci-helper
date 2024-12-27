@@ -259,7 +259,6 @@ public class OracleInstanceFetcher implements Closeable {
 
         ListVnicAttachmentsResponse vnicResponse = computeClient.listVnicAttachments(vnicRequest);
         List<VnicAttachment> vnicAttachments = vnicResponse.getItems();
-        Collections.reverse(vnicAttachments);
         return vnicAttachments.parallelStream()
                 .filter(x -> x.getLifecycleState().equals(VnicAttachment.LifecycleState.Attached))
                 .map(x -> {
