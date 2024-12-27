@@ -57,7 +57,6 @@ public class OracleInstanceFetcher implements Closeable {
 
     private static final String CIDR_BLOCK = "10.0.0.0/16";
     private static final String IPV6_CIDR_BLOCK = "2603:c021:c009:4200::/56";
-    private static final String SUBNET_V6_CIDR = "2603:c021:c009:4200::/64";
 
     @Override
     public void close() {
@@ -369,9 +368,7 @@ public class OracleInstanceFetcher implements Closeable {
         String vcnName = "oci-helper-vcn";
         CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
                 .cidrBlock(cidrBlock)
-//                .isIpv6Enabled(true)
-//                .isOracleGuaAllocationEnabled(true)
-//                .ipv6PrivateCidrBlocks(Collections.singletonList(IPV6_CIDR_BLOCK))
+                .isIpv6Enabled(true)
                 .compartmentId(compartmentId)
                 .displayName(vcnName)
                 .build();
@@ -392,7 +389,6 @@ public class OracleInstanceFetcher implements Closeable {
         CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
                 .cidrBlock(cidrBlock)
                 .isIpv6Enabled(true)
-//                .isOracleGuaAllocationEnabled(true)
                 .compartmentId(compartmentId)
                 .displayName(vcnName)
                 .build();
@@ -597,14 +593,15 @@ public class OracleInstanceFetcher implements Closeable {
                 return null;
             }
         } else {
-
+            String v6Cidr = vcn.getIpv6CidrBlocks().get(0);
+            String subnetV6Cidr = v6Cidr.replaceAll("/56", "/64");
             CreateSubnetDetails createSubnetDetails =
                     CreateSubnetDetails.builder()
                             .availabilityDomain(availabilityDomain.getName())
                             .compartmentId(compartmentId)
                             .displayName(subnetName)
                             .cidrBlock(networkCidrBlock)
-//                            .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
+                            .ipv6CidrBlock(subnetV6Cidr)
                             .vcnId(vcn.getId())
                             .routeTableId(vcn.getDefaultRouteTableId())
                             .build();
@@ -1140,10 +1137,10 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                    .availabilityDomain(availabilityDomain.getName())
-                    .compartmentId(compartmentId)
-                    .instanceId(instanceId)
-                    .build()).getItems()
+                            .availabilityDomain(availabilityDomain.getName())
+                            .compartmentId(compartmentId)
+                            .instanceId(instanceId)
+                            .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
@@ -1166,10 +1163,10 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                    .availabilityDomain(availabilityDomain.getName())
-                    .compartmentId(compartmentId)
-                    .instanceId(instanceId)
-                    .build()).getItems()
+                            .availabilityDomain(availabilityDomain.getName())
+                            .compartmentId(compartmentId)
+                            .instanceId(instanceId)
+                            .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
@@ -1196,7 +1193,7 @@ public class OracleInstanceFetcher implements Closeable {
             BootVolume bootVolume = getBootVolumeByInstanceId(instanceId);
             bootVolumeSize = bootVolume.getSizeInGBs() + "";
         } catch (Exception e) {
-            log.error("用户：[{}] ，区域：[{}] ， 实例：[{}] 的引导卷不存在~",
+            log.error("用户：[{}] ，区域：[{}] ， 实例：[{}] ，连接超时或者实例的引导卷不存在~",
                     user.getUsername(), user.getOciCfg().getRegion(),
                     instance.getDisplayName(), e);
         }
@@ -1393,29 +1390,29 @@ public class OracleInstanceFetcher implements Closeable {
         if (ingressSecurityRules.isEmpty()) {
             ingressSecurityRules = inList;
         } else {
-//            for (IngressSecurityRule rule : ingressSecurityRules) {
-//                for (IngressSecurityRule in : inList) {
-//                    if (!rule.getSource().contains(in.getSource()) && !rule.getProtocol().equals(in.getProtocol())) {
-//                        ingressSecurityRules.add(in);
-//                    }
-//                }
-//            }
-            ingressSecurityRules.addAll(inList);
+            for (IngressSecurityRule rule : ingressSecurityRules) {
+                for (IngressSecurityRule in : inList) {
+                    if (!rule.getSource().equals(in.getSource()) &&
+                            !rule.getProtocol().equals(in.getProtocol()) &&
+                            !rule.getSourceType().equals(in.getSourceType())) {
+                        ingressSecurityRules.add(in);
+                    }
+                }
+            }
         }
         List<EgressSecurityRule> egressSecurityRules = getSecurityListResponse.getSecurityList().getEgressSecurityRules();
         if (egressSecurityRules.isEmpty()) {
             egressSecurityRules = outList;
         } else {
-//            for (EgressSecurityRule rule : egressSecurityRules) {
-//                for (EgressSecurityRule out : outList) {
-//                    if (!rule.getDestination().contains(out.getDestination()) &&
-//                            !rule.getProtocol().equals(out.getProtocol()) &&
-//                            !rule.getDestinationType().equals(out.getDestinationType())) {
-//                        egressSecurityRules.add(out);
-//                    }
-//                }
-//            }
-            egressSecurityRules.addAll(outList);
+            for (EgressSecurityRule rule : egressSecurityRules) {
+                for (EgressSecurityRule out : outList) {
+                    if (!rule.getDestination().equals(out.getDestination()) &&
+                            !rule.getProtocol().equals(out.getProtocol()) &&
+                            !rule.getDestinationType().equals(out.getDestinationType())) {
+                        egressSecurityRules.add(out);
+                    }
+                }
+            }
         }
         virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
                 .securityListId(vcn.getDefaultSecurityListId())
@@ -1448,7 +1445,6 @@ public class OracleInstanceFetcher implements Closeable {
             virtualNetworkClient.addIpv6VcnCidr(AddIpv6VcnCidrRequest.builder()
                     .vcnId(vcnId)
                     .addVcnIpv6CidrDetails(AddVcnIpv6CidrDetails.builder()
-//                            .isOracleGuaAllocationEnabled(true)
                             .ipv6PrivateCidrBlock(IPV6_CIDR_BLOCK)
                             .build())
                     .build());
@@ -1470,14 +1466,22 @@ public class OracleInstanceFetcher implements Closeable {
         }
 
         for (Subnet subnet : oldSubnet) {
-            if (null == subnet.getIpv6CidrBlock()) {
-                virtualNetworkClient.updateSubnet(UpdateSubnetRequest.builder()
-                        .subnetId(subnet.getId())
-                        .updateSubnetDetails(UpdateSubnetDetails.builder()
-                                .ipv6CidrBlock(SUBNET_V6_CIDR)
-//                                .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
-                                .build())
-                        .build());
+            if (subnet.getVcnId().equals(vcnId)) {
+                String v6Cidr;
+                if (null == oldIpv6CidrBlocks || oldIpv6CidrBlocks.isEmpty()) {
+                    v6Cidr = IPV6_CIDR_BLOCK;
+                } else {
+                    v6Cidr = vcn.getIpv6CidrBlocks().get(0);
+                }
+                String subnetV6Cidr = v6Cidr.replaceAll("/56", "/64");
+                if (null == subnet.getIpv6CidrBlock()) {
+                    virtualNetworkClient.updateSubnet(UpdateSubnetRequest.builder()
+                            .subnetId(subnet.getId())
+                            .updateSubnetDetails(UpdateSubnetDetails.builder()
+                                    .ipv6CidrBlock(subnetV6Cidr)
+                                    .build())
+                            .build());
+                }
             }
         }
 
