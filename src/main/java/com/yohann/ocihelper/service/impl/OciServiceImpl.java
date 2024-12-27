@@ -206,6 +206,7 @@ public class OciServiceImpl implements IOciService {
                     .collect(Collectors.toList()));
             return rsp;
         } catch (Exception e) {
+            log.error("获取实例信息失败", e);
             throw new OciException(-1, "获取实例信息失败");
         }
     }

@@ -260,18 +260,19 @@ public class OracleInstanceFetcher implements Closeable {
 
         ListVnicAttachmentsResponse vnicResponse = computeClient.listVnicAttachments(vnicRequest);
         List<VnicAttachment> vnicAttachments = vnicResponse.getItems();
-
-        return vnicAttachments.parallelStream().map(x -> {
-            String vnicId = x.getVnicId();
-            if (vnicId != null) {
-                // 获取VNIC详细信息，包括IP地址
-                GetVnicRequest getVnicRequest = GetVnicRequest.builder().vnicId(vnicId).build();
-                GetVnicResponse getVnicResponse = virtualNetworkClient.getVnic(getVnicRequest);
-                Vnic vnic = getVnicResponse.getVnic();
-                return vnic;
-            }
-            return null;
-        }).collect(Collectors.toList());
+        return vnicAttachments.parallelStream()
+                .filter(x -> x.getLifecycleState().equals(VnicAttachment.LifecycleState.Attached))
+                .map(x -> {
+                    String vnicId = x.getVnicId();
+                    if (vnicId != null) {
+                        // 获取VNIC详细信息，包括IP地址
+                        GetVnicRequest getVnicRequest = GetVnicRequest.builder().vnicId(vnicId).build();
+                        GetVnicResponse getVnicResponse = virtualNetworkClient.getVnic(getVnicRequest);
+                        Vnic vnic = getVnicResponse.getVnic();
+                        return vnic;
+                    }
+                    return null;
+                }).collect(Collectors.toList());
     }
 
     private String getCidr(VirtualNetworkClient virtualNetworkClient, String compartmentId) {
