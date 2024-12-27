@@ -57,7 +57,7 @@ public class OracleInstanceFetcher implements Closeable {
 
     private static final String CIDR_BLOCK = "10.0.0.0/16";
     private static final String IPV6_CIDR_BLOCK = "2603:c021:c009:4200::/56";
-    private static final String SUBNET_V6_CIDR = "2603:c021:c005:fe7e::/64";
+    private static final String SUBNET_V6_CIDR = "2603:c021:c009:4200::/64";
 
     @Override
     public void close() {
@@ -121,8 +121,8 @@ public class OracleInstanceFetcher implements Closeable {
         int size = availabilityDomains.size();
         Vcn vcn;
         InternetGateway internetGateway;
-        Subnet subnet;
-        NetworkSecurityGroup networkSecurityGroup;
+        Subnet subnet = null;
+        NetworkSecurityGroup networkSecurityGroup = null;
         LaunchInstanceDetails launchInstanceDetails;
         Instance instance;
         try {
@@ -139,6 +139,8 @@ public class OracleInstanceFetcher implements Closeable {
                         }
 
                         if (vcnList.isEmpty()) {
+                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 检测到VCN不存在，正在创建VCN......",
+                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                             String networkCidrBlock = getCidr(virtualNetworkClient, compartmentId);
                             vcn = createVcn(virtualNetworkClient, compartmentId, networkCidrBlock);
                             internetGateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
@@ -147,10 +149,8 @@ public class OracleInstanceFetcher implements Closeable {
                             if (null == subnet) {
                                 continue;
                             }
-                            networkSecurityGroup = createNetworkSecurityGroup(virtualNetworkClient, compartmentId, vcn);
-                            addNetworkSecurityGroupSecurityRules(virtualNetworkClient, networkSecurityGroup, networkCidrBlock);
-                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 检测到VCN不存在，正在创建VCN......",
-                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
+//                            networkSecurityGroup = createNetworkSecurityGroup(virtualNetworkClient, compartmentId, vcn);
+//                            addNetworkSecurityGroupSecurityRules(virtualNetworkClient, networkSecurityGroup, networkCidrBlock);
                         } else {
                             subnet = listSubnets(vcnList.get(0).getId()).get(0);
                             networkSecurityGroup = null;
@@ -196,7 +196,7 @@ public class OracleInstanceFetcher implements Closeable {
                         } else if (error.getStatusCode() == 400 || error.getMessage().contains(ErrorEnum.LIMIT_EXCEEDED.getErrorType())) {
                             instanceDetailDTO.setOut(true);
                             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 无法创建实例，配额已经超过限制~",
-                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
+                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), e);
                             return instanceDetailDTO;
                         } else if (error.getStatusCode() == 429 || error.getMessage().contains(ErrorEnum.TOO_MANY_REQUESTS.getErrorType())) {
                             instanceDetailDTO.setTooManyReq(true);
@@ -205,14 +205,14 @@ public class OracleInstanceFetcher implements Closeable {
                             return instanceDetailDTO;
                         } else {
 //                            instanceDetailDTO.setOut(true);
-                            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",
+                            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(),
                                     e.getMessage(), e);
                             return instanceDetailDTO;
                         }
                     } else {
 //                        instanceDetailDTO.setOut(true);
-                        log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",
+                        log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",
                                 user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(),
                                 e.getMessage(), e);
                         return instanceDetailDTO;
@@ -369,8 +369,9 @@ public class OracleInstanceFetcher implements Closeable {
         String vcnName = "oci-helper-vcn";
         CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
                 .cidrBlock(cidrBlock)
-                .isIpv6Enabled(true)
+//                .isIpv6Enabled(true)
 //                .isOracleGuaAllocationEnabled(true)
+//                .ipv6PrivateCidrBlocks(Collections.singletonList(IPV6_CIDR_BLOCK))
                 .compartmentId(compartmentId)
                 .displayName(vcnName)
                 .build();
@@ -603,7 +604,7 @@ public class OracleInstanceFetcher implements Closeable {
                             .compartmentId(compartmentId)
                             .displayName(subnetName)
                             .cidrBlock(networkCidrBlock)
-                            .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
+//                            .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
                             .vcnId(vcn.getId())
                             .routeTableId(vcn.getDefaultRouteTableId())
                             .build();
@@ -622,10 +623,6 @@ public class OracleInstanceFetcher implements Closeable {
                             .forSubnet(getSubnetRequest, Subnet.LifecycleState.Available)
                             .execute();
             subnet = getSubnetResponse.getSubnet();
-
-            log.info("Created Subnet: " + subnet.getId());
-            log.info("subnet: [{}]", subnet);
-
         }
         return subnet;
     }
@@ -1201,7 +1198,7 @@ public class OracleInstanceFetcher implements Closeable {
         } catch (Exception e) {
             log.error("用户：[{}] ，区域：[{}] ， 实例：[{}] 的引导卷不存在~",
                     user.getUsername(), user.getOciCfg().getRegion(),
-                    instance.getDisplayName());
+                    instance.getDisplayName(), e);
         }
 
         // 打印引导卷大小（以 GB 为单位）
@@ -1396,27 +1393,29 @@ public class OracleInstanceFetcher implements Closeable {
         if (ingressSecurityRules.isEmpty()) {
             ingressSecurityRules = inList;
         } else {
-            for (IngressSecurityRule rule : ingressSecurityRules) {
-                for (IngressSecurityRule in : inList) {
-                    if (!rule.getSource().contains(in.getSource()) && !rule.getProtocol().equals(in.getProtocol())) {
-                        ingressSecurityRules.add(in);
-                    }
-                }
-            }
+//            for (IngressSecurityRule rule : ingressSecurityRules) {
+//                for (IngressSecurityRule in : inList) {
+//                    if (!rule.getSource().contains(in.getSource()) && !rule.getProtocol().equals(in.getProtocol())) {
+//                        ingressSecurityRules.add(in);
+//                    }
+//                }
+//            }
+            ingressSecurityRules.addAll(inList);
         }
         List<EgressSecurityRule> egressSecurityRules = getSecurityListResponse.getSecurityList().getEgressSecurityRules();
         if (egressSecurityRules.isEmpty()) {
             egressSecurityRules = outList;
         } else {
-            for (EgressSecurityRule rule : egressSecurityRules) {
-                for (EgressSecurityRule out : outList) {
-                    if (!rule.getDestination().contains(out.getDestination()) &&
-                            !rule.getProtocol().equals(out.getProtocol()) &&
-                            !rule.getDestinationType().equals(out.getDestinationType())) {
-                        egressSecurityRules.add(out);
-                    }
-                }
-            }
+//            for (EgressSecurityRule rule : egressSecurityRules) {
+//                for (EgressSecurityRule out : outList) {
+//                    if (!rule.getDestination().contains(out.getDestination()) &&
+//                            !rule.getProtocol().equals(out.getProtocol()) &&
+//                            !rule.getDestinationType().equals(out.getDestinationType())) {
+//                        egressSecurityRules.add(out);
+//                    }
+//                }
+//            }
+            egressSecurityRules.addAll(outList);
         }
         virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
                 .securityListId(vcn.getDefaultSecurityListId())
@@ -1445,12 +1444,11 @@ public class OracleInstanceFetcher implements Closeable {
 
         // 添加ipv6 cidr 前缀
         List<String> oldIpv6CidrBlocks = vcn.getIpv6CidrBlocks();
-//        System.out.println(oldIpv6CidrBlocks);
         if (oldIpv6CidrBlocks == null || oldIpv6CidrBlocks.isEmpty()) {
             virtualNetworkClient.addIpv6VcnCidr(AddIpv6VcnCidrRequest.builder()
                     .vcnId(vcnId)
                     .addVcnIpv6CidrDetails(AddVcnIpv6CidrDetails.builder()
-                            .isOracleGuaAllocationEnabled(true)
+//                            .isOracleGuaAllocationEnabled(true)
                             .ipv6PrivateCidrBlock(IPV6_CIDR_BLOCK)
                             .build())
                     .build());
@@ -1472,11 +1470,12 @@ public class OracleInstanceFetcher implements Closeable {
         }
 
         for (Subnet subnet : oldSubnet) {
-            if (subnet.getIpv6CidrBlocks().isEmpty()) {
+            if (null == subnet.getIpv6CidrBlock()) {
                 virtualNetworkClient.updateSubnet(UpdateSubnetRequest.builder()
                         .subnetId(subnet.getId())
                         .updateSubnetDetails(UpdateSubnetDetails.builder()
-                                .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
+                                .ipv6CidrBlock(SUBNET_V6_CIDR)
+//                                .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
                                 .build())
                         .build());
             }
@@ -1502,8 +1501,12 @@ public class OracleInstanceFetcher implements Closeable {
             }
         }
 
-        // 安全列表（默认存在）
-        releaseSecurityRule(vcn, 6);
+        try {
+            // 安全列表（默认存在）
+            releaseSecurityRule(vcn, 6);
+        } catch (Exception e) {
+            log.error("release security rule error >>>>>>>>>>>>>>>>>> ", e);
+        }
 
         CreateIpv6Response createIpv6Response = virtualNetworkClient.createIpv6(CreateIpv6Request.builder()
                 .createIpv6Details(CreateIpv6Details.builder()
