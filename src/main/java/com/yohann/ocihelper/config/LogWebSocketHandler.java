@@ -1,5 +1,7 @@
 package com.yohann.ocihelper.config;
 
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.io.file.Tailer;
 import cn.hutool.jwt.JWTUtil;
 import com.yohann.ocihelper.utils.CommonUtils;
@@ -10,10 +12,14 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.*;
 
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
@@ -71,7 +77,14 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
         try {
             startLogTailer(CommonUtils.LOG_FILE_PATH);
         } catch (Exception e) {
-            log.error("启动日志监听服务失败：{}", e.getLocalizedMessage());
+            if (e.getLocalizedMessage().contains("Negative seek offset")) {
+                List<String> readUtf8Lines = FileUtil.readUtf8Lines(CommonUtils.LOG_FILE_PATH);
+                readUtf8Lines.add("\n");
+                FileUtil.writeUtf8Lines(new ArrayList<>(100), CommonUtils.LOG_FILE_PATH);
+                FileUtil.writeUtf8Lines(readUtf8Lines, CommonUtils.LOG_FILE_PATH);
+            } else {
+                log.error("启动日志监听服务失败：{}", e.getLocalizedMessage());
+            }
         }
 
         sendRecentLogs();
