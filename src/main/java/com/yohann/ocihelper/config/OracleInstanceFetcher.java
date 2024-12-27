@@ -245,10 +245,10 @@ public class OracleInstanceFetcher implements Closeable {
     }
 
     public Instance getInstanceById(String instanceId) {
-        List<Instance> instances = listInstances().stream()
-                .filter(x -> x.getId().equals(instanceId))
-                .collect(Collectors.toList());
-        return instances.size() == 1 ? instances.get(0) : null;
+        GetInstanceResponse instance = computeClient.getInstance(GetInstanceRequest.builder()
+                .instanceId(instanceId)
+                .build());
+        return instance.getInstance();
     }
 
     public List<Vnic> listInstanceIPs(String instanceId) {
@@ -366,14 +366,6 @@ public class OracleInstanceFetcher implements Closeable {
     private Vcn createVcn(VirtualNetworkClient virtualNetworkClient, String compartmentId, String cidrBlock)
             throws Exception {
         String vcnName = "oci-helper-vcn";
-        ListVcnsRequest build = ListVcnsRequest.builder().compartmentId(compartmentId)
-                .displayName(vcnName)
-                .build();
-
-        ListVcnsResponse listVcnsResponse = virtualNetworkClient.listVcns(build);
-        if (listVcnsResponse.getItems().size() > 0) {
-            return listVcnsResponse.getItems().get(0);
-        }
         CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
                 .cidrBlock(cidrBlock)
                 .isIpv6Enabled(true)
@@ -395,14 +387,6 @@ public class OracleInstanceFetcher implements Closeable {
     public Vcn createVcn(String cidrBlock)
             throws Exception {
         String vcnName = "oci-helper-vcn";
-        ListVcnsRequest build = ListVcnsRequest.builder().compartmentId(compartmentId)
-                .displayName(vcnName)
-                .build();
-
-        ListVcnsResponse listVcnsResponse = virtualNetworkClient.listVcns(build);
-        if (listVcnsResponse.getItems().size() > 0) {
-            return listVcnsResponse.getItems().get(0);
-        }
         CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
                 .cidrBlock(cidrBlock)
                 .isIpv6Enabled(true)
@@ -435,9 +419,24 @@ public class OracleInstanceFetcher implements Closeable {
     public List<Vcn> listVcn() {
         ListVcnsRequest request = ListVcnsRequest.builder()
                 .compartmentId(compartmentId)
+                .lifecycleState(Vcn.LifecycleState.Available)
                 .build();
         ListVcnsResponse response = virtualNetworkClient.listVcns(request);
         return response.getItems();
+    }
+
+    public Vcn getVcnByInstanceId(String instanceId) {
+        Vnic vnic = getVnicByInstanceId(instanceId);
+        // 获取子网信息
+        String subnetId = vnic.getSubnetId();
+        GetSubnetRequest getSubnetRequest = GetSubnetRequest.builder().subnetId(subnetId).build();
+        GetSubnetResponse getSubnetResponse = virtualNetworkClient.getSubnet(getSubnetRequest);
+        Subnet subnet = getSubnetResponse.getSubnet();
+        // 获取 VCN 信息
+        String vcnId = subnet.getVcnId();
+        GetVcnRequest getVcnRequest = GetVcnRequest.builder().vcnId(vcnId).build();
+        GetVcnResponse getVcnResponse = virtualNetworkClient.getVcn(getVcnRequest);
+        return getVcnResponse.getVcn();
     }
 
     private InternetGateway createInternetGateway(
@@ -1143,10 +1142,10 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                            .availabilityDomain(availabilityDomain.getName())
-                            .compartmentId(compartmentId)
-                            .instanceId(instanceId)
-                            .build()).getItems()
+                    .availabilityDomain(availabilityDomain.getName())
+                    .compartmentId(compartmentId)
+                    .instanceId(instanceId)
+                    .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
@@ -1169,17 +1168,17 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                            .availabilityDomain(availabilityDomain.getName())
-                            .compartmentId(compartmentId)
-                            .instanceId(instanceId)
-                            .build()).getItems()
+                    .availabilityDomain(availabilityDomain.getName())
+                    .compartmentId(compartmentId)
+                    .instanceId(instanceId)
+                    .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
             if (CollectionUtil.isNotEmpty(BootVolumeIdList)) {
                 bootVolumes.addAll(BootVolumeIdList.parallelStream().map(id -> {
                     GetBootVolumeRequest getBootVolumeRequest = GetBootVolumeRequest.builder()
-                            .bootVolumeId(BootVolumeIdList.get(0))
+                            .bootVolumeId(id)
                             .build();
                     GetBootVolumeResponse getBootVolumeResponse = blockstorageClient.getBootVolume(getBootVolumeRequest);
                     return getBootVolumeResponse.getBootVolume();
@@ -1250,6 +1249,14 @@ public class OracleInstanceFetcher implements Closeable {
 
         /* Send request to the Client */
         TerminateInstanceResponse response = computeClient.terminateInstance(terminateInstanceRequest);
+    }
+
+    public List<Vnic> listVnicByInstanceId(String instanceId) {
+        List<Vnic> vnics = listInstanceIPs(instanceId);
+        if (vnics.isEmpty()) {
+            return null;
+        }
+        return vnics;
     }
 
     public Vnic getVnicByInstanceId(String instanceId) {
@@ -1438,8 +1445,6 @@ public class OracleInstanceFetcher implements Closeable {
         }
 
         String vcnId = vcn.getId();
-        Subnet subnet;
-        InternetGateway gateway;
 
         // 添加ipv6 cidr 前缀
         List<String> oldIpv6CidrBlocks = vcn.getIpv6CidrBlocks();
@@ -1459,7 +1464,7 @@ public class OracleInstanceFetcher implements Closeable {
         if (oldSubnet.isEmpty()) {
             try {
                 log.warn("用户：[{}] ，区域：[{}] 正在创建子网~", user.getUsername(), user.getOciCfg().getRegion());
-                subnet = createSubnet(virtualNetworkClient,
+                createSubnet(virtualNetworkClient,
                         compartmentId,
                         getAvailabilityDomains(identityClient, compartmentId).get(0),
                         CIDR_BLOCK, vcn);
@@ -1467,56 +1472,41 @@ public class OracleInstanceFetcher implements Closeable {
                 log.error("用户：[{}] ，区域：[{}] 创建子网失败，原因：[{}]", user.getUsername(), user.getOciCfg().getRegion(), e.getLocalizedMessage());
                 throw new OciException(-1, "创建子网失败");
             }
-        } else {
-            subnet = oldSubnet.get(0);
         }
 
-        if (subnet.getIpv6CidrBlocks().isEmpty()) {
-            virtualNetworkClient.updateSubnet(UpdateSubnetRequest.builder()
-                    .subnetId(subnet.getId())
-                    .updateSubnetDetails(UpdateSubnetDetails.builder()
-                            .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
-                            .build())
-                    .build());
+        for (Subnet subnet : oldSubnet) {
+            if (subnet.getIpv6CidrBlocks().isEmpty()) {
+                virtualNetworkClient.updateSubnet(UpdateSubnetRequest.builder()
+                        .subnetId(subnet.getId())
+                        .updateSubnetDetails(UpdateSubnetDetails.builder()
+                                .ipv6CidrBlocks(Collections.singletonList(SUBNET_V6_CIDR))
+                                .build())
+                        .build());
+            }
         }
-//        System.out.println(subnet);
 
-
+        // 更新路由表（默认存在）
         ListInternetGatewaysResponse listInternetGatewaysResponse = virtualNetworkClient.listInternetGateways(
                 ListInternetGatewaysRequest.builder()
                         .compartmentId(compartmentId)
                         .vcnId(vcnId)
-                        .limit(1)
                         .build());
-        if (!listInternetGatewaysResponse.getItems().isEmpty()) {
-            gateway = listInternetGatewaysResponse.getItems().get(0);
-        } else {
+        if (listInternetGatewaysResponse.getItems().isEmpty()) {
             try {
-                gateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
+                InternetGateway gateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
+                updateRouteRules(gateway, vcn);
             } catch (Exception e) {
                 log.error("用户：[{}] ，区域：[{}] 创建网关失败，原因：[{}]", user.getUsername(), user.getOciCfg().getRegion(), e.getLocalizedMessage());
                 throw new OciException(-1, "创建网关失败");
             }
+        } else {
+            for (InternetGateway gateway : listInternetGatewaysResponse.getItems()) {
+                updateRouteRules(gateway, vcn);
+            }
         }
-
-//        System.out.println(gateway);
-
-        // 更新路由表（默认存在）
-        updateRouteRules(gateway, vcn);
 
         // 安全列表（默认存在）
         releaseSecurityRule(vcn, 6);
-
-//        System.out.println("网络安全组更新完成");
-//
-//        virtualNetworkClient.updateInternetGateway(UpdateInternetGatewayRequest.builder()
-//                .igId(gateway.getId())
-//                .updateInternetGatewayDetails(UpdateInternetGatewayDetails.builder()
-//                        .isEnabled(true)
-//                        .routeTableId(vcn.getDefaultRouteTableId())
-//                        .build())
-//                .build());
-//        System.out.println(gateway);
 
         CreateIpv6Response createIpv6Response = virtualNetworkClient.createIpv6(CreateIpv6Request.builder()
                 .createIpv6Details(CreateIpv6Details.builder()

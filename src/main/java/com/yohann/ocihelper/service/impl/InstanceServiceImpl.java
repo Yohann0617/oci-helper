@@ -179,7 +179,7 @@ public class InstanceServiceImpl implements IInstanceService {
     public String createIpv6(SysUserDTO sysUserDTO, String instanceId) {
         String instanceName = null;
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            Vcn vcn = fetcher.listVcn().get(0);
+            Vcn vcn = fetcher.getVcnByInstanceId(instanceId);
             Instance instance = fetcher.getInstanceById(instanceId);
             Vnic vnic = fetcher.getVnicByInstanceId(instanceId);
             Ipv6 ipv6 = fetcher.createIpv6(vnic, vcn);
