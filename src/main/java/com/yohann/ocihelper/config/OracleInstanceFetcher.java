@@ -1276,12 +1276,8 @@ public class OracleInstanceFetcher implements Closeable {
         if (vcnId == null) {
             return null;
         }
-        for (Vcn vcn : listVcn()) {
-            if (vcn.getId().equals(vcnId)) {
-                return vcn;
-            }
-        }
-        return null;
+        GetVcnResponse getVcnResponse = virtualNetworkClient.getVcn(GetVcnRequest.builder().vcnId(vcnId).build());
+        return getVcnResponse.getVcn();
     }
 
     public InstanceCfgDTO getInstanceCfg(String instanceId) {
