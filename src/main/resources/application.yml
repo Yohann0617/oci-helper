@@ -16,6 +16,7 @@ spring:
     druid:
       pool-prepared-statements: false     # 禁用 PreparedStatement 缓存，即每次都重新创建
       max-pool-prepared-statement-per-connection-size: -1 # 表示不限制每个连接缓存多少个
+      validation-query: SELECT 1         # 设置校验语句
       initial-size: 1                    # 初始化连接数
       min-idle: 1                        # 最小空闲连接数
       max-active: 10                     # 最大连接数，推荐根据并发需求调整
