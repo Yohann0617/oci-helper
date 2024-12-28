@@ -43,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.charset.Charset;
@@ -65,7 +66,7 @@ import static com.yohann.ocihelper.service.impl.OciServiceImpl.*;
  */
 @Service
 @Slf4j
-public class ISysServiceImpl implements ISysService {
+public class SysServiceImpl implements ISysService {
 
     @Value("${web.account}")
     private String account;
@@ -84,6 +85,8 @@ public class ISysServiceImpl implements ISysService {
     @Lazy
     private IInstanceService instanceService;
     @Resource
+    private HttpServletRequest request;
+    @Resource
     private HttpServletResponse response;
     @Resource
     private OciKvMapper kvMapper;
@@ -96,17 +99,21 @@ public class ISysServiceImpl implements ISysService {
 
     @Override
     public String login(LoginParams params) {
+        String clientIp = ServletUtil.getClientIP(request);
         if (getEnableMfa()) {
             if (params.getMfaCode() == null) {
+                log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
                 throw new OciException(-1, "验证码不能为空");
             }
             OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
             if (!CommonUtils.verifyMfaCode(mfa.getValue(), params.getMfaCode())) {
+                log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
                 throw new OciException(-1, "无效的验证码");
             }
         }
         if (!params.getAccount().equals(account) || !params.getPassword().equals(password)) {
+            log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
             throw new OciException(-1, "账号或密码不正确");
         }
         Map<String, Object> payload = new HashMap<>(1);
