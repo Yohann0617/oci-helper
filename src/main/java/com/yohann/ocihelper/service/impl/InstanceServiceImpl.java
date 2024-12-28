@@ -163,11 +163,11 @@ public class InstanceServiceImpl implements IInstanceService {
     @Override
     public void releaseSecurityRule(SysUserDTO sysUserDTO) {
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            Vcn vcn = fetcher.listVcn().get(0);
-            if (null == vcn) {
+            List<Vcn> vcns = fetcher.listVcn();
+            if (null == vcns || vcns.isEmpty()) {
                 throw new OciException(-1, "当前用户未创建VCN，无法放行安全列表");
             }
-            fetcher.releaseSecurityRule(vcn, 0);
+            fetcher.releaseSecurityRule(vcns.get(0), 0);
             log.info("用户：[{}] ，区域：[{}] ，放行安全列表所有端口及协议成功",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion());
         } catch (Exception e) {
