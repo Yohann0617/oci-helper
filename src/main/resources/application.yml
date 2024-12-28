@@ -40,3 +40,4 @@ logging:
 # 密钥文件存放目录（如果是docker部署则不用修改）
 oci-cfg:
   key-dir-path: /app/oci-helper/keys
+#  key-dir-path: C:\Users\Yohann\Desktop

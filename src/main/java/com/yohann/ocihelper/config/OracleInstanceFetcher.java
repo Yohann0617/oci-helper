@@ -1442,14 +1442,23 @@ public class OracleInstanceFetcher implements Closeable {
         String vcnId = vcn.getId();
 
         // 添加ipv6 cidr 前缀
-        List<String> oldIpv6CidrBlocks = vcn.getIpv6CidrBlocks();
-        if (oldIpv6CidrBlocks == null || oldIpv6CidrBlocks.isEmpty()) {
-            virtualNetworkClient.addIpv6VcnCidr(AddIpv6VcnCidrRequest.builder()
-                    .vcnId(vcnId)
-                    .addVcnIpv6CidrDetails(AddVcnIpv6CidrDetails.builder()
-                            .ipv6PrivateCidrBlock(IPV6_CIDR_BLOCK)
-                            .build())
-                    .build());
+        List<String> oldIpv6CidrBlocks = vcn.getIpv6PrivateCidrBlocks();
+        if (null == oldIpv6CidrBlocks || oldIpv6CidrBlocks.isEmpty()) {
+            try {
+                virtualNetworkClient.addIpv6VcnCidr(AddIpv6VcnCidrRequest.builder()
+                        .vcnId(vcnId)
+                        .addVcnIpv6CidrDetails(AddVcnIpv6CidrDetails.builder()
+                                .ipv6PrivateCidrBlock(IPV6_CIDR_BLOCK)
+                                .build())
+                        .build());
+            } catch (Exception e) {
+                if (e.getMessage().contains("requested for VCN are overlapping")) {
+                    log.warn("ipv6PrivateCidrBlock: {} exists", IPV6_CIDR_BLOCK);
+                } else {
+                    log.error("添加ipv6 cidr 前缀失败", e);
+                    throw new OciException(-1, "添加ipv6 cidr 前缀失败");
+                }
+            }
         }
 
         // 子网
@@ -1457,10 +1466,10 @@ public class OracleInstanceFetcher implements Closeable {
         if (oldSubnet.isEmpty()) {
             try {
                 log.warn("用户：[{}] ，区域：[{}] 正在创建子网~", user.getUsername(), user.getOciCfg().getRegion());
-                createSubnet(virtualNetworkClient,
+                oldSubnet.add(createSubnet(virtualNetworkClient,
                         compartmentId,
                         getAvailabilityDomains(identityClient, compartmentId).get(0),
-                        CIDR_BLOCK, vcn);
+                        CIDR_BLOCK, vcn));
             } catch (Exception e) {
                 log.error("用户：[{}] ，区域：[{}] 创建子网失败，原因：[{}]", user.getUsername(), user.getOciCfg().getRegion(), e.getLocalizedMessage());
                 throw new OciException(-1, "创建子网失败");
@@ -1473,16 +1482,25 @@ public class OracleInstanceFetcher implements Closeable {
                 if (null == oldIpv6CidrBlocks || oldIpv6CidrBlocks.isEmpty()) {
                     v6Cidr = IPV6_CIDR_BLOCK;
                 } else {
-                    v6Cidr = vcn.getIpv6CidrBlocks().get(0);
+                    v6Cidr = oldIpv6CidrBlocks.get(0);
                 }
                 String subnetV6Cidr = v6Cidr.replaceAll("/56", "/64");
                 if (null == subnet.getIpv6CidrBlock()) {
-                    virtualNetworkClient.updateSubnet(UpdateSubnetRequest.builder()
-                            .subnetId(subnet.getId())
-                            .updateSubnetDetails(UpdateSubnetDetails.builder()
-                                    .ipv6CidrBlock(subnetV6Cidr)
-                                    .build())
-                            .build());
+                    try {
+                        virtualNetworkClient.updateSubnet(UpdateSubnetRequest.builder()
+                                .subnetId(subnet.getId())
+                                .updateSubnetDetails(UpdateSubnetDetails.builder()
+                                        .ipv6CidrBlock(subnetV6Cidr)
+                                        .build())
+                                .build());
+                    } catch (Exception e) {
+                        if (e.getMessage().contains("has ULA CIDR(s) assigned")) {
+                            log.warn("subnet ipv6CidrBlock: {} exists", subnetV6Cidr);
+                        } else {
+                            log.error("添加子网ipv6前缀失败", e);
+                            throw new OciException(-1, "添加子网ipv6前缀失败");
+                        }
+                    }
                 }
             }
         }
