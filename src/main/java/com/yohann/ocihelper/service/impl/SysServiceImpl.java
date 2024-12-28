@@ -93,8 +93,8 @@ public class SysServiceImpl implements ISysService {
 
     @Override
     public void sendMessage(String message) {
-        messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message);
-        messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message);
+        CompletableFuture.runAsync(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message));
+        CompletableFuture.runAsync(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message));
     }
 
     @Override
@@ -103,17 +103,20 @@ public class SysServiceImpl implements ISysService {
         if (getEnableMfa()) {
             if (params.getMfaCode() == null) {
                 log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
+                sendMessage(String.format("请求IP：%s 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp));
                 throw new OciException(-1, "验证码不能为空");
             }
             OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
             if (!CommonUtils.verifyMfaCode(mfa.getValue(), params.getMfaCode())) {
                 log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
+                sendMessage(String.format("请求IP：%s 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp));
                 throw new OciException(-1, "无效的验证码");
             }
         }
         if (!params.getAccount().equals(account) || !params.getPassword().equals(password)) {
             log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
+            sendMessage(String.format("请求IP：%s 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp));
             throw new OciException(-1, "账号或密码不正确");
         }
         Map<String, Object> payload = new HashMap<>(1);
@@ -425,7 +428,7 @@ public class SysServiceImpl implements ISysService {
                                 .build();
                         stopTask(CommonUtils.CREATE_TASK_PREFIX + task.getId());
                         addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
-                                        execCreate(sysUserDTO, instanceService, createTaskService),
+                                        execCreate(sysUserDTO, this, instanceService, createTaskService),
                                 0, task.getInterval(), TimeUnit.SECONDS);
                     }
                 });

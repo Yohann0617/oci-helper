@@ -176,7 +176,7 @@ public class OciServiceImpl implements IOciService {
                 .rootPassword(params.getRootPassword())
                 .build();
         addTask(CommonUtils.CREATE_TASK_PREFIX + taskId, () ->
-                        execCreate(sysUserDTO, instanceService, createTaskService),
+                        execCreate(sysUserDTO, sysService,instanceService, createTaskService),
                 0, params.getInterval(), TimeUnit.SECONDS);
         String beginCreateMsg = String.format(CommonUtils.BEGIN_CREATE_MESSAGE_TEMPLATE,
                 ociUser.getUsername(),
@@ -495,7 +495,7 @@ public class OciServiceImpl implements IOciService {
     }
 
     public static void execCreate(
-            SysUserDTO sysUserDTO,
+            SysUserDTO sysUserDTO, ISysService sysService,
             IInstanceService instanceService,
             IOciCreateTaskService createTaskService) {
 
@@ -520,9 +520,12 @@ public class OciServiceImpl implements IOciService {
                 TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
                 stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
                 createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因异常而终止任务......",
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因超额而终止任务......",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因超额而终止任务",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
             }
 
             if (sysUserDTO.getCreateNumbers() == successCounts || leftCreateNum == 0) {
@@ -547,6 +550,9 @@ public class OciServiceImpl implements IOciService {
 //            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
 //            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
 //            createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
+            sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 发生了异常",
+                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
         }
     }
 

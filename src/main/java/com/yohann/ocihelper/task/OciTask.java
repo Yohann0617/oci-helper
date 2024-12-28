@@ -42,6 +42,8 @@ public class OciTask implements ApplicationRunner {
     @Resource
     private IOciKvService kvService;
     @Resource
+    private ISysService sysService;
+    @Resource
     private IOciCreateTaskService createTaskService;
 
     @Value("${web.account}")
@@ -96,7 +98,7 @@ public class OciTask implements ApplicationRunner {
                                 .rootPassword(task.getRootPassword())
                                 .build();
                         addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
-                                        execCreate(sysUserDTO, instanceService, createTaskService),
+                                        execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                                 0, task.getInterval(), TimeUnit.SECONDS);
                     }
                 });
