@@ -126,6 +126,7 @@ public class OciTask implements ApplicationRunner {
                 "时间：\t%s\n" +
                 "总API配置数：\t%s\n" +
                 "失效API配置数：\t%s\n" +
+                "失效的API配置：\t%s\n" +
                 "正在执行的开机任务：\n" +
                 "%s\n" +
                 "------------------------------------";
@@ -133,9 +134,9 @@ public class OciTask implements ApplicationRunner {
                 .isNotNull(OciUser::getId)
                 .select(OciUser::getId), String::valueOf);
 
-        CompletableFuture<? extends Number> failNumbers = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<List<?>> fails = CompletableFuture.supplyAsync(() -> {
             if (ids.isEmpty()) {
-                return 0;
+                return Collections.emptyList();
             }
             return ids.parallelStream().filter(id -> {
                 SysUserDTO ociUser = sysService.getOciUser(id);
@@ -145,7 +146,7 @@ public class OciTask implements ApplicationRunner {
                     return true;
                 }
                 return false;
-            }).map(id -> sysService.getOciUser(id).getUsername()).count();
+            }).map(id -> sysService.getOciUser(id).getUsername()).collect(Collectors.toList());
         });
 
         CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
@@ -163,12 +164,13 @@ public class OciTask implements ApplicationRunner {
             }).collect(Collectors.joining("\n"));
         });
 
-        CompletableFuture.allOf(failNumbers, task).join();
+        CompletableFuture.allOf(fails, task).join();
 
         sysService.sendMessage(String.format(message,
                 LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
                 CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
-                failNumbers.join(),
+                fails.join().size(),
+                fails.join(),
                 task.join()
         ));
     }
