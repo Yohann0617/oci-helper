@@ -380,6 +380,7 @@ public class SysServiceImpl implements ISysService {
         return rsp;
     }
 
+    @Override
     public SysUserDTO getOciUser(String ociCfgId) {
         OciUser ociUser = userService.getById(ociCfgId);
         return SysUserDTO.builder()

@@ -59,6 +59,7 @@ public class CommonUtils {
             "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$";
     private static final Pattern CIDR_PATTERN = Pattern.compile(CIDR_REGEX);
     public static final DateTimeFormatter DATETIME_FMT_PURE = DateTimeFormatter.ofPattern(DatePattern.PURE_DATETIME_PATTERN);
+    public static final DateTimeFormatter DATETIME_FMT_NORM = DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN);
 
     public static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
             "【开机任务】 用户：[%s] 开始执行开机任务\n\n" +

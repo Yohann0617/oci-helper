@@ -1,5 +1,6 @@
 package com.yohann.ocihelper.service;
 
+import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.sys.*;
 import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
@@ -22,4 +23,5 @@ public interface ISysService {
 
     GetGlanceRsp glance();
 
+    SysUserDTO getOciUser(String ociCfgId);
 }

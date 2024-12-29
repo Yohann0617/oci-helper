@@ -3,8 +3,10 @@ package com.yohann.ocihelper.task;
 import cn.hutool.core.collection.CollectionUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
+import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
@@ -12,14 +14,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.*;
 
@@ -110,5 +117,59 @@ public class OciTask implements ApplicationRunner {
             String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, "oci-helper");
             CommonUtils.genQRPic(CommonUtils.MFA_QR_PNG_PATH, qrCodeURL);
         });
+    }
+
+    @Scheduled(cron = "0 0 0 * * ?")
+    public void dailyBroadcastTask() {
+        String message = "【每日播报】\n" +
+                "------------------------------------\n" +
+                "时间：\t%s\n" +
+                "总API配置数：\t%s\n" +
+                "失效API配置数：\t%s\n" +
+                "正在执行的开机任务：\n" +
+                "%s\n" +
+                "------------------------------------";
+        List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
+                .isNotNull(OciUser::getId)
+                .select(OciUser::getId), String::valueOf);
+
+        CompletableFuture<? extends Number> failNumbers = CompletableFuture.supplyAsync(() -> {
+            if (ids.isEmpty()) {
+                return 0;
+            }
+            return ids.parallelStream().filter(id -> {
+                SysUserDTO ociUser = sysService.getOciUser(id);
+                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
+                    fetcher.getAvailabilityDomains();
+                } catch (Exception e) {
+                    return true;
+                }
+                return false;
+            }).map(id -> sysService.getOciUser(id).getUsername()).count();
+        });
+
+        CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
+            List<OciCreateTask> ociCreateTaskList = createTaskService.list();
+            if (ociCreateTaskList.isEmpty()) {
+                return "无";
+            }
+            String template = "[%s] [%s] [%s] [%s核/%sGB/%sGB] [%s台] [%s次]";
+            return ociCreateTaskList.parallelStream().map(x -> {
+                OciUser ociUser = userService.getById(x.getUserId());
+                Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
+                return String.format(template, ociUser.getUsername(), ociUser.getOciRegion(), x.getArchitecture(),
+                        x.getOcpus(), x.getMemory(), x.getDisk(),
+                        x.getCreateNumbers(), counts == null ? "0" : counts);
+            }).collect(Collectors.joining("\n"));
+        });
+
+        CompletableFuture.allOf(failNumbers, task).join();
+
+        sysService.sendMessage(String.format(message,
+                LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
+                CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
+                failNumbers.join(),
+                task.join()
+        ));
     }
 }
