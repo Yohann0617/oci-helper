@@ -55,6 +55,8 @@ public class OciTask implements ApplicationRunner {
     @Resource
     private IOciCreateTaskService createTaskService;
 
+    private static volatile boolean isPushLatestVersion = false;
+
     @Value("${web.account}")
     private String account;
     @Value("${web.password}")
@@ -137,15 +139,21 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void pushVersionUpdateMsg() {
-        addTask("pushVersionUpdateMsg", () -> {
-            String nowVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
-                    .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
-                    .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
-                    .select(OciKv::getValue), String::valueOf);
-            String latestVersion = CommonUtils.getLatestVersion();
-            if (!nowVersion.equals(latestVersion)) {
-                sysService.sendMessage(String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s",
-                        nowVersion, latestVersion));
+        String taskId = "pushVersionUpdateMsg";
+        addTask(taskId, () -> {
+            if (isPushLatestVersion) {
+                stopTask(taskId);
+            } else {
+                String nowVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                        .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                        .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                        .select(OciKv::getValue), String::valueOf);
+                String latestVersion = CommonUtils.getLatestVersion();
+                if (!nowVersion.equals(latestVersion)) {
+                    sysService.sendMessage(String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s",
+                            nowVersion, latestVersion));
+                    isPushLatestVersion = true;
+                }
             }
         }, 0, 1, TimeUnit.MINUTES);
     }
