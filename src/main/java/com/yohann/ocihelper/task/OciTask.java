@@ -3,6 +3,7 @@ package com.yohann.ocihelper.task;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciKv;
@@ -55,7 +56,7 @@ public class OciTask implements ApplicationRunner {
     @Resource
     private IOciCreateTaskService createTaskService;
 
-    private static volatile boolean isPushLatestVersion = false;
+    private static volatile boolean isPushedLatestVersion = false;
 
     @Value("${web.account}")
     private String account;
@@ -148,16 +149,18 @@ public class OciTask implements ApplicationRunner {
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf);
         log.info(String.format("【oci-helper】服务启动成功~ 当前版本：%s 最新版本：%s", nowVersion, latestVersion));
+
         addTask(taskId, () -> {
-            if (isPushLatestVersion) {
-                stopTask(taskId);
-            } else {
-                if (!nowVersion.equals(latestVersion)) {
-                    String updateMsg = String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s",
-                            nowVersion, latestVersion);
-                    log.warn(updateMsg);
-                    sysService.sendMessage(updateMsg);
-                    isPushLatestVersion = true;
+            String latest = CommonUtils.getLatestVersion();
+            String now = kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                    .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                    .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                    .select(OciKv::getValue), String::valueOf);
+            if (!now.equals(latest)) {
+                log.warn(String.format("【oci-helper】版本更新啦！！！当前版本：%s 最新版本：%s", now, latest));
+                if (!isPushedLatestVersion) {
+                    sysService.sendMessage(String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s", now, latest));
+                    isPushedLatestVersion = true;
                 }
             }
         }, 0, 1, TimeUnit.MINUTES);
