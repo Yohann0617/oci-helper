@@ -2,6 +2,7 @@ package com.yohann.ocihelper.task;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
@@ -10,6 +11,7 @@ import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.enums.SysCfgTypeEnum;
+import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -155,6 +157,9 @@ public class OciTask implements ApplicationRunner {
                     .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
                     .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                     .select(OciKv::getValue), String::valueOf);
+            if (StrUtil.isBlank(latest)) {
+                return;
+            }
             if (!now.equals(latest)) {
                 log.warn(String.format("【oci-helper】版本更新啦！！！当前版本：%s 最新版本：%s", now, latest));
                 if (!isPushedLatestVersion) {
@@ -162,7 +167,7 @@ public class OciTask implements ApplicationRunner {
                     isPushedLatestVersion = true;
                 }
             }
-        }, 0, 1, TimeUnit.MINUTES);
+        }, 0, 30, TimeUnit.MINUTES);
 
         addTask(taskId + "_push", () -> {
             isPushedLatestVersion = false;
