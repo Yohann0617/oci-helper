@@ -140,15 +140,17 @@ public class OciTask implements ApplicationRunner {
 
     private void pushVersionUpdateMsg() {
         String taskId = "pushVersionUpdateMsg";
+        String latestVersion = CommonUtils.getLatestVersion();
+        String nowVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                .select(OciKv::getValue), String::valueOf);
+        sysService.sendMessage(String.format("【oci-helper】服务启动成功~\n当前版本：%s\n最新版本：%s",
+                nowVersion, latestVersion));
         addTask(taskId, () -> {
             if (isPushLatestVersion) {
                 stopTask(taskId);
             } else {
-                String nowVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
-                        .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
-                        .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
-                        .select(OciKv::getValue), String::valueOf);
-                String latestVersion = CommonUtils.getLatestVersion();
                 if (!nowVersion.equals(latestVersion)) {
                     sysService.sendMessage(String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s",
                             nowVersion, latestVersion));
