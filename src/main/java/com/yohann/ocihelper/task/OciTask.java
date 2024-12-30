@@ -145,15 +145,18 @@ public class OciTask implements ApplicationRunner {
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf);
-        sysService.sendMessage(String.format("【oci-helper】服务启动成功~\n当前版本：%s\n最新版本：%s",
-                nowVersion, latestVersion));
+        String msg = String.format("【oci-helper】服务启动成功~\n当前版本：%s\n最新版本：%s", nowVersion, latestVersion);
+        log.info(msg);
+        sysService.sendMessage(msg);
         addTask(taskId, () -> {
             if (isPushLatestVersion) {
                 stopTask(taskId);
             } else {
                 if (!nowVersion.equals(latestVersion)) {
-                    sysService.sendMessage(String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s",
-                            nowVersion, latestVersion));
+                    String updateMsg = String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s",
+                            nowVersion, latestVersion);
+                    log.warn(updateMsg);
+                    sysService.sendMessage(updateMsg);
                     isPushLatestVersion = true;
                 }
             }
