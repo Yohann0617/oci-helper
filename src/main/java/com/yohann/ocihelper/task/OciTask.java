@@ -163,6 +163,10 @@ public class OciTask implements ApplicationRunner {
                 }
             }
         }, 0, 1, TimeUnit.MINUTES);
+
+        addTask(taskId + "_push", () -> {
+            isPushedLatestVersion = false;
+        }, 4, 4, TimeUnit.HOURS);
     }
 
     @Scheduled(cron = "0 0 0 * * ?")

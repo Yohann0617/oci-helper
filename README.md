@@ -39,7 +39,7 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 > 2024年11月30日——数据库新增了一张表，TG、钉钉消息通知都改成了在web页面配置，如遇到配置异常，请删除`application.yml`文件，然后重新执行一键命令，修改自定义的账号密码，`docker restart oci-helper`重启容器即可。
 
-## 手动部署
+## 手动部署（不推荐）
 
 <details>
     <summary> ☜ Read more 👨‍💻</summary>
@@ -55,7 +55,8 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. 下载文件
 
 1. 下载`Releases`中最新的`application.yml`、`oci-helper.db`这两个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
-2. 如不使用 docker 部署则再下载一个`ocihelper-1.0.0.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar ocihelper-1.0.0.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`以上的环境）。
+2. 如不使用 docker 部署则再下载一个`ocihelper-1.0.1.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar ocihelper-1.0.1.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`以上的环境）。
+3. 后续如果更新jar包或者docker镜像，需要安装sqlite并运行`sh_oci-helper_install.sh`中更新版本号的命令（自行解决）。
 
 ### 3. docker部署
 

@@ -40,7 +40,7 @@ This command can also be used to update the image and restart the container with
 
 > November 30, 2024 - A new table was added to the database. TG and DingTalk message notifications are changed to be configured on the web page. If you encounter a configuration exception, please delete the `application.yml` file, then re-execute the one-click command, modify the custom account password, and restart the container with `docker restart oci-helper`.
 
-## Manual deployment
+## Manual deployment (not recommended)
 
 <details>
     <summary> ☜ Read more 👨‍💻</summary>
@@ -56,7 +56,8 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. Download files
 
 1. Download the latest `application.yml` and `oci-helper.db` files in `Releases` to the `/app/oci-helper` directory, and modify some configurations of `application.yml`.
-2. If you do not use docker deployment, download another `ocihelper-1.0.0.jar` file to the `/app/oci-helper` directory, and run it directly with `nohup java -jar ocihelper-1.0.0.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8` or above).
+2. If you do not use docker deployment, download another `ocihelper-1.0.1.jar` file to the `/app/oci-helper` directory, and run it directly `nohup java -jar ocihelper-1.0.1.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8` or above).
+3. If you update the jar package or docker image later, you need to install sqlite and run the command to update the version number in `sh_oci-helper_install.sh` (solve it yourself).
 
 ### 3. Docker deployment
 
