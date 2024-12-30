@@ -120,7 +120,7 @@ public class OracleInstanceFetcher implements Closeable {
         int size = availabilityDomains.size();
         Vcn vcn;
         InternetGateway internetGateway;
-        Subnet subnet = null;
+        Subnet subnet;
         NetworkSecurityGroup networkSecurityGroup = null;
         LaunchInstanceDetails launchInstanceDetails;
         Instance instance;
@@ -151,10 +151,16 @@ public class OracleInstanceFetcher implements Closeable {
 //                            networkSecurityGroup = createNetworkSecurityGroup(virtualNetworkClient, compartmentId, vcn);
 //                            addNetworkSecurityGroupSecurityRules(virtualNetworkClient, networkSecurityGroup, networkCidrBlock);
                         } else {
-                            subnet = listSubnets(vcnList.get(0).getId()).get(0);
-                            networkSecurityGroup = null;
+                            vcn = vcnList.get(0);
+                            List<Subnet> subnets = listSubnets(vcn.getId());
+                            if (subnets.isEmpty()) {
+                                subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
+                                        getCidr(virtualNetworkClient, compartmentId), vcn);
+                            } else {
+                                subnet = subnets.get(0);
+                            }
                             log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到VCN：{} 存在，默认使用该VCN创建实例......",
-                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcnList.get(0).getDisplayName());
+                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
                         }
 
                         String cloudInitScript = CommonUtils.getPwdShell(user.getRootPassword());
@@ -1137,10 +1143,10 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                            .availabilityDomain(availabilityDomain.getName())
-                            .compartmentId(compartmentId)
-                            .instanceId(instanceId)
-                            .build()).getItems()
+                    .availabilityDomain(availabilityDomain.getName())
+                    .compartmentId(compartmentId)
+                    .instanceId(instanceId)
+                    .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
@@ -1163,10 +1169,10 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                            .availabilityDomain(availabilityDomain.getName())
-                            .compartmentId(compartmentId)
-                            .instanceId(instanceId)
-                            .build()).getItems()
+                    .availabilityDomain(availabilityDomain.getName())
+                    .compartmentId(compartmentId)
+                    .instanceId(instanceId)
+                    .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());

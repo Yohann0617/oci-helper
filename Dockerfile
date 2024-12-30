@@ -9,7 +9,7 @@ COPY . .
 
 # 执行Maven构建并将构建的jar文件复制到指定目录
 RUN mvn clean package -DskipTests \
-    && cp target/ocihelper-0.0.1.jar /app/oci-helper.jar
+    && cp target/oci-helper-1.0.0.jar /app/oci-helper.jar
 
 # 支持AMD、ARM两种架构的镜像
 FROM openjdk:8-jre

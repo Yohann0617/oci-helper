@@ -25,6 +25,8 @@ public enum SysCfgEnum {
     SYS_DING_BOT_SECRET("Y104", "钉钉机器人secret", SysCfgTypeEnum.SYS_INIT_CFG),
     SYS_MFA_SECRET("Y105", "谷歌MFA", SysCfgTypeEnum.SYS_MFA_CFG),
 
+    SYS_INFO_VERSION("Y106", "系统版本号", SysCfgTypeEnum.SYS_INFO),
+
 
     ;
 

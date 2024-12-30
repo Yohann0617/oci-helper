@@ -1,6 +1,7 @@
 package com.yohann.ocihelper;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.json.JSONObject;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.service.IInstanceService;
@@ -9,7 +10,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import javax.annotation.Resource;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.List;
 
@@ -42,6 +47,11 @@ class OciHelperApplicationTests {
                 .build();
 
         System.out.println(instanceService.getInstanceCfgInfo(sysUserDTO, instanceId));
+    }
+
+    @Test
+    void test2(){
+        System.out.println(CommonUtils.getLatestVersion());
     }
 
 }

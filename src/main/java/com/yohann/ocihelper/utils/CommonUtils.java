@@ -5,6 +5,7 @@ import cn.hutool.core.img.ImgUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.net.Ipv4Util;
 import cn.hutool.extra.qrcode.QrCodeUtil;
+import cn.hutool.json.JSONObject;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -21,9 +22,7 @@ import net.lingala.zip4j.model.enums.EncryptionMethod;
 import org.springframework.validation.BindingResult;
 
 import java.io.*;
-import java.net.InetAddress;
-import java.net.URLEncoder;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.MessageDigest;
@@ -422,12 +421,6 @@ public class CommonUtils {
         return false;
     }
 
-    /**
-     * 计算时间差并返回格式化字符串
-     *
-     * @param startTime 开始时间 (LocalDateTime)
-     * @return 格式化的时间差字符串 "xx天xx小时xx分钟xx秒"
-     */
     public static String getTimeDifference(LocalDateTime startTime) {
         // 获取当前时间
         LocalDateTime now = LocalDateTime.now();
@@ -443,6 +436,46 @@ public class CommonUtils {
 
         // 格式化结果
         return days + "天" + hours + "小时" + minutes + "分钟" + seconds + "秒";
+    }
+
+    public static String getLatestVersion() {
+        String repository = "Yohann0617/oci-helper";
+        String apiUrl = "https://api.github.com/repos/" + repository + "/releases/latest";
+        String version = null;
+        try {
+            // Create a connection to the GitHub API
+            URL url = new URL(apiUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
+
+            // Check the response code
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // Read the response
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+
+                reader.close();
+
+                // Parse the response as JSON
+                JSONObject jsonResponse = new JSONObject(response.toString());
+                version = jsonResponse.getStr("tag_name");
+            } else {
+                log.error("Failed to fetch the latest release. HTTP response code: {}", responseCode);
+            }
+
+            connection.disconnect();
+        } catch (Exception e) {
+            log.error("Failed to fetch the latest release. exception: {}", e.getMessage());
+            throw new OciException(-1, "获取系统最新版本失败");
+        }
+        return version;
     }
 
     public static String getPwdShell(String passwd) {

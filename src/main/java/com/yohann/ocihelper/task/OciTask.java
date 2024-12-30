@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.task;
 
 import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
@@ -8,6 +9,7 @@ import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.SysCfgEnum;
+import com.yohann.ocihelper.enums.SysCfgTypeEnum;
 import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +66,8 @@ public class OciTask implements ApplicationRunner {
         cleanLogTask();
         cleanAndRestartTask();
         initGenMfaPng();
+        saveVersion();
+        pushVersionUpdateMsg();
     }
 
     private void cleanLogTask() {
@@ -117,6 +121,33 @@ public class OciTask implements ApplicationRunner {
             String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, "oci-helper");
             CommonUtils.genQRPic(CommonUtils.MFA_QR_PNG_PATH, qrCodeURL);
         });
+    }
+
+    private void saveVersion() {
+        String latestVersion = CommonUtils.getLatestVersion();
+        kvService.remove(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode()));
+        kvService.save(OciKv.builder()
+                .id(IdUtil.getSnowflake().nextIdStr())
+                .code(SysCfgEnum.SYS_INFO_VERSION.getCode())
+                .type(SysCfgTypeEnum.SYS_INFO.getCode())
+                .value(latestVersion)
+                .build());
+    }
+
+    private void pushVersionUpdateMsg() {
+        addTask("pushVersionUpdateMsg", () -> {
+            String nowVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                    .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                    .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                    .select(OciKv::getValue), String::valueOf);
+            String latestVersion = CommonUtils.getLatestVersion();
+            if (!nowVersion.equals(latestVersion)) {
+                sysService.sendMessage(String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s",
+                        nowVersion, latestVersion));
+            }
+        }, 0, 1, TimeUnit.MINUTES);
     }
 
     @Scheduled(cron = "0 0 0 * * ?")

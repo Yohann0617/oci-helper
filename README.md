@@ -55,7 +55,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. 下载文件
 
 1. 下载`Releases`中最新的`application.yml`、`oci-helper.db`这两个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
-2. 如不使用 docker 部署则再下载一个`ocihelper-0.0.1.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar ocihelper-0.0.1.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`以上的环境）。
+2. 如不使用 docker 部署则再下载一个`ocihelper-1.0.0.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar ocihelper-1.0.0.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`以上的环境）。
 
 ### 3. docker部署
 

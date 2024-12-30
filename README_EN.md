@@ -56,7 +56,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. Download files
 
 1. Download the latest `application.yml` and `oci-helper.db` files in `Releases` to the `/app/oci-helper` directory, and modify some configurations of `application.yml`.
-2. If you do not use docker deployment, download another `ocihelper-0.0.1.jar` file to the `/app/oci-helper` directory, and run it directly with `nohup java -jar ocihelper-0.0.1.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8` or above).
+2. If you do not use docker deployment, download another `ocihelper-1.0.0.jar` file to the `/app/oci-helper` directory, and run it directly with `nohup java -jar ocihelper-1.0.0.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8` or above).
 
 ### 3. Docker deployment
 
