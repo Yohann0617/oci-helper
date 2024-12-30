@@ -154,13 +154,13 @@ public class OciTask implements ApplicationRunner {
             if (ociCreateTaskList.isEmpty()) {
                 return "无";
             }
-            String template = "[%s] [%s] [%s] [%s核/%sGB/%sGB] [%s台] [%s次]";
+            String template = "[%s] [%s] [%s] [%s核/%sGB/%sGB] [%s台] [%s] [%s次]";
             return ociCreateTaskList.parallelStream().map(x -> {
                 OciUser ociUser = userService.getById(x.getUserId());
                 Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
                 return String.format(template, ociUser.getUsername(), ociUser.getOciRegion(), x.getArchitecture(),
-                        x.getOcpus(), x.getMemory(), x.getDisk(),
-                        x.getCreateNumbers(), counts == null ? "0" : counts);
+                        x.getOcpus().longValue(), x.getMemory().longValue(), x.getDisk(), x.getCreateNumbers(),
+                        CommonUtils.getTimeDifference(x.getCreateTime()), counts == null ? "0" : counts);
             }).collect(Collectors.joining("\n"));
         });
 

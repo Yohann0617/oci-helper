@@ -176,7 +176,7 @@ public class OciServiceImpl implements IOciService {
                 .rootPassword(params.getRootPassword())
                 .build();
         addTask(CommonUtils.CREATE_TASK_PREFIX + taskId, () ->
-                        execCreate(sysUserDTO, sysService,instanceService, createTaskService),
+                        execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                 0, params.getInterval(), TimeUnit.SECONDS);
         String beginCreateMsg = String.format(CommonUtils.BEGIN_CREATE_MESSAGE_TEMPLATE,
                 ociUser.getUsername(),
@@ -273,6 +273,8 @@ public class OciServiceImpl implements IOciService {
         list.parallelStream().forEach(x -> {
             Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
             x.setCounts(counts == null ? "0" : String.valueOf(counts));
+            x.setOcpus(Double.valueOf(x.getOcpus()).longValue() + "");
+            x.setMemory(Double.valueOf(x.getMemory()).longValue() + "");
         });
         return CommonUtils.buildPage(list, params.getPageSize(), params.getCurrentPage(), total);
     }

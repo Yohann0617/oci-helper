@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -419,6 +420,29 @@ public class CommonUtils {
             }
         }
         return false;
+    }
+
+    /**
+     * 计算时间差并返回格式化字符串
+     *
+     * @param startTime 开始时间 (LocalDateTime)
+     * @return 格式化的时间差字符串 "xx天xx小时xx分钟xx秒"
+     */
+    public static String getTimeDifference(LocalDateTime startTime) {
+        // 获取当前时间
+        LocalDateTime now = LocalDateTime.now();
+
+        // 计算时间差
+        Duration duration = Duration.between(startTime, now);
+
+        // 转换为天、小时、分钟、秒
+        long days = duration.toDays();
+        long hours = duration.toHours() % 24;
+        long minutes = duration.toMinutes() % 60;
+        long seconds = duration.getSeconds() % 60;
+
+        // 格式化结果
+        return days + "天" + hours + "小时" + minutes + "分钟" + seconds + "秒";
     }
 
     public static String getPwdShell(String passwd) {
