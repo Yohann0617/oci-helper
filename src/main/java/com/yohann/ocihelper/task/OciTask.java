@@ -127,15 +127,17 @@ public class OciTask implements ApplicationRunner {
 
     private void saveVersion() {
         String latestVersion = CommonUtils.getLatestVersion();
-        kvService.remove(new LambdaQueryWrapper<OciKv>()
+        OciKv oldVersion = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode()));
-        kvService.save(OciKv.builder()
-                .id(IdUtil.getSnowflake().nextIdStr())
-                .code(SysCfgEnum.SYS_INFO_VERSION.getCode())
-                .type(SysCfgTypeEnum.SYS_INFO.getCode())
-                .value(latestVersion)
-                .build());
+        if (null == oldVersion) {
+            kvService.save(OciKv.builder()
+                    .id(IdUtil.getSnowflake().nextIdStr())
+                    .code(SysCfgEnum.SYS_INFO_VERSION.getCode())
+                    .type(SysCfgTypeEnum.SYS_INFO.getCode())
+                    .value(latestVersion)
+                    .build());
+        }
     }
 
     private void pushVersionUpdateMsg() {
@@ -145,9 +147,7 @@ public class OciTask implements ApplicationRunner {
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf);
-        String msg = String.format("【oci-helper】服务启动成功~\n当前版本：%s\n最新版本：%s", nowVersion, latestVersion);
-        log.info(msg);
-        sysService.sendMessage(msg);
+        log.info(String.format("【oci-helper】服务启动成功~ 当前版本：%s 最新版本：%s", nowVersion, latestVersion));
         addTask(taskId, () -> {
             if (isPushLatestVersion) {
                 stopTask(taskId);
