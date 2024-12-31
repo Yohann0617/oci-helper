@@ -4,6 +4,8 @@ import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.img.ImgUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.net.Ipv4Util;
+import cn.hutool.core.util.PageUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.qrcode.QrCodeUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.jwt.JWT;
@@ -97,6 +99,37 @@ public class CommonUtils {
                     "Shape： %s\n" +
                     "验证码： %s\n" +
                     "⭐注意：终止实例后，数据无法恢复，请谨慎操作！！！";
+
+    public static <T> List<T> getPage(List<T> dataList, int page, int pageSize) {
+        // 获取起始和结束索引
+        int[] startEnd = PageUtil.transToStartEnd(page - 1, pageSize); // Hutool的页码是从0开始的
+        int start = startEnd[0];
+        int end = startEnd[1];
+
+        // 子列表分页（注意处理索引越界情况）
+        return dataList.subList(
+                Math.min(start, dataList.size()),
+                Math.min(end, dataList.size())
+        );
+    }
+
+    /**
+     * 判断目标字符串中是否包含指定关键字（模糊查询）
+     *
+     * @param target    目标字符串
+     * @param keyword   查询关键字
+     * @param ignoreCase 是否忽略大小写
+     * @return 是否包含关键字
+     */
+    public static boolean contains(String target, String keyword, boolean ignoreCase) {
+        if (StrUtil.isEmpty(target)) {
+            return false;
+        }
+        if (StrUtil.isEmpty(keyword)) {
+            return true;
+        }
+        return ignoreCase ? StrUtil.containsIgnoreCase(target, keyword) : StrUtil.contains(target, keyword);
+    }
 
     public static ZipFile zipFile(boolean enableEnc, String sourceFolderPath, String password, String zipFilePath) {
         ZipFile zipFile;

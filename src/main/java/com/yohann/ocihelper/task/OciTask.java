@@ -11,7 +11,6 @@ import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.enums.SysCfgTypeEnum;
-import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;

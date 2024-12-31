@@ -300,7 +300,12 @@ public class OracleInstanceFetcher implements Closeable {
                 identityClient.listAvailabilityDomains(ListAvailabilityDomainsRequest.builder()
                         .compartmentId(compartmentId)
                         .build());
-        return listAvailabilityDomainsResponse.getItems();
+        List<AvailabilityDomain> availabilityDomainList = listAvailabilityDomainsResponse.getItems();
+        if (availabilityDomainList.isEmpty()) {
+            log.error("用户：[{}] ，区域：[{}] ，可用域不足", user.getUsername(), user.getOciCfg().getRegion());
+            throw new OciException(-1, "可用域不足");
+        }
+        return availabilityDomainList;
     }
 
     public List<AvailabilityDomain> getAvailabilityDomains() {
@@ -308,7 +313,12 @@ public class OracleInstanceFetcher implements Closeable {
                 identityClient.listAvailabilityDomains(ListAvailabilityDomainsRequest.builder()
                         .compartmentId(compartmentId)
                         .build());
-        return listAvailabilityDomainsResponse.getItems();
+        List<AvailabilityDomain> availabilityDomainList = listAvailabilityDomainsResponse.getItems();
+        if (availabilityDomainList.isEmpty()) {
+            log.error("用户：[{}] ，区域：[{}] ，可用域不足", user.getUsername(), user.getOciCfg().getRegion());
+            throw new OciException(-1, "可用域不足");
+        }
+        return availabilityDomainList;
     }
 
     private List<Shape> getShape(
@@ -1177,18 +1187,43 @@ public class OracleInstanceFetcher implements Closeable {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
             if (CollectionUtil.isNotEmpty(BootVolumeIdList)) {
-                bootVolumes.addAll(BootVolumeIdList.parallelStream().map(id -> {
-                    GetBootVolumeRequest getBootVolumeRequest = GetBootVolumeRequest.builder()
-                            .bootVolumeId(id)
-                            .build();
-                    GetBootVolumeResponse getBootVolumeResponse = blockstorageClient.getBootVolume(getBootVolumeRequest);
-                    return getBootVolumeResponse.getBootVolume();
-                }).collect(Collectors.toList()));
+                bootVolumes.addAll(BootVolumeIdList.parallelStream()
+                        .map(this::getBootVolumeById)
+                        .collect(Collectors.toList()));
             }
         }
         if (bootVolumes.isEmpty()) {
             throw new OciException(-1, "实例引导卷不存在");
         }
+        return bootVolumes;
+    }
+
+    public BootVolume getBootVolumeById(String bootVolumeId) {
+        GetBootVolumeRequest getBootVolumeRequest = GetBootVolumeRequest.builder()
+                .bootVolumeId(bootVolumeId)
+                .build();
+        GetBootVolumeResponse getBootVolumeResponse = blockstorageClient.getBootVolume(getBootVolumeRequest);
+        return getBootVolumeResponse.getBootVolume();
+    }
+
+    public List<BootVolume> listBootVolume() {
+        List<BootVolume> bootVolumes = new ArrayList<>();
+        List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
+        availabilityDomains.parallelStream().forEach(availabilityDomain -> {
+            List<BootVolume> items = blockstorageClient.listBootVolumes(ListBootVolumesRequest.builder()
+                    .availabilityDomain(availabilityDomain.getName())
+                    .compartmentId(compartmentId)
+                    .build()).getItems();
+            if (null == items || items.isEmpty()) {
+                log.warn("用户：[{}] ，区域：[{}] ，引导卷列表为空，未创建实例", user.getUsername(), user.getOciCfg().getRegion());
+            } else {
+                bootVolumes.addAll(items.stream().map(BootVolume::getId)
+                        .collect(Collectors.toList())
+                        .parallelStream().map(this::getBootVolumeById)
+                        .collect(Collectors.toList()));
+            }
+        });
+
         return bootVolumes;
     }
 

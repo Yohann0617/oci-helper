@@ -8,7 +8,6 @@ import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
-import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IInstanceService;
