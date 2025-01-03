@@ -27,6 +27,8 @@ public class BootVolumeListPage<T> extends Page<T> {
         private String sizeInGBs;
         private String lifecycleState;
         private String timeCreated;
+        private String instanceName;
+        private Boolean attached;
         private String jsonStr;
     }
 

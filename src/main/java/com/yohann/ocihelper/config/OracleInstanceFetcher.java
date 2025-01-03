@@ -1174,7 +1174,7 @@ public class OracleInstanceFetcher implements Closeable {
         return bootVolume;
     }
 
-    private List<BootVolume> listBootVolumeListByInstanceId(String instanceId) {
+    public List<BootVolume> listBootVolumeListByInstanceId(String instanceId) {
         List<BootVolume> bootVolumes = new ArrayList<>();
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
@@ -1225,6 +1225,12 @@ public class OracleInstanceFetcher implements Closeable {
         });
 
         return bootVolumes;
+    }
+
+    public void terminateBootVolume(String bootVolumeId) {
+        blockstorageClient.deleteBootVolume(DeleteBootVolumeRequest.builder()
+                .bootVolumeId(bootVolumeId)
+                .build());
     }
 
     public OciCfgDetailsRsp.InstanceInfo getInstanceInfo(String instanceId) {

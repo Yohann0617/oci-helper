@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.oci.BootVolumePageParams;
 import com.yohann.ocihelper.bean.params.oci.GetOciUserListParams;
+import com.yohann.ocihelper.bean.params.oci.TerminateBootVolumeParams;
 import com.yohann.ocihelper.bean.response.oci.BootVolumeListPage;
 import com.yohann.ocihelper.bean.response.oci.OciUserListRsp;
 import com.yohann.ocihelper.service.IBootVolumeService;
@@ -37,5 +38,13 @@ public class BootVolumeController {
                                                                           BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         return ResponseData.successData(bootVolumeService.bootVolumeListPage(params), "获取引导卷分页列表成功");
+    }
+
+    @PostMapping(path = "/terminate")
+    public ResponseData<Void> terminate(@Validated @RequestBody TerminateBootVolumeParams params,
+                                     BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        bootVolumeService.terminateBootVolume(params);
+        return ResponseData.successData("终止引导卷成功");
     }
 }
