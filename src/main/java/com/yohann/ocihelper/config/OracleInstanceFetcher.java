@@ -1260,6 +1260,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .bootVolumeSize(bootVolumeSize)
                 .createTime(CommonUtils.dateFmt2String(instance.getTimeCreated()))
                 .state(instance.getLifecycleState().getValue())
+                .availabilityDomain(instance.getAvailabilityDomain())
                 .build();
     }
 

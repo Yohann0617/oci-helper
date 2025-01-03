@@ -74,7 +74,7 @@ public class OciController {
     }
 
     @PostMapping(path = "/details")
-    public ResponseData<OciCfgDetailsRsp> details(@Validated @RequestBody IdParams params,
+    public ResponseData<OciCfgDetailsRsp> details(@Validated @RequestBody GetOciCfgDetailsParams params,
                                                   BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         return ResponseData.successData(ociService.details(params), "获取配置详情成功");

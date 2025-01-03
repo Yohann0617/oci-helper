@@ -26,7 +26,7 @@ public interface IOciService {
 
     void createInstance(CreateInstanceParams params);
 
-    OciCfgDetailsRsp details(IdParams params);
+    OciCfgDetailsRsp details(GetOciCfgDetailsParams params);
 
     void changeIp(ChangeIpParams params);
 

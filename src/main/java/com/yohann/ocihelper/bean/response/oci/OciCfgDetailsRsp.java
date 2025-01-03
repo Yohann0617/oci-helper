@@ -42,6 +42,7 @@ public class OciCfgDetailsRsp {
         private String bootVolumeSize;
         private String createTime;
         private String state;
+        private String availabilityDomain;
     }
 
 }

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -45,8 +46,11 @@ public class BootVolumeServiceImpl implements IBootVolumeService {
 
     @Override
     public Page<BootVolumeListPage.BootVolumeInfo> bootVolumeListPage(BootVolumePageParams params) {
+        if (params.isCleanReLaunch()) {
+            customCache.remove(CacheConstant.PREFIX_BOOT_VOLUME_PAGE + params.getOciCfgId());
+        }
         List<BootVolumeListPage.BootVolumeInfo> bootVolumeInCache =
-                (List<BootVolumeListPage.BootVolumeInfo>) customCache.get(CacheConstant.PREFIX_BOOT_VOLUME_PAGE);
+                (List<BootVolumeListPage.BootVolumeInfo>) customCache.get(CacheConstant.PREFIX_BOOT_VOLUME_PAGE + params.getOciCfgId());
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
         if (ObjUtil.isEmpty(bootVolumeInCache)) {
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
@@ -87,12 +91,19 @@ public class BootVolumeServiceImpl implements IBootVolumeService {
     @Override
     public void terminateBootVolume(TerminateBootVolumeParams params) {
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
-        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            fetcher.terminateBootVolume(params.getBootVolumeId());
-        } catch (Exception e) {
-            log.error("引导卷终止异常", e);
-            throw new OciException(-1, "引导卷终止异常");
-        }
+        CompletableFuture.runAsync(() -> {
+            params.getBootVolumeIds().parallelStream().forEach(id -> {
+                String bvName = null;
+                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+                    fetcher.terminateBootVolume(id);
+                    bvName = fetcher.getBootVolumeById(id).getDisplayName();
+                    log.info("用户：[{}] ， 区域：[{}] ，正在终止引导卷：[{}]",
+                            sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), bvName);
+                } catch (Exception e) {
+                    log.error("引导卷：{} 终止异常", bvName, e);
+                }
+            });
+        });
     }
 
     private Tuple2<Boolean, String> getAttachInstance(SysUserDTO sysUserDTO, String bootVolumeId) {

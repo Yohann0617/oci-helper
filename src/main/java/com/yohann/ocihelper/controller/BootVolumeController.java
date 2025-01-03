@@ -45,6 +45,6 @@ public class BootVolumeController {
                                      BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         bootVolumeService.terminateBootVolume(params);
-        return ResponseData.successData("终止引导卷成功");
+        return ResponseData.successData("终止引导卷命令下发成功");
     }
 }

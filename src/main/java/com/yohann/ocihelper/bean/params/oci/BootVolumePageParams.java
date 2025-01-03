@@ -20,4 +20,5 @@ public class BootVolumePageParams {
     private String keyword;
     private int currentPage;
     private int pageSize;
+    private boolean cleanReLaunch;
 }

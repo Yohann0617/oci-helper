@@ -5,6 +5,7 @@ import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -12,6 +13,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oracle.bmc.core.model.Instance;
 import com.oracle.bmc.core.model.Vnic;
 import com.yohann.ocihelper.bean.Tuple2;
+import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
@@ -29,6 +31,7 @@ import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.mapper.OciCreateTaskMapper;
 import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,6 +71,8 @@ public class OciServiceImpl implements IOciService {
     private IOciCreateTaskService createTaskService;
     @Resource
     private ISysService sysService;
+    @Resource
+    private CustomExpiryGuavaCache<String, Object> customCache;
     @Resource
     private OciUserMapper userMapper;
     @Resource
@@ -193,22 +198,36 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
-    public OciCfgDetailsRsp details(IdParams params) {
-        SysUserDTO sysUserDTO = getOciUser(params.getId());
-        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
-            OciCfgDetailsRsp rsp = new OciCfgDetailsRsp();
-            BeanUtils.copyProperties(sysUserDTO.getOciCfg(), rsp);
-            String privateKeyPath = rsp.getPrivateKeyPath();
-            rsp.setPrivateKeyPath(privateKeyPath.substring(privateKeyPath.lastIndexOf(File.separator) + 1));
-            rsp.setInstanceList(Optional.ofNullable(fetcher.listInstances())
-                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
-                    .map(x -> fetcher.getInstanceInfo(x.getId()))
-                    .collect(Collectors.toList()));
-            return rsp;
-        } catch (Exception e) {
-            log.error("获取实例信息失败", e);
-            throw new OciException(-1, "获取实例信息失败");
+    public OciCfgDetailsRsp details(GetOciCfgDetailsParams params) {
+        if (params.isCleanReLaunchDetails()) {
+            customCache.remove(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId());
         }
+        List<OciCfgDetailsRsp.InstanceInfo> instanceInfos =
+                (List<OciCfgDetailsRsp.InstanceInfo>) customCache.get(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId());
+
+        SysUserDTO sysUserDTO = getOciUser(params.getCfgId());
+        OciCfgDetailsRsp rsp = new OciCfgDetailsRsp();
+        BeanUtils.copyProperties(sysUserDTO.getOciCfg(), rsp);
+        String privateKeyPath = rsp.getPrivateKeyPath();
+        rsp.setPrivateKeyPath(privateKeyPath.substring(privateKeyPath.lastIndexOf(File.separator) + 1));
+
+        if (ObjUtil.isEmpty(instanceInfos)) {
+            try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
+                rsp.setInstanceList(Optional.ofNullable(fetcher.listInstances())
+                        .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
+                        .map(x -> fetcher.getInstanceInfo(x.getId()))
+                        .collect(Collectors.toList()));
+                customCache.put(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId(), rsp.getInstanceList(), 10 * 60 * 1000);
+                return rsp;
+            } catch (Exception e) {
+                log.error("获取实例信息失败", e);
+                throw new OciException(-1, "获取实例信息失败");
+            }
+        } else {
+            rsp.setInstanceList(instanceInfos);
+        }
+
+        return rsp;
     }
 
     @Override

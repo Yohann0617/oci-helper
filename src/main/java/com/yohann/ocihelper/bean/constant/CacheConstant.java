@@ -10,4 +10,5 @@ package com.yohann.ocihelper.bean.constant;
  */
 public class CacheConstant {
     public static final String PREFIX_BOOT_VOLUME_PAGE = "bootVolume_page_";
+    public static final String PREFIX_INSTANCE_PAGE = "instance_page_";
 }
