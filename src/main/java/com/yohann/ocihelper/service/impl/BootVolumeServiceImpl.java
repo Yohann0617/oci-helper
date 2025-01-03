@@ -73,8 +73,8 @@ public class BootVolumeServiceImpl implements IBootVolumeService {
                 log.error("获取引导卷列表失败", e);
                 throw new OciException(-1, "获取引导卷列表失败");
             }
-            customCache.put(CacheConstant.PREFIX_BOOT_VOLUME_PAGE + params.getOciCfgId(), bootVolumeInCache, 10 * 60 * 1000);
         }
+        customCache.put(CacheConstant.PREFIX_BOOT_VOLUME_PAGE + params.getOciCfgId(), bootVolumeInCache, 10 * 60 * 1000);
 
         List<BootVolumeListPage.BootVolumeInfo> resList = bootVolumeInCache.parallelStream()
                 .filter(x -> CommonUtils.contains(x.getDisplayName(), params.getKeyword(), true) ||

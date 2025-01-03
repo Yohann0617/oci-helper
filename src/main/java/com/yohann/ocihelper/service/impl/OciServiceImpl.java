@@ -217,8 +217,6 @@ public class OciServiceImpl implements IOciService {
                         .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
                         .map(x -> fetcher.getInstanceInfo(x.getId()))
                         .collect(Collectors.toList()));
-                customCache.put(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId(), rsp.getInstanceList(), 10 * 60 * 1000);
-                return rsp;
             } catch (Exception e) {
                 log.error("获取实例信息失败", e);
                 throw new OciException(-1, "获取实例信息失败");
@@ -226,6 +224,8 @@ public class OciServiceImpl implements IOciService {
         } else {
             rsp.setInstanceList(instanceInfos);
         }
+
+        customCache.put(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId(), rsp.getInstanceList(), 10 * 60 * 1000);
 
         return rsp;
     }
