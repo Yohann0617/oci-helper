@@ -11,6 +11,7 @@ import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.oci.BootVolumePageParams;
 import com.yohann.ocihelper.bean.params.oci.TerminateBootVolumeParams;
+import com.yohann.ocihelper.bean.params.oci.UpdateBootVolumeParams;
 import com.yohann.ocihelper.bean.response.oci.BootVolumeListPage;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.exception.OciException;
@@ -104,6 +105,19 @@ public class BootVolumeServiceImpl implements IBootVolumeService {
                 }
             });
         });
+    }
+
+    @Override
+    public void update(UpdateBootVolumeParams params) {
+        SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            fetcher.updateBootVolumeCfg(params.getBootVolumeId(),
+                    Long.parseLong(params.getBootVolumeSize()),
+                    Long.parseLong(params.getBootVolumeVpu()));
+        } catch (Exception e) {
+            log.error("更改引导卷配置失败", e);
+            throw new OciException(-1, "更改引导卷配置失败");
+        }
     }
 
     private Tuple2<Boolean, String> getAttachInstance(SysUserDTO sysUserDTO, String bootVolumeId) {

@@ -5,6 +5,7 @@ import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.oci.BootVolumePageParams;
 import com.yohann.ocihelper.bean.params.oci.GetOciUserListParams;
 import com.yohann.ocihelper.bean.params.oci.TerminateBootVolumeParams;
+import com.yohann.ocihelper.bean.params.oci.UpdateBootVolumeParams;
 import com.yohann.ocihelper.bean.response.oci.BootVolumeListPage;
 import com.yohann.ocihelper.bean.response.oci.OciUserListRsp;
 import com.yohann.ocihelper.service.IBootVolumeService;
@@ -46,5 +47,13 @@ public class BootVolumeController {
         CommonUtils.checkAndThrow(bindingResult);
         bootVolumeService.terminateBootVolume(params);
         return ResponseData.successData("终止引导卷命令下发成功");
+    }
+
+    @PostMapping(path = "/update")
+    public ResponseData<Void> update(@Validated @RequestBody UpdateBootVolumeParams params,
+                                     BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        bootVolumeService.update(params);
+        return ResponseData.successData("更改引导卷配置成功");
     }
 }
