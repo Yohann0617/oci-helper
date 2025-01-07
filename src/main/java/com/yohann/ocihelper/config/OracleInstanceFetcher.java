@@ -609,7 +609,13 @@ public class OracleInstanceFetcher implements Closeable {
                 return null;
             }
         } else {
-            String v6Cidr = vcn.getIpv6CidrBlocks().get(0);
+            List<String> ipv6CidrBlocks = vcn.getIpv6PrivateCidrBlocks();
+            String v6Cidr;
+            if (null == ipv6CidrBlocks || ipv6CidrBlocks.isEmpty()) {
+                v6Cidr = IPV6_CIDR_BLOCK;
+            } else {
+                v6Cidr = ipv6CidrBlocks.get(0);
+            }
             String subnetV6Cidr = v6Cidr.replaceAll("/56", "/64");
             CreateSubnetDetails createSubnetDetails =
                     CreateSubnetDetails.builder()
