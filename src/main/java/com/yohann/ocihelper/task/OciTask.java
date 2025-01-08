@@ -162,7 +162,8 @@ public class OciTask implements ApplicationRunner {
             if (!now.equals(latest)) {
                 log.warn(String.format("【oci-helper】版本更新啦！！！当前版本：%s 最新版本：%s", now, latest));
                 if (!isPushedLatestVersion) {
-                    sysService.sendMessage(String.format("【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s", now, latest));
+                    sysService.sendMessage(String.format("🔔【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s\n一键脚本：%s",
+                            now, latest,"bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)"));
                     isPushedLatestVersion = true;
                 }
             }
