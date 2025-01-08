@@ -1,5 +1,5 @@
 # 第一阶段：使用Maven构建jar
-FROM maven:3.8.4-openjdk-8 AS builder
+FROM maven:3.8.6-openjdk-11 AS builder
 
 # 设置工作目录
 WORKDIR /app
