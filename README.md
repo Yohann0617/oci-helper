@@ -27,7 +27,10 @@
 
 ## 一键 docker-compose 部署或更新
 
-安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，如需修改请更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。`密钥文件.pem`建议使用英文命名，并全部上传到`/app/oci-helper/keys`目录下，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
+- 安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，
+如需修改请更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
+- `密钥文件.pem`建议使用英文命名，并全部上传到`/app/oci-helper/keys`目录下，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
+- 如需查看完整日志，执行：`docker logs oci-helper  >>  /app/oci-helper/oci-helper.log`导出日志文件自行查看。
 
 ```bash
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
@@ -55,7 +58,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. 下载文件
 
 1. 下载`Releases`中最新的`application.yml`、`oci-helper.db`这两个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
-2. 如不使用 docker 部署则再下载一个`ocihelper-1.0.2.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar ocihelper-1.0.2.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`以上的环境）。
+2. 如不使用 docker 部署则再下载一个`ocihelper-1.0.4.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar ocihelper-1.0.4.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`以上的环境）。
 3. 后续如果更新jar包或者docker镜像，需要安装sqlite并运行`sh_oci-helper_install.sh`中更新版本号的命令（自行解决）。
 
 ### 3. docker部署

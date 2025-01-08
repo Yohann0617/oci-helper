@@ -28,7 +28,10 @@
 
 ## One-click docker-compose deployment or update
 
-After the installation is complete, you can directly access it through `ip:8818` in the browser (it is recommended to access it through https later). The default account and password are: `yohann`. If you need to modify it, please change the configuration in `/app/oci-helper/application.yml` and execute `docker restart oci-helper` to restart the docker container. It is recommended to use English names for `keyfile.pem` and upload them all to the `/app/oci-helper/keys` directory. When adding oci configuration, you only need to enter `keyfileName.pem`, and the full path of this directory will be added by default.
+- After the installation is complete, you can directly access it through `ip:8818` in the browser (it is recommended to access it through https later). The default account and password are both: `yohann`.
+  If you need to modify it, please change the configuration in `/app/oci-helper/application.yml` and execute `docker restart oci-helper` to restart the docker container.
+- It is recommended to use English names for `key files.pem` and upload them all to the `/app/oci-helper/keys` directory. When adding oci configuration, just enter `key file name.pem`. The full path of this directory will be added by default.
+- If you need to view the complete log, execute: `docker logs oci-helper >> /app/oci-helper/oci-helper.log` to export the log file and view it yourself.
 
 ```bash
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
@@ -56,7 +59,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. Download files
 
 1. Download the latest `application.yml` and `oci-helper.db` files in `Releases` to the `/app/oci-helper` directory, and modify some configurations of `application.yml`.
-2. If you do not use docker deployment, download another `ocihelper-1.0.2.jar` file to the `/app/oci-helper` directory, and run it directly `nohup java -jar ocihelper-1.0.2.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8` or above).
+2. If you do not use docker deployment, download another `ocihelper-1.0.4.jar` file to the `/app/oci-helper` directory, and run it directly `nohup java -jar ocihelper-1.0.4.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8` or above).
 3. If you update the jar package or docker image later, you need to install sqlite and run the command to update the version number in `sh_oci-helper_install.sh` (solve it yourself).
 
 ### 3. Docker deployment
