@@ -13,7 +13,7 @@ import lombok.Getter;
 @Getter
 public enum ErrorEnum {
 
-    LIMIT_EXCEEDED(400, "LimitExceeded", "无法创建实例，配额已经超过免费额度"),
+    LIMIT_EXCEEDED(400, "limit", "无法创建实例，配额已经超过免费额度"),
     TOO_MANY_REQUESTS(429, "TooManyRequests", "请求频繁"),
     CAPACITY(500, "Out of capacity", "Out of capacity"),
     CAPACITY_HOST(500, "Out of host capacity", "Out of host capacity"),

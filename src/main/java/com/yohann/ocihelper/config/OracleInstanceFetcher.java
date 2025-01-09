@@ -107,7 +107,7 @@ public class OracleInstanceFetcher implements Closeable {
         virtualNetworkClient.setRegion(ociCfg.getRegion());
     }
 
-    public InstanceDetailDTO createInstanceData() {
+    synchronized public InstanceDetailDTO createInstanceData() {
         InstanceDetailDTO instanceDetailDTO = new InstanceDetailDTO();
         instanceDetailDTO.setTaskId(user.getTaskId());
         instanceDetailDTO.setUsername(user.getUsername());
@@ -116,17 +116,17 @@ public class OracleInstanceFetcher implements Closeable {
         instanceDetailDTO.setCreateNumbers(user.getCreateNumbers());
 
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
-        List<Vcn> vcnList = listVcn();
         int size = availabilityDomains.size();
-        Vcn vcn;
-        InternetGateway internetGateway;
-        Subnet subnet;
-        NetworkSecurityGroup networkSecurityGroup = null;
-        LaunchInstanceDetails launchInstanceDetails;
-        Instance instance;
         try {
             for (AvailabilityDomain availableDomain : availabilityDomains) {
                 try {
+                    Vcn vcn;
+                    InternetGateway internetGateway;
+                    Subnet subnet;
+                    NetworkSecurityGroup networkSecurityGroup = null;
+                    LaunchInstanceDetails launchInstanceDetails;
+                    Instance instance;
+                    List<Vcn> vcnList = listVcn();
                     List<Shape> shapes = getShape(computeClient, compartmentId, availableDomain, user);
                     if (shapes.size() == 0) {
                         continue;
@@ -198,7 +198,7 @@ public class OracleInstanceFetcher implements Closeable {
                                 log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 容量不足，[{}]秒后将重试......",
                                         user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
                             }
-                        } else if (error.getStatusCode() == 400 || error.getMessage().contains(ErrorEnum.LIMIT_EXCEEDED.getErrorType())) {
+                        } else if (error.getStatusCode() == 400 && error.getMessage().contains(ErrorEnum.LIMIT_EXCEEDED.getErrorType())) {
                             instanceDetailDTO.setOut(true);
                             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 无法创建实例，配额已经超过限制~",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), e);
@@ -379,7 +379,7 @@ public class OracleInstanceFetcher implements Closeable {
         return images.get(0);
     }
 
-    private Vcn createVcn(VirtualNetworkClient virtualNetworkClient, String compartmentId, String cidrBlock)
+    synchronized private Vcn createVcn(VirtualNetworkClient virtualNetworkClient, String compartmentId, String cidrBlock)
             throws Exception {
         String vcnName = "oci-helper-vcn";
         CreateVcnDetails createVcnDetails = CreateVcnDetails.builder()
@@ -453,7 +453,7 @@ public class OracleInstanceFetcher implements Closeable {
         return getVcnResponse.getVcn();
     }
 
-    private InternetGateway createInternetGateway(
+    synchronized private InternetGateway createInternetGateway(
             VirtualNetworkClient virtualNetworkClient, String compartmentId, Vcn vcn)
             throws Exception {
         String internetGatewayName = "oci-helper-gateway";
@@ -505,7 +505,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .execute();
     }
 
-    private void addInternetGatewayToDefaultRouteTable(
+    synchronized private void addInternetGatewayToDefaultRouteTable(
             VirtualNetworkClient virtualNetworkClient,
             Vcn vcn, InternetGateway internetGateway) throws Exception {
         GetRouteTableRequest getRouteTableRequest = GetRouteTableRequest.builder()
@@ -577,7 +577,7 @@ public class OracleInstanceFetcher implements Closeable {
 
     }
 
-    private Subnet createSubnet(
+    synchronized private Subnet createSubnet(
             VirtualNetworkClient virtualNetworkClient,
             String compartmentId,
             AvailabilityDomain availabilityDomain,
@@ -870,7 +870,7 @@ public class OracleInstanceFetcher implements Closeable {
         System.out.println();
     }
 
-    private Instance createInstance(ComputeWaiters computeWaiters, LaunchInstanceDetails launchInstanceDetails)
+    synchronized private Instance createInstance(ComputeWaiters computeWaiters, LaunchInstanceDetails launchInstanceDetails)
             throws Exception {
         LaunchInstanceRequest launchInstanceRequest = LaunchInstanceRequest.builder()
                 .launchInstanceDetails(launchInstanceDetails)
