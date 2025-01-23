@@ -609,21 +609,12 @@ public class OracleInstanceFetcher implements Closeable {
                 return null;
             }
         } else {
-//            List<String> ipv6CidrBlocks = vcn.getIpv6PrivateCidrBlocks();
-//            String v6Cidr;
-//            if (null == ipv6CidrBlocks || ipv6CidrBlocks.isEmpty()) {
-//                v6Cidr = IPV6_CIDR_BLOCK;
-//            } else {
-//                v6Cidr = ipv6CidrBlocks.get(0);
-//            }
-//            String subnetV6Cidr = v6Cidr.replaceAll("/56", "/64");
             CreateSubnetDetails createSubnetDetails =
                     CreateSubnetDetails.builder()
                             .availabilityDomain(availabilityDomain.getName())
                             .compartmentId(compartmentId)
                             .displayName(subnetName)
                             .cidrBlock(networkCidrBlock)
-//                            .ipv6CidrBlock(subnetV6Cidr)
                             .vcnId(vcn.getId())
                             .routeTableId(vcn.getDefaultRouteTableId())
                             .build();
@@ -1159,10 +1150,10 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                    .availabilityDomain(availabilityDomain.getName())
-                    .compartmentId(compartmentId)
-                    .instanceId(instanceId)
-                    .build()).getItems()
+                            .availabilityDomain(availabilityDomain.getName())
+                            .compartmentId(compartmentId)
+                            .instanceId(instanceId)
+                            .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
@@ -1185,10 +1176,10 @@ public class OracleInstanceFetcher implements Closeable {
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         for (AvailabilityDomain availabilityDomain : availabilityDomains) {
             List<String> BootVolumeIdList = computeClient.listBootVolumeAttachments(ListBootVolumeAttachmentsRequest.builder()
-                    .availabilityDomain(availabilityDomain.getName())
-                    .compartmentId(compartmentId)
-                    .instanceId(instanceId)
-                    .build()).getItems()
+                            .availabilityDomain(availabilityDomain.getName())
+                            .compartmentId(compartmentId)
+                            .instanceId(instanceId)
+                            .build()).getItems()
                     .stream().map(BootVolumeAttachment::getBootVolumeId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
@@ -1501,22 +1492,21 @@ public class OracleInstanceFetcher implements Closeable {
         String vcnId = vcn.getId();
 
         // 添加ipv6 cidr 前缀
-        List<String> oldIpv6CidrBlocks = vcn.getIpv6PrivateCidrBlocks();
+        List<String> oldIpv6CidrBlocks = vcn.getIpv6CidrBlocks();
         if (null == oldIpv6CidrBlocks || oldIpv6CidrBlocks.isEmpty()) {
             try {
                 virtualNetworkClient.addIpv6VcnCidr(AddIpv6VcnCidrRequest.builder()
                         .vcnId(vcnId)
                         .addVcnIpv6CidrDetails(AddVcnIpv6CidrDetails.builder()
-                                .ipv6PrivateCidrBlock(IPV6_CIDR_BLOCK)
+                                .isOracleGuaAllocationEnabled(true)
                                 .build())
                         .build());
             } catch (Exception e) {
-                if (e.getMessage().contains("requested for VCN are overlapping")) {
-                    log.warn("ipv6PrivateCidrBlock: {} exists", IPV6_CIDR_BLOCK);
-                } else {
-                    log.error("添加ipv6 cidr 前缀失败", e);
-                    throw new OciException(-1, "添加ipv6 cidr 前缀失败");
-                }
+                log.error("添加ipv6 cidr 前缀失败", e);
+                throw new OciException(-1, "添加ipv6 cidr 前缀失败");
+            } finally {
+                vcn = getVcnById(vcn.getId());
+                oldIpv6CidrBlocks = vcn.getIpv6CidrBlocks();
             }
         }
 
