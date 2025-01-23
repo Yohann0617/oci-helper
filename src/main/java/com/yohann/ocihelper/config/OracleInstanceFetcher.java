@@ -1425,7 +1425,7 @@ public class OracleInstanceFetcher implements Closeable {
                 outList = Collections.singletonList(out6);
                 break;
             default:
-                if (vcn.getIpv6PrivateCidrBlocks().isEmpty()) {
+                if (vcn.getIpv6CidrBlocks().isEmpty()) {
                     inList = Collections.singletonList(in4);
                     outList = Collections.singletonList(out4);
                 } else {
