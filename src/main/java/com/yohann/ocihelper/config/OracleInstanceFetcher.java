@@ -163,6 +163,7 @@ public class OracleInstanceFetcher implements Closeable {
                                     }
                                 }
                                 if (null == subnet) {
+                                    subnets.forEach(this::deleteSubnet);
                                     subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
                                             getCidr(virtualNetworkClient, compartmentId), vcn);
                                 }
