@@ -156,16 +156,20 @@ public class OracleInstanceFetcher implements Closeable {
                                 subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
                                         getCidr(virtualNetworkClient, compartmentId), vcn);
                             } else {
-                                for (Subnet subnetExist : subnets) {
-                                    if (null == subnetExist.getAvailabilityDomain()) {
-                                        subnet = subnetExist;
-                                        break;
+                                if (!listInstances().isEmpty()) {
+                                    subnet = subnets.get(0);
+                                } else {
+                                    for (Subnet subnetExist : subnets) {
+                                        if (null == subnetExist.getAvailabilityDomain()) {
+                                            subnet = subnetExist;
+                                            break;
+                                        }
                                     }
-                                }
-                                if (null == subnet) {
-                                    subnets.forEach(this::deleteSubnet);
-                                    subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
-                                            getCidr(virtualNetworkClient, compartmentId), vcn);
+                                    if (null == subnet) {
+                                        subnets.forEach(this::deleteSubnet);
+                                        subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
+                                                getCidr(virtualNetworkClient, compartmentId), vcn);
+                                    }
                                 }
                             }
                             log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到VCN：{} 存在，默认使用该VCN创建实例......",
