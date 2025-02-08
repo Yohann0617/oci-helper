@@ -149,6 +149,7 @@ public class OciTask implements ApplicationRunner {
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf);
         log.info(String.format("【oci-helper】服务启动成功~ 当前版本：%s 最新版本：%s", nowVersion, latestVersion));
+        sysService.sendMessage(String.format("【oci-helper】服务启动成功🎉🎉\n当前版本：%s\n最新版本：%s", nowVersion, latestVersion));
 
         addTask(taskId, () -> {
             String latest = CommonUtils.getLatestVersion();
@@ -167,7 +168,7 @@ public class OciTask implements ApplicationRunner {
                     isPushedLatestVersion = true;
                 }
             }
-        }, 0, 30, TimeUnit.MINUTES);
+        }, 0, 1, TimeUnit.HOURS);
 
         addTask(taskId + "_push", () -> {
             isPushedLatestVersion = false;
@@ -177,14 +178,13 @@ public class OciTask implements ApplicationRunner {
     @Scheduled(cron = "0 0 0 * * ?")
     public void dailyBroadcastTask() {
         String message = "【每日播报】\n" +
-                "------------------------------------\n" +
+                "\n" +
                 "时间：\t%s\n" +
                 "总API配置数：\t%s\n" +
                 "失效API配置数：\t%s\n" +
                 "失效的API配置：\t%s\n" +
                 "正在执行的开机任务：\n" +
-                "%s\n" +
-                "------------------------------------";
+                "%s\n";
         List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
                 .isNotNull(OciUser::getId)
                 .select(OciUser::getId), String::valueOf);

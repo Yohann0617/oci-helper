@@ -56,7 +56,6 @@ public class OracleInstanceFetcher implements Closeable {
     private final String compartmentId;
 
     private static final String CIDR_BLOCK = "10.0.0.0/16";
-    private static final String IPV6_CIDR_BLOCK = "2603:c021:c009:4200::/56";
 
     @Override
     public void close() {
@@ -122,7 +121,7 @@ public class OracleInstanceFetcher implements Closeable {
                 try {
                     Vcn vcn;
                     InternetGateway internetGateway;
-                    Subnet subnet;
+                    Subnet subnet = null;
                     NetworkSecurityGroup networkSecurityGroup = null;
                     LaunchInstanceDetails launchInstanceDetails;
                     Instance instance;
@@ -157,7 +156,16 @@ public class OracleInstanceFetcher implements Closeable {
                                 subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
                                         getCidr(virtualNetworkClient, compartmentId), vcn);
                             } else {
-                                subnet = subnets.get(0);
+                                for (Subnet subnetExist : subnets) {
+                                    if (subnetExist.getAvailabilityDomain().equals(availableDomain.getName())) {
+                                        subnet = subnetExist;
+                                        break;
+                                    }
+                                }
+                                if (null == subnet) {
+                                    subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
+                                            getCidr(virtualNetworkClient, compartmentId), vcn);
+                                }
                             }
                             log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到VCN：{} 存在，默认使用该VCN创建实例......",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
@@ -637,23 +645,20 @@ public class OracleInstanceFetcher implements Closeable {
         return subnet;
     }
 
-    private void deleteSubnet(VirtualNetworkClient virtualNetworkClient, Subnet subnet) {
+    private void deleteSubnet(Subnet subnet) {
         try {
-            DeleteSubnetRequest deleteSubnetRequest =
-                    DeleteSubnetRequest.builder().subnetId(subnet.getId()).build();
+            DeleteSubnetRequest deleteSubnetRequest = DeleteSubnetRequest.builder().subnetId(subnet.getId()).build();
             virtualNetworkClient.deleteSubnet(deleteSubnetRequest);
 
-            GetSubnetRequest getSubnetRequest =
-                    GetSubnetRequest.builder().subnetId(subnet.getId()).build();
+            GetSubnetRequest getSubnetRequest = GetSubnetRequest.builder().subnetId(subnet.getId()).build();
             virtualNetworkClient
                     .getWaiters()
                     .forSubnet(getSubnetRequest, Subnet.LifecycleState.Terminated)
                     .execute();
 
             log.info("Deleted Subnet: [{}]", subnet.getId());
-            log.info("");
         } catch (Exception e) {
-            log.warn("delete subnet fail error");
+            log.error("delete subnet fail error", e);
         }
     }
 
@@ -1527,12 +1532,7 @@ public class OracleInstanceFetcher implements Closeable {
 
         for (Subnet subnet : oldSubnet) {
             if (subnet.getVcnId().equals(vcnId)) {
-                String v6Cidr;
-                if (null == oldIpv6CidrBlocks || oldIpv6CidrBlocks.isEmpty()) {
-                    v6Cidr = IPV6_CIDR_BLOCK;
-                } else {
-                    v6Cidr = oldIpv6CidrBlocks.get(0);
-                }
+                String v6Cidr = oldIpv6CidrBlocks.get(0);
                 String subnetV6Cidr = v6Cidr.replaceAll("/56", "/64");
                 if (null == subnet.getIpv6CidrBlock()) {
                     try {
