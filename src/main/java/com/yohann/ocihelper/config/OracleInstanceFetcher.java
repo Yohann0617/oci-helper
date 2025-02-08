@@ -157,7 +157,7 @@ public class OracleInstanceFetcher implements Closeable {
                                         getCidr(virtualNetworkClient, compartmentId), vcn);
                             } else {
                                 for (Subnet subnetExist : subnets) {
-                                    if (subnetExist.getAvailabilityDomain().equals(availableDomain.getName())) {
+                                    if (null == subnetExist.getAvailabilityDomain()) {
                                         subnet = subnetExist;
                                         break;
                                     }
@@ -594,55 +594,30 @@ public class OracleInstanceFetcher implements Closeable {
             Vcn vcn)
             throws Exception {
         String subnetName = "oci-helper-subnet";
-        Subnet subnet = null;
-        //检查子网是否存在
-        ListSubnetsRequest listRequest = ListSubnetsRequest.builder()
-                .compartmentId(compartmentId)
-                .vcnId(vcn.getId())
-                .displayName(subnetName)
-                .build();
-        ListSubnetsResponse listResponse = virtualNetworkClient.listSubnets(listRequest);
-        if (listResponse.getItems().size() > 0) {
-            // 如果找到已有的子网，返回其 ID
-            List<Subnet> items = listResponse.getItems();
-            int size = 0;
-            for (Subnet subnetOld : listResponse.getItems()) {
-                if (subnetOld.getAvailabilityDomain().equals(availabilityDomain.getName())) {
-                    return subnetOld;
-                } else {
-                    //不匹配
-                    size++;
-                }
-            }
-            if (items.size() == size) {
-                return null;
-            }
-        } else {
-            CreateSubnetDetails createSubnetDetails =
-                    CreateSubnetDetails.builder()
-                            .availabilityDomain(availabilityDomain.getName())
-                            .compartmentId(compartmentId)
-                            .displayName(subnetName)
-                            .cidrBlock(networkCidrBlock)
-                            .vcnId(vcn.getId())
-                            .routeTableId(vcn.getDefaultRouteTableId())
-                            .build();
-            CreateSubnetRequest createSubnetRequest =
-                    CreateSubnetRequest.builder().createSubnetDetails(createSubnetDetails).build();
-            CreateSubnetResponse createSubnetResponse =
-                    virtualNetworkClient.createSubnet(createSubnetRequest);
+        Subnet subnet;
+        CreateSubnetDetails createSubnetDetails =
+                CreateSubnetDetails.builder()
+                        .compartmentId(compartmentId)
+                        .displayName(subnetName)
+                        .cidrBlock(networkCidrBlock)
+                        .vcnId(vcn.getId())
+                        .routeTableId(vcn.getDefaultRouteTableId())
+                        .build();
+        CreateSubnetRequest createSubnetRequest =
+                CreateSubnetRequest.builder().createSubnetDetails(createSubnetDetails).build();
+        CreateSubnetResponse createSubnetResponse =
+                virtualNetworkClient.createSubnet(createSubnetRequest);
 
-            GetSubnetRequest getSubnetRequest =
-                    GetSubnetRequest.builder()
-                            .subnetId(createSubnetResponse.getSubnet().getId())
-                            .build();
-            GetSubnetResponse getSubnetResponse =
-                    virtualNetworkClient
-                            .getWaiters()
-                            .forSubnet(getSubnetRequest, Subnet.LifecycleState.Available)
-                            .execute();
-            subnet = getSubnetResponse.getSubnet();
-        }
+        GetSubnetRequest getSubnetRequest =
+                GetSubnetRequest.builder()
+                        .subnetId(createSubnetResponse.getSubnet().getId())
+                        .build();
+        GetSubnetResponse getSubnetResponse =
+                virtualNetworkClient
+                        .getWaiters()
+                        .forSubnet(getSubnetRequest, Subnet.LifecycleState.Available)
+                        .execute();
+        subnet = getSubnetResponse.getSubnet();
         return subnet;
     }
 
