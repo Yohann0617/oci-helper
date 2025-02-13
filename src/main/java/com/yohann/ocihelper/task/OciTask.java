@@ -168,11 +168,11 @@ public class OciTask implements ApplicationRunner {
                     isPushedLatestVersion = true;
                 }
             }
-        }, 0, 1, TimeUnit.HOURS);
+        }, 0, 7, TimeUnit.HOURS);
 
         addTask(taskId + "_push", () -> {
             isPushedLatestVersion = false;
-        }, 4, 4, TimeUnit.HOURS);
+        }, 12, 12, TimeUnit.HOURS);
     }
 
     @Scheduled(cron = "0 0 0 * * ?")
