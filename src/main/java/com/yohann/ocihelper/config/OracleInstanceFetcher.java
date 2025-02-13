@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.config;
 
 import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.util.StrUtil;
 import com.oracle.bmc.Region;
 import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider;
 import com.oracle.bmc.core.BlockstorageClient;
@@ -1054,6 +1055,10 @@ public class OracleInstanceFetcher implements Closeable {
                 .build();
 
         ListPublicIpsResponse response = virtualNetworkClient.listPublicIps(listPublicIpsRequest);
+        List<PublicIp> publicIpList = response.getItems();
+        if (publicIpList.isEmpty()) {
+            return;
+        }
         for (PublicIp publicIp : response.getItems()) {
             if (publicIp.getAssignedEntityId() == null) {  // 检查是否未分配到实例
                 DeletePublicIpRequest deleteRequest = DeletePublicIpRequest.builder()
@@ -1074,7 +1079,7 @@ public class OracleInstanceFetcher implements Closeable {
             // Step 1: 解除当前的 Public IP（如果已存在）
             GetVnicRequest getVnicRequest = GetVnicRequest.builder().vnicId(vnicId).build();
             String existingPublicIpAddress = virtualNetworkClient.getVnic(getVnicRequest).getVnic().getPublicIp();
-            if (existingPublicIpAddress != null) {
+            if (StrUtil.isNotBlank(existingPublicIpAddress)) {
                 // Step 1: 查找公网 IP 的 OCID
                 GetPublicIpByIpAddressRequest getPublicIpByIpAddressRequest = GetPublicIpByIpAddressRequest.builder()
                         .getPublicIpByIpAddressDetails(
@@ -1124,8 +1129,9 @@ public class OracleInstanceFetcher implements Closeable {
             publicIp = reservedPublicIp.getIpAddress();
             return publicIp;
         } catch (Exception e) {
-            releaseUnusedPublicIps();
             log.error("【更换公共IP】用户：[{}] ，区域：[{}] 更换IP任务异常，稍后将重试......", user.getUsername(), user.getOciCfg().getRegion());
+        } finally {
+            releaseUnusedPublicIps();
         }
         return null;
     }

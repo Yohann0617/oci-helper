@@ -584,6 +584,9 @@ public class OciServiceImpl implements IOciService {
                            int randomIntInterval) {
         if (CollectionUtil.isEmpty(cidrList)) {
             Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
+            if (tuple2.getFirst() == null || tuple2.getSecond() == null) {
+                return;
+            }
             sendChangeIpMsg(
                     sysUserDTO.getUsername(),
                     sysUserDTO.getOciCfg().getRegion(),
