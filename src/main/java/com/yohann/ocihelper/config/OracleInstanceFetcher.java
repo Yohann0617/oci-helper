@@ -23,6 +23,7 @@ import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.params.oci.securityrule.UpdateSecurityRuleListParams;
 import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
 import com.yohann.ocihelper.enums.*;
 import com.yohann.ocihelper.exception.OciException;
@@ -1616,4 +1617,81 @@ public class OracleInstanceFetcher implements Closeable {
                         .build())
                 .build());
     }
+
+    public SecurityList listSecurityRule(Vcn vcn) {
+        GetSecurityListResponse getSecurityListResponse = virtualNetworkClient.getSecurityList(GetSecurityListRequest.builder()
+                .securityListId(vcn.getDefaultSecurityListId())
+                .build());
+        return getSecurityListResponse.getSecurityList();
+    }
+
+    public void updateSecurityRuleList(Vcn vcn, UpdateSecurityRuleListParams params) {
+        List<IngressSecurityRule> ingressSecurityRuleList = params.getIngressRuleList().parallelStream()
+                .map(ingressRule -> IngressSecurityRule.builder()
+                        .isStateless(ingressRule.isStateless())
+                        .protocol(ingressRule.getProtocol())
+                        .source(ingressRule.getSource())
+                        .sourceType(IngressSecurityRule.SourceType.valueOf(ingressRule.getSourceType()))
+                        .tcpOptions(TcpOptions.builder()
+                                .sourcePortRange(PortRange.builder()
+                                        .min(ingressRule.getTcpSourcePortMin())
+                                        .max(ingressRule.getTcpSourcePortMax())
+                                        .build())
+                                .destinationPortRange(PortRange.builder()
+                                        .min(ingressRule.getTcpDesPortMin())
+                                        .max(ingressRule.getTcpDesPortMax())
+                                        .build())
+                                .build())
+                        .udpOptions(UdpOptions.builder()
+                                .sourcePortRange(PortRange.builder()
+                                        .min(ingressRule.getUdpSourcePortMin())
+                                        .max(ingressRule.getUdpSourcePortMax())
+                                        .build())
+                                .destinationPortRange(PortRange.builder()
+                                        .min(ingressRule.getUdpDesPortMin())
+                                        .max(ingressRule.getUdpDesPortMax())
+                                        .build())
+                                .build())
+                        .description(ingressRule.getDescription())
+                        .build()).collect(Collectors.toList());
+
+        List<EgressSecurityRule> egressSecurityRuleList = params.getEgressRuleList().parallelStream()
+                .map(egressRule -> EgressSecurityRule.builder()
+                        .destination(egressRule.getDestination())
+                        .destinationType(EgressSecurityRule.DestinationType.valueOf(egressRule.getDestinationType()))
+                        .isStateless(egressRule.isStateless())
+                        .protocol(egressRule.getProtocol())
+                        .tcpOptions(TcpOptions.builder()
+                                .sourcePortRange(PortRange.builder()
+                                        .min(egressRule.getTcpSourcePortMin())
+                                        .max(egressRule.getTcpSourcePortMax())
+                                        .build())
+                                .destinationPortRange(PortRange.builder()
+                                        .min(egressRule.getTcpDesPortMin())
+                                        .max(egressRule.getTcpDesPortMax())
+                                        .build())
+                                .build())
+                        .udpOptions(UdpOptions.builder()
+                                .sourcePortRange(PortRange.builder()
+                                        .min(egressRule.getUdpSourcePortMin())
+                                        .max(egressRule.getUdpSourcePortMax())
+                                        .build())
+                                .destinationPortRange(PortRange.builder()
+                                        .min(egressRule.getUdpDesPortMin())
+                                        .max(egressRule.getUdpDesPortMax())
+                                        .build())
+                                .build())
+                        .description(egressRule.getDescription())
+                        .build()).collect(Collectors.toList());
+
+
+        virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
+                .securityListId(vcn.getDefaultSecurityListId())
+                .updateSecurityListDetails(UpdateSecurityListDetails.builder()
+                        .ingressSecurityRules(ingressSecurityRuleList)
+                        .egressSecurityRules(egressSecurityRuleList)
+                        .build())
+                .build());
+    }
+
 }
