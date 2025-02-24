@@ -1203,9 +1203,7 @@ public class OracleInstanceFetcher implements Closeable {
                     .availabilityDomain(availabilityDomain.getName())
                     .compartmentId(compartmentId)
                     .build()).getItems();
-            if (null == items || items.isEmpty()) {
-                log.warn("用户：[{}] ，区域：[{}] ，引导卷列表为空，未创建实例", user.getUsername(), user.getOciCfg().getRegion());
-            } else {
+            if (null != items && !items.isEmpty()) {
                 bootVolumes.addAll(items.stream().map(BootVolume::getId)
                         .collect(Collectors.toList())
                         .parallelStream().map(this::getBootVolumeById)
