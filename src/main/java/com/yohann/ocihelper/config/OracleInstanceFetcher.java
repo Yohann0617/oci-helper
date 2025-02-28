@@ -12,12 +12,9 @@ import com.oracle.bmc.core.model.*;
 import com.oracle.bmc.core.requests.*;
 import com.oracle.bmc.core.responses.*;
 import com.oracle.bmc.identity.IdentityClient;
-import com.oracle.bmc.identity.model.AvailabilityDomain;
-import com.oracle.bmc.identity.model.Compartment;
-import com.oracle.bmc.identity.requests.ListAvailabilityDomainsRequest;
-import com.oracle.bmc.identity.requests.ListCompartmentsRequest;
-import com.oracle.bmc.identity.responses.ListAvailabilityDomainsResponse;
-import com.oracle.bmc.identity.responses.ListCompartmentsResponse;
+import com.oracle.bmc.identity.model.*;
+import com.oracle.bmc.identity.requests.*;
+import com.oracle.bmc.identity.responses.*;
 import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
@@ -251,6 +248,80 @@ public class OracleInstanceFetcher implements Closeable {
 
     public SysUserDTO getUser() {
         return user;
+    }
+
+    public List<com.oracle.bmc.identity.model.Region> listAllRegions() {
+        ListRegionsResponse listRegionsResponse = identityClient.listRegions(ListRegionsRequest.builder().build());
+        List<com.oracle.bmc.identity.model.Region> regions = listRegionsResponse.getItems();
+        return regions.isEmpty() ? Collections.emptyList() : regions;
+    }
+
+    public List<RegionSubscription> listRegionSubscriptions() {
+        ListRegionSubscriptionsResponse response = identityClient.listRegionSubscriptions(
+                ListRegionSubscriptionsRequest.builder()
+                        .tenancyId(compartmentId)
+                        .build());
+        List<RegionSubscription> subscriptionList = response.getItems();
+        return subscriptionList.isEmpty() ? Collections.emptyList() : subscriptionList;
+    }
+
+    public void deleteAllMfa() {
+        ListMfaTotpDevicesResponse listMfaTotpDevicesResponse = identityClient.listMfaTotpDevices(
+                ListMfaTotpDevicesRequest.builder()
+                        .userId(user.getOciCfg().getUserId())
+                        .build());
+        List<MfaTotpDeviceSummary> listMfaTotpDevicesResponseItems = listMfaTotpDevicesResponse.getItems();
+        if (!listMfaTotpDevicesResponseItems.isEmpty()) {
+            listMfaTotpDevicesResponseItems.parallelStream().forEach(item -> {
+                identityClient.deleteMfaTotpDevice(DeleteMfaTotpDeviceRequest.builder()
+                        .mfaTotpDeviceId(item.getId())
+                        .userId(user.getOciCfg().getUserId())
+                        .build());
+            });
+        }
+    }
+
+    public void deleteAllApiKey() {
+        ListApiKeysResponse listApiKeysResponse = identityClient.listApiKeys(ListApiKeysRequest.builder()
+                .userId(user.getOciCfg().getUserId())
+                .build());
+        List<ApiKey> items = listApiKeysResponse.getItems();
+        if (!items.isEmpty()) {
+            items.parallelStream().forEach(item -> {
+                identityClient.deleteApiKey(DeleteApiKeyRequest.builder()
+                        .userId(user.getOciCfg().getUserId())
+                        .fingerprint(item.getFingerprint())
+                        .build());
+            });
+        }
+    }
+
+    public User getUserInfo() {
+        return identityClient.getUser(GetUserRequest.builder()
+                .userId(user.getOciCfg().getUserId())
+                .build()).getUser();
+    }
+
+    public void updateUser(String email, String dbUserName, String description) {
+        identityClient.updateUser(UpdateUserRequest.builder()
+                .userId(user.getOciCfg().getUserId())
+                .updateUserDetails(UpdateUserDetails.builder()
+                        .email(email)
+                        .dbUserName(dbUserName)
+                        .description(description)
+                        .build())
+                .build());
+    }
+
+    public String createOrResetUIPassword() {
+        CreateOrResetUIPasswordResponse uIPassword = identityClient.createOrResetUIPassword(
+                CreateOrResetUIPasswordRequest.builder()
+                        .userId(user.getOciCfg().getUserId())
+                        .build());
+        String password = uIPassword.getUIPassword().getPassword();
+        log.info("用户：[{}] ，区域：[{}] 成功创建/重置登录密码，新密码：【 {} 】",
+                user.getUsername(), user.getOciCfg().getRegion(), password);
+        return password;
     }
 
     public List<Instance> listInstances() {
