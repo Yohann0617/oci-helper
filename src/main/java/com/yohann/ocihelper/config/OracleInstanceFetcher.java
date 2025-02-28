@@ -1626,6 +1626,10 @@ public class OracleInstanceFetcher implements Closeable {
     public void updateSecurityRuleList(Vcn vcn, UpdateSecurityRuleListParams params) {
         List<IngressSecurityRule> ingressSecurityRuleList = params.getIngressRuleList().parallelStream()
                 .map(ingressRule -> IngressSecurityRule.builder()
+                        .icmpOptions(IcmpOptions.builder()
+                                .code(ingressRule.getIcmpCode())
+                                .type(ingressRule.getIcmpType())
+                                .build())
                         .isStateless(ingressRule.isStateless())
                         .protocol(ingressRule.getProtocol())
                         .source(ingressRule.getSource())
@@ -1655,6 +1659,10 @@ public class OracleInstanceFetcher implements Closeable {
 
         List<EgressSecurityRule> egressSecurityRuleList = params.getEgressRuleList().parallelStream()
                 .map(egressRule -> EgressSecurityRule.builder()
+                        .icmpOptions(IcmpOptions.builder()
+                                .code(egressRule.getIcmpCode())
+                                .type(egressRule.getIcmpType())
+                                .build())
                         .destination(egressRule.getDestination())
                         .destinationType(EgressSecurityRule.DestinationType.valueOf(egressRule.getDestinationType()))
                         .isStateless(egressRule.isStateless())

@@ -19,7 +19,8 @@ public class UpdateSecurityRuleListParams {
 
     @Data
     public static class IngressRule {
-//        private String icmpOptions;
+        private Integer icmpCode;
+        private Integer icmpType;
         private boolean isStateless;
         private String protocol;
         private String source;
@@ -39,7 +40,8 @@ public class UpdateSecurityRuleListParams {
     public static class EgressRule {
         private String destination;
         private String destinationType;
-//        private String icmpOptions;
+        private Integer icmpCode;
+        private Integer icmpType;
         private boolean isStateless;
         private String protocol;
         private Integer tcpSourcePortMin;
