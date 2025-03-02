@@ -6,13 +6,16 @@ import cn.hutool.core.util.PageUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.oracle.bmc.core.model.BootVolume;
+import com.oracle.bmc.core.model.SecurityList;
 import com.oracle.bmc.core.model.Subnet;
 import com.oracle.bmc.core.model.Vcn;
 import com.oracle.bmc.identity.model.AvailabilityDomain;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.response.oci.BootVolumeListPage;
+import com.yohann.ocihelper.bean.response.oci.securityrule.SecurityRuleListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
+import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
@@ -62,19 +65,14 @@ class OciHelperApplicationTests {
 
         System.out.println(sysUserDTO);
 
-        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains();
-            System.out.println("-----------------------------------");
-            availabilityDomains.forEach(System.out::println);
-            System.out.println("-----------------------------------");
-            fetcher.listVcn().forEach(vcn -> {
-                List<Subnet> subnets = fetcher.listSubnets(vcn.getId());
-                subnets.forEach(x -> {
-                    System.out.println(x.getAvailabilityDomain());
-                });
-            });
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
+            SecurityList securityList = fetcher.listSecurityRule(fetcher.listVcn().get(0));
+            SecurityRuleListRsp rsp = new SecurityRuleListRsp();
+            BeanUtils.copyProperties(securityList, rsp);
+            System.out.println(JSONUtil.toJsonStr(rsp));
         } catch (Exception e) {
-            e.printStackTrace();
+
+
         }
 
     }

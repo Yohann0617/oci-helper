@@ -571,7 +571,8 @@ public class OciServiceImpl implements IOciService {
 //            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
 //            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
 //            createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
-            sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 发生了异常",
+            sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] " +
+                            "发生了异常但并未停止枪机任务，可能是网络响应超时等原因，具体情况自行查看日志",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                     sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
         }

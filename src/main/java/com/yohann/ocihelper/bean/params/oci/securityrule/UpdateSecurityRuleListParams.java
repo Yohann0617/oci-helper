@@ -1,5 +1,8 @@
 package com.yohann.ocihelper.bean.params.oci.securityrule;
 
+import com.oracle.bmc.core.model.EgressSecurityRule;
+import com.oracle.bmc.core.model.IcmpOptions;
+import com.oracle.bmc.core.model.IngressSecurityRule;
 import lombok.Data;
 
 import java.util.List;
@@ -19,12 +22,14 @@ public class UpdateSecurityRuleListParams {
 
     @Data
     public static class IngressRule {
-        private Integer icmpCode;
-        private Integer icmpType;
-        private boolean isStateless;
+//        private Integer icmpCode;
+//        private Integer icmpType;
+        private IcmpOptions icmpOptions;
+        private Boolean isStateless;
         private String protocol;
         private String source;
         private String sourceType;
+
         private Integer tcpSourcePortMin;
         private Integer tcpSourcePortMax;
         private Integer tcpDesPortMin;
@@ -33,17 +38,26 @@ public class UpdateSecurityRuleListParams {
         private Integer udpSourcePortMax;
         private Integer udpDesPortMin;
         private Integer udpDesPortMax;
+
+        private String sourcePort;
+        private String destinationPort;
         private String description;
+
+        public IngressSecurityRule.SourceType getSourceType() {
+            return IngressSecurityRule.SourceType.valueOf(sourceType);
+        }
     }
 
     @Data
     public static class EgressRule {
+//        private Integer icmpCode;
+//        private Integer icmpType;
+        private IcmpOptions icmpOptions;
         private String destination;
         private String destinationType;
-        private Integer icmpCode;
-        private Integer icmpType;
-        private boolean isStateless;
+        private Boolean isStateless;
         private String protocol;
+
         private Integer tcpSourcePortMin;
         private Integer tcpSourcePortMax;
         private Integer tcpDesPortMin;
@@ -52,6 +66,13 @@ public class UpdateSecurityRuleListParams {
         private Integer udpSourcePortMax;
         private Integer udpDesPortMin;
         private Integer udpDesPortMax;
+
+        private String sourcePort;
+        private String destinationPort;
         private String description;
+
+        public EgressSecurityRule.DestinationType getDestinationType() {
+            return EgressSecurityRule.DestinationType.valueOf(destinationType);
+        }
     }
 }
