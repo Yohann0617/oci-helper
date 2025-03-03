@@ -539,6 +539,48 @@ public class OracleInstanceFetcher implements Closeable {
         return getVcnResponse.getVcn();
     }
 
+    public void deleteVcnById(String vcnId) {
+        virtualNetworkClient.updateRouteTable(UpdateRouteTableRequest.builder()
+                .rtId(getVcnById(vcnId).getDefaultRouteTableId())
+                .updateRouteTableDetails(UpdateRouteTableDetails.builder()
+                        .routeRules(Collections.emptyList())
+                        .build())
+                .build());
+        deleteAllSubnets(vcnId);
+        deleteAllInternetGateways(vcnId);
+        virtualNetworkClient.deleteVcn(DeleteVcnRequest.builder()
+                .vcnId(vcnId)
+                .build());
+    }
+
+    private void deleteAllSubnets(String vcnId) {
+        ListSubnetsResponse subnetsResponse = virtualNetworkClient.listSubnets(
+                ListSubnetsRequest.builder()
+                        .vcnId(vcnId)
+                        .compartmentId(compartmentId)
+                        .build()
+        );
+        if (subnetsResponse.getItems().isEmpty()) {
+            return;
+        }
+        subnetsResponse.getItems().forEach(subnet -> virtualNetworkClient.deleteSubnet(
+                DeleteSubnetRequest.builder().subnetId(subnet.getId()).build()));
+    }
+
+    private void deleteAllInternetGateways(String vcnId) {
+        ListInternetGatewaysResponse response = virtualNetworkClient.listInternetGateways(
+                ListInternetGatewaysRequest.builder()
+                        .vcnId(vcnId)
+                        .compartmentId(compartmentId)
+                        .build()
+        );
+        if (response.getItems().isEmpty()) {
+            return;
+        }
+        response.getItems().forEach(ig -> virtualNetworkClient.deleteInternetGateway(
+                DeleteInternetGatewayRequest.builder().igId(ig.getId()).build()));
+    }
+
     synchronized private InternetGateway createInternetGateway(
             VirtualNetworkClient virtualNetworkClient, String compartmentId, Vcn vcn)
             throws Exception {

@@ -14,4 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping(path = "/api/securityRule")
 public class SecurityRuleController {
+
+
 }

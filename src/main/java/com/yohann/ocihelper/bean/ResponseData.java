@@ -63,11 +63,11 @@ public class ResponseData<T> {
     }
 
     public static <T> ResponseData<T> successData() {
-        return new ResponseData(true, 0, (Object)null, (String)null);
+        return new ResponseData(true, 0, (Object) null, (String) null);
     }
 
     public static <T> ResponseData<T> successData(T data) {
-        return new ResponseData(true, 0, data, (String)null);
+        return new ResponseData(true, 0, data, "请求成功");
     }
 
     public static <T> ResponseData<T> successData(T data, String msg) {
@@ -75,19 +75,19 @@ public class ResponseData<T> {
     }
 
     public static <T> ResponseData<T> successData(String msg) {
-        return new ResponseData(true, (Object)null, msg);
+        return new ResponseData(true, (Object) null, msg);
     }
 
     public static <T> ResponseData<T> errorData(String msg) {
-        return new ResponseData(false, (Object)null, msg);
+        return new ResponseData(false, (Object) null, msg);
     }
 
     public static <T> ResponseData<T> errorData(int errorCode, String msg) {
-        return new ResponseData(false, errorCode, (Object)null, msg);
+        return new ResponseData(false, errorCode, (Object) null, msg);
     }
 
     public static <T> ResponseData<T> errorData(int errorCode) {
-        return new ResponseData(false, errorCode, (Object)null, (String)null);
+        return new ResponseData(false, errorCode, (Object) null, "请求失败");
     }
 }
 

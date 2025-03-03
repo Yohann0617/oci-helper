@@ -81,7 +81,8 @@ public class BootVolumeServiceImpl implements IBootVolumeService {
                 .filter(x -> CommonUtils.contains(x.getDisplayName(), params.getKeyword(), true) ||
                         CommonUtils.contains(x.getAvailabilityDomain(), params.getKeyword(), true) ||
                         CommonUtils.contains(x.getLifecycleState(), params.getKeyword(), true) ||
-                        CommonUtils.contains(x.getTimeCreated(), params.getKeyword(), true))
+                        CommonUtils.contains(x.getTimeCreated(), params.getKeyword(), true) ||
+                        CommonUtils.contains(x.getInstanceName(), params.getKeyword(), true))
                 .collect(Collectors.toList()).parallelStream()
                 .sorted(Comparator.comparing(BootVolumeListPage.BootVolumeInfo::getDisplayName)).collect(Collectors.toList());
 
