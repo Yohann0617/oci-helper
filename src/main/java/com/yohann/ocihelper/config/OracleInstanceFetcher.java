@@ -540,14 +540,14 @@ public class OracleInstanceFetcher implements Closeable {
     }
 
     public void deleteVcnById(String vcnId) {
+        deleteAllSubnets(vcnId);
+        deleteAllInternetGateways(vcnId);
         virtualNetworkClient.updateRouteTable(UpdateRouteTableRequest.builder()
                 .rtId(getVcnById(vcnId).getDefaultRouteTableId())
                 .updateRouteTableDetails(UpdateRouteTableDetails.builder()
                         .routeRules(Collections.emptyList())
                         .build())
                 .build());
-        deleteAllSubnets(vcnId);
-        deleteAllInternetGateways(vcnId);
         virtualNetworkClient.deleteVcn(DeleteVcnRequest.builder()
                 .vcnId(vcnId)
                 .build());
