@@ -21,10 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -158,6 +155,7 @@ public class SecurityRuleServiceImpl implements ISecurityRuleService {
                         CommonUtils.contains(x.getDescription(), params.getKeyword(), true) ||
                         CommonUtils.contains(x.getSourcePort(), params.getKeyword(), true) ||
                         CommonUtils.contains(x.getDestinationPort(), params.getKeyword(), true))
+                .sorted(Comparator.comparing(SecurityRuleListRsp.SecurityRuleInfo::getSourceOrDestination))
                 .collect(Collectors.toList());
         List<SecurityRuleListRsp.SecurityRuleInfo> pageList = CommonUtils.getPage(resList, params.getCurrentPage(), params.getPageSize());
         return VcnPageRsp.buildPage(pageList, params.getPageSize(), params.getCurrentPage(), pageList.size());
