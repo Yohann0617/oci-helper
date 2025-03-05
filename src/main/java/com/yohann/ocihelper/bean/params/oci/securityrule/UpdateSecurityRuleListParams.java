@@ -43,9 +43,6 @@ public class UpdateSecurityRuleListParams {
 //        private String destinationPort;
         private String description;
 
-        public IngressSecurityRule.SourceType getSourceType() {
-            return IngressSecurityRule.SourceType.valueOf(sourceType);
-        }
     }
 
     @Data
@@ -70,9 +67,5 @@ public class UpdateSecurityRuleListParams {
 //        private String sourcePort;
 //        private String destinationPort;
         private String description;
-
-        public EgressSecurityRule.DestinationType getDestinationType() {
-            return EgressSecurityRule.DestinationType.valueOf(destinationType);
-        }
     }
 }

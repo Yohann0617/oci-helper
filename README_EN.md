@@ -17,7 +17,7 @@
 ## Core functions
 
 1. Manage multiple tenant configuration information at the same time, support fuzzy search and status filtering.
-2. Support functions such as changing instance configuration, boot volume configuration, attaching ipv6, releasing security lists, etc.
+2. Support functions such as changing instance configuration, boot volume configuration, attaching ipv6, releasing **security lists**, etc.
 3. Change the instance public IP according to multiple **CIDR network segments**. If there are abnormalities such as frequent requests, they will be ignored directly, and will not affect the next execution until the IP of the specified IP segment is changed.
 4. Multiple tenants **start up in batches at the same time**, and the background will run until the startup is successful.
 5. Support **breakpoint continuation**, the configuration and machine grabbing tasks are saved in the local database, and the machine grabbing tasks will continue to be executed when the service is restarted, without repeated configuration.
@@ -59,7 +59,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. Download files
 
 1. Download the latest `application.yml` and `oci-helper.db` files in `Releases` to the `/app/oci-helper` directory, and modify some configurations of `application.yml`.
-2. If you do not use docker deployment, download another `ocihelper-1.0.8.jar` file to the `/app/oci-helper` directory, and run it directly `nohup java -jar ocihelper-1.0.8.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8` or above).
+2. If you do not use docker deployment, download another `ocihelper-1.0.9.jar` file to the `/app/oci-helper` directory, and run it directly `nohup java -jar ocihelper-1.0.9.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8` or above).
 3. If you update the jar package or docker image later, you need to install sqlite and run the command to update the version number in `sh_oci-helper_install.sh` (solve it yourself).
 
 ### 3. Docker deployment
@@ -105,6 +105,7 @@ docker compose pull && docker compose up -d
 ![image.png](./img/3-create.png)
 ![image.png](./img/3-instance-details.png)
 ![image.png](./img/3-instance-cfg.png)
+![image.png](./img/3-security-rule.png)
 ![image.png](./img/4-task.png)
 ![image.png](./img/5-log.png)
 ![image.png](./img/6-basic-cfg.png)

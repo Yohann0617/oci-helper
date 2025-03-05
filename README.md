@@ -16,7 +16,7 @@
 ## 核心功能
 
 1. 同时管理多个租户配置信息，支持模糊搜索、状态筛选。
-2. 支持更改实例配置、引导卷配置、附加ipv6、放行安全列表等功能。
+2. 支持更改实例配置、引导卷配置、附加ipv6、放行**安全列表**等功能。
 3. 根据多个**CIDR网段**更换实例公共IP，遇到请求频繁等异常会直接忽略，不影响下一次执行，直至更换到指定IP段的IP。
 4. 多租户**同时批量开机**，后台一直运行，直至开机成功。
 5. 支持**断点续抢**，配置以及抢机任务都保存在本地数据库，服务重启会继续执行抢机任务，无需重复配置。
@@ -58,7 +58,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. 下载文件
 
 1. 下载`Releases`中最新的`application.yml`、`oci-helper.db`这两个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
-2. 如不使用 docker 部署则再下载一个`ocihelper-1.0.8.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar ocihelper-1.0.8.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`以上的环境）。
+2. 如不使用 docker 部署则再下载一个`ocihelper-1.0.9.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar ocihelper-1.0.9.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`以上的环境）。
 3. 后续如果更新jar包或者docker镜像，需要安装sqlite并运行`sh_oci-helper_install.sh`中更新版本号的命令（自行解决）。
 
 ### 3. docker部署
@@ -104,6 +104,7 @@ docker compose pull && docker compose up -d
 ![image.png](./img/3-create.png)
 ![image.png](./img/3-instance-details.png)
 ![image.png](./img/3-instance-cfg.png)
+![image.png](./img/3-security-rule.png)
 ![image.png](./img/4-task.png)
 ![image.png](./img/5-log.png)
 ![image.png](./img/6-basic-cfg.png)

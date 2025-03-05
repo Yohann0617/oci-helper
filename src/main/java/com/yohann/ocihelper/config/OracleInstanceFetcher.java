@@ -1741,17 +1741,20 @@ public class OracleInstanceFetcher implements Closeable {
     public void updateSecurityRuleList(Vcn vcn, UpdateSecurityRuleListParams params) {
         SecurityList securityList = listSecurityRule(vcn);
         List<IngressSecurityRule> ingressSecurityRuleList = params.getIngressRuleList().parallelStream()
-                .map(ingressRule -> IngressSecurityRule.builder()
-//                        .icmpOptions(IcmpOptions.builder()
-//                                .code(ingressRule.getIcmpCode())
-//                                .type(ingressRule.getIcmpType())
-//                                .build())
-                        .icmpOptions(ingressRule.getIcmpOptions())
-                        .isStateless(ingressRule.getIsStateless())
-                        .protocol(ingressRule.getProtocol())
-                        .source(ingressRule.getSource())
-                        .sourceType(ingressRule.getSourceType())
-                        .tcpOptions(TcpOptions.builder()
+                .map(ingressRule -> {
+                    IngressSecurityRule.Builder builder = IngressSecurityRule.builder()
+                            .isStateless(ingressRule.getIsStateless())
+                            .protocol(ingressRule.getProtocol())
+                            .source(ingressRule.getSource())
+                            .sourceType(IngressSecurityRule.SourceType.create(ingressRule.getSourceType()))
+                            .description(ingressRule.getDescription());
+
+                    if (ingressRule.getIcmpOptions().getType() != null) {
+                        builder.icmpOptions(ingressRule.getIcmpOptions());
+                    }
+
+                    if ("6".equals(ingressRule.getProtocol())) {
+                        builder.tcpOptions(TcpOptions.builder()
                                 .sourcePortRange(PortRange.builder()
                                         .min(ingressRule.getTcpSourcePortMin())
                                         .max(ingressRule.getTcpSourcePortMax())
@@ -1760,8 +1763,11 @@ public class OracleInstanceFetcher implements Closeable {
                                         .min(ingressRule.getTcpDesPortMin())
                                         .max(ingressRule.getTcpDesPortMax())
                                         .build())
-                                .build())
-                        .udpOptions(UdpOptions.builder()
+                                .build());
+                    }
+
+                    if ("17".equals(ingressRule.getProtocol())) {
+                        builder.udpOptions(UdpOptions.builder()
                                 .sourcePortRange(PortRange.builder()
                                         .min(ingressRule.getUdpSourcePortMin())
                                         .max(ingressRule.getUdpSourcePortMax())
@@ -1770,25 +1776,29 @@ public class OracleInstanceFetcher implements Closeable {
                                         .min(ingressRule.getUdpDesPortMin())
                                         .max(ingressRule.getUdpDesPortMax())
                                         .build())
-                                .build())
-                        .description(ingressRule.getDescription())
-                        .build()).collect(Collectors.toList());
-        if (null != securityList.getIngressSecurityRules()) {
-            ingressSecurityRuleList.addAll(securityList.getIngressSecurityRules());
-        }
+                                .build());
+                    }
+
+                    return builder.build();
+                })
+                .collect(Collectors.toList());
+        ingressSecurityRuleList.addAll(securityList.getIngressSecurityRules());
 
         List<EgressSecurityRule> egressSecurityRuleList = params.getEgressRuleList().parallelStream()
-                .map(egressRule -> EgressSecurityRule.builder()
-//                        .icmpOptions(IcmpOptions.builder()
-//                                .code(egressRule.getIcmpCode())
-//                                .type(egressRule.getIcmpType())
-//                                .build())
-                        .icmpOptions(egressRule.getIcmpOptions())
-                        .destination(egressRule.getDestination())
-                        .destinationType(egressRule.getDestinationType())
-                        .isStateless(egressRule.getIsStateless())
-                        .protocol(egressRule.getProtocol())
-                        .tcpOptions(TcpOptions.builder()
+                .map(egressRule -> {
+                    EgressSecurityRule.Builder builder = EgressSecurityRule.builder()
+                            .destination(egressRule.getDestination())
+                            .destinationType(EgressSecurityRule.DestinationType.create(egressRule.getDestinationType()))
+                            .isStateless(egressRule.getIsStateless())
+                            .protocol(egressRule.getProtocol())
+                            .description(egressRule.getDescription());
+
+                    if (egressRule.getIcmpOptions().getType() != null) {
+                        builder.icmpOptions(egressRule.getIcmpOptions());
+                    }
+
+                    if ("6".equals(egressRule.getProtocol())) {
+                        builder.tcpOptions(TcpOptions.builder()
                                 .sourcePortRange(PortRange.builder()
                                         .min(egressRule.getTcpSourcePortMin())
                                         .max(egressRule.getTcpSourcePortMax())
@@ -1797,8 +1807,11 @@ public class OracleInstanceFetcher implements Closeable {
                                         .min(egressRule.getTcpDesPortMin())
                                         .max(egressRule.getTcpDesPortMax())
                                         .build())
-                                .build())
-                        .udpOptions(UdpOptions.builder()
+                                .build());
+                    }
+
+                    if ("17".equals(egressRule.getProtocol())) {
+                        builder.udpOptions(UdpOptions.builder()
                                 .sourcePortRange(PortRange.builder()
                                         .min(egressRule.getUdpSourcePortMin())
                                         .max(egressRule.getUdpSourcePortMax())
@@ -1807,12 +1820,13 @@ public class OracleInstanceFetcher implements Closeable {
                                         .min(egressRule.getUdpDesPortMin())
                                         .max(egressRule.getUdpDesPortMax())
                                         .build())
-                                .build())
-                        .description(egressRule.getDescription())
-                        .build()).collect(Collectors.toList());
-        if (null != securityList.getEgressSecurityRules()) {
-            egressSecurityRuleList.addAll(securityList.getEgressSecurityRules());
-        }
+                                .build());
+                    }
+
+                    return builder.build();
+                })
+                .collect(Collectors.toList());
+        egressSecurityRuleList.addAll(securityList.getEgressSecurityRules());
 
         virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
                 .securityListId(vcn.getDefaultSecurityListId())
