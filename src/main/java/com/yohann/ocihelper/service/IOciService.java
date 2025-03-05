@@ -3,10 +3,16 @@ package com.yohann.ocihelper.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.params.*;
-import com.yohann.ocihelper.bean.params.oci.*;
-import com.yohann.ocihelper.bean.response.oci.CreateTaskRsp;
-import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
-import com.yohann.ocihelper.bean.response.oci.OciUserListRsp;
+import com.yohann.ocihelper.bean.params.oci.cfg.*;
+import com.yohann.ocihelper.bean.params.oci.instance.*;
+import com.yohann.ocihelper.bean.params.oci.securityrule.ReleaseSecurityRuleParams;
+import com.yohann.ocihelper.bean.params.oci.task.CreateTaskPageParams;
+import com.yohann.ocihelper.bean.params.oci.task.StopChangeIpParams;
+import com.yohann.ocihelper.bean.params.oci.task.StopCreateParams;
+import com.yohann.ocihelper.bean.params.oci.volume.UpdateBootVolumeCfgParams;
+import com.yohann.ocihelper.bean.response.oci.task.CreateTaskRsp;
+import com.yohann.ocihelper.bean.response.oci.cfg.OciCfgDetailsRsp;
+import com.yohann.ocihelper.bean.response.oci.cfg.OciUserListRsp;
 
 /**
  * <p>

@@ -5,6 +5,7 @@ import com.oracle.bmc.core.model.IcmpOptions;
 import com.oracle.bmc.core.model.IngressSecurityRule;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -16,9 +17,8 @@ import java.util.List;
 @Data
 public class UpdateSecurityRuleListParams {
 
-
-    private List<IngressRule> ingressRuleList;
-    private List<EgressRule> egressRuleList;
+    private List<IngressRule> ingressRuleList = new ArrayList<>();
+    private List<EgressRule> egressRuleList = new ArrayList<>();
 
     @Data
     public static class IngressRule {
@@ -39,8 +39,8 @@ public class UpdateSecurityRuleListParams {
         private Integer udpDesPortMin;
         private Integer udpDesPortMax;
 
-        private String sourcePort;
-        private String destinationPort;
+//        private String sourcePort;
+//        private String destinationPort;
         private String description;
 
         public IngressSecurityRule.SourceType getSourceType() {
@@ -67,8 +67,8 @@ public class UpdateSecurityRuleListParams {
         private Integer udpDesPortMin;
         private Integer udpDesPortMax;
 
-        private String sourcePort;
-        private String destinationPort;
+//        private String sourcePort;
+//        private String destinationPort;
         private String description;
 
         public EgressSecurityRule.DestinationType getDestinationType() {

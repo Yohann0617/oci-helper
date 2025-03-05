@@ -2,12 +2,10 @@ package com.yohann.ocihelper.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.ResponseData;
-import com.yohann.ocihelper.bean.params.oci.BootVolumePageParams;
-import com.yohann.ocihelper.bean.params.oci.GetOciUserListParams;
-import com.yohann.ocihelper.bean.params.oci.TerminateBootVolumeParams;
-import com.yohann.ocihelper.bean.params.oci.UpdateBootVolumeParams;
-import com.yohann.ocihelper.bean.response.oci.BootVolumeListPage;
-import com.yohann.ocihelper.bean.response.oci.OciUserListRsp;
+import com.yohann.ocihelper.bean.params.oci.volume.BootVolumePageParams;
+import com.yohann.ocihelper.bean.params.oci.volume.TerminateBootVolumeParams;
+import com.yohann.ocihelper.bean.params.oci.volume.UpdateBootVolumeParams;
+import com.yohann.ocihelper.bean.response.oci.volume.BootVolumeListPage;
 import com.yohann.ocihelper.service.IBootVolumeService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import org.springframework.validation.BindingResult;

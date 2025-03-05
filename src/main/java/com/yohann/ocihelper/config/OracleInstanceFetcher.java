@@ -21,10 +21,11 @@ import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.oci.securityrule.UpdateSecurityRuleListParams;
-import com.yohann.ocihelper.bean.response.oci.OciCfgDetailsRsp;
+import com.yohann.ocihelper.bean.response.oci.cfg.OciCfgDetailsRsp;
 import com.yohann.ocihelper.enums.*;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
@@ -44,6 +45,7 @@ import static com.yohann.ocihelper.service.impl.OciServiceImpl.TASK_MAP;
  * @since 2024/11/1 15:55
  */
 @Slf4j
+@Data
 public class OracleInstanceFetcher implements Closeable {
 
     private final SysUserDTO user;
@@ -1737,6 +1739,7 @@ public class OracleInstanceFetcher implements Closeable {
     }
 
     public void updateSecurityRuleList(Vcn vcn, UpdateSecurityRuleListParams params) {
+        SecurityList securityList = listSecurityRule(vcn);
         List<IngressSecurityRule> ingressSecurityRuleList = params.getIngressRuleList().parallelStream()
                 .map(ingressRule -> IngressSecurityRule.builder()
 //                        .icmpOptions(IcmpOptions.builder()
@@ -1770,6 +1773,9 @@ public class OracleInstanceFetcher implements Closeable {
                                 .build())
                         .description(ingressRule.getDescription())
                         .build()).collect(Collectors.toList());
+        if (null != securityList.getIngressSecurityRules()) {
+            ingressSecurityRuleList.addAll(securityList.getIngressSecurityRules());
+        }
 
         List<EgressSecurityRule> egressSecurityRuleList = params.getEgressRuleList().parallelStream()
                 .map(egressRule -> EgressSecurityRule.builder()
@@ -1804,7 +1810,9 @@ public class OracleInstanceFetcher implements Closeable {
                                 .build())
                         .description(egressRule.getDescription())
                         .build()).collect(Collectors.toList());
-
+        if (null != securityList.getEgressSecurityRules()) {
+            egressSecurityRuleList.addAll(securityList.getEgressSecurityRules());
+        }
 
         virtualNetworkClient.updateSecurityList(UpdateSecurityListRequest.builder()
                 .securityListId(vcn.getDefaultSecurityListId())

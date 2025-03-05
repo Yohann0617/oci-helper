@@ -1,10 +1,10 @@
 package com.yohann.ocihelper.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.yohann.ocihelper.bean.params.oci.BootVolumePageParams;
-import com.yohann.ocihelper.bean.params.oci.TerminateBootVolumeParams;
-import com.yohann.ocihelper.bean.params.oci.UpdateBootVolumeParams;
-import com.yohann.ocihelper.bean.response.oci.BootVolumeListPage;
+import com.yohann.ocihelper.bean.params.oci.volume.BootVolumePageParams;
+import com.yohann.ocihelper.bean.params.oci.volume.TerminateBootVolumeParams;
+import com.yohann.ocihelper.bean.params.oci.volume.UpdateBootVolumeParams;
+import com.yohann.ocihelper.bean.response.oci.volume.BootVolumeListPage;
 
 /**
  * <p>

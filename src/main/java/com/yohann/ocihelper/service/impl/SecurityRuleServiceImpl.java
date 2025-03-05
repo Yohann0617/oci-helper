@@ -2,12 +2,12 @@ package com.yohann.ocihelper.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.oracle.bmc.core.model.EgressSecurityRule;
-import com.oracle.bmc.core.model.IngressSecurityRule;
-import com.oracle.bmc.core.model.SecurityList;
+import com.oracle.bmc.core.model.*;
+import com.oracle.bmc.core.requests.UpdateSecurityListRequest;
+import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
-import com.yohann.ocihelper.bean.params.oci.securityrule.GetSecurityRuleListPageParams;
+import com.yohann.ocihelper.bean.params.oci.securityrule.*;
 import com.yohann.ocihelper.bean.response.oci.securityrule.SecurityRuleListRsp;
 import com.yohann.ocihelper.bean.response.oci.vcn.VcnPageRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
@@ -159,5 +159,117 @@ public class SecurityRuleServiceImpl implements ISecurityRuleService {
                 .collect(Collectors.toList());
         List<SecurityRuleListRsp.SecurityRuleInfo> pageList = CommonUtils.getPage(resList, params.getCurrentPage(), params.getPageSize());
         return VcnPageRsp.buildPage(pageList, params.getPageSize(), params.getCurrentPage(), pageList.size());
+    }
+
+    @Override
+    public void addIngress(AddIngressSecurityRuleParams params) {
+        SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            Vcn vcn = fetcher.getVcnById(params.getVcnId());
+            UpdateSecurityRuleListParams updateSecurityRuleListParams = new UpdateSecurityRuleListParams();
+            UpdateSecurityRuleListParams.IngressRule ingressRule = new UpdateSecurityRuleListParams.IngressRule();
+            AddIngressSecurityRuleParams.IngressInfo inboundRule = params.getInboundRule();
+            ingressRule.setIcmpOptions(inboundRule.getIcmpOptions());
+            ingressRule.setIsStateless(inboundRule.getIsStateless());
+            ingressRule.setProtocol(inboundRule.getProtocol());
+            ingressRule.setSource(inboundRule.getSource());
+            ingressRule.setSourceType(inboundRule.getSourceType());
+            ingressRule.setDescription(inboundRule.getDescription());
+            Tuple2<Integer, Integer> sourcePort = getPortRange(inboundRule.getSourcePort());
+            Tuple2<Integer, Integer> destinationPort = getPortRange(inboundRule.getDestinationPort());
+            if ("6".equals(inboundRule.getProtocol())) {
+                ingressRule.setTcpSourcePortMin(sourcePort.getFirst());
+                ingressRule.setTcpSourcePortMax(sourcePort.getSecond());
+                ingressRule.setTcpDesPortMin(destinationPort.getFirst());
+                ingressRule.setTcpDesPortMax(destinationPort.getSecond());
+            }
+            if ("17".equals(inboundRule.getProtocol())) {
+                ingressRule.setUdpSourcePortMin(sourcePort.getFirst());
+                ingressRule.setUdpSourcePortMax(sourcePort.getSecond());
+                ingressRule.setUdpDesPortMin(destinationPort.getFirst());
+                ingressRule.setUdpDesPortMax(destinationPort.getSecond());
+            }
+            updateSecurityRuleListParams.setIngressRuleList(Collections.singletonList(ingressRule));
+            fetcher.updateSecurityRuleList(vcn, updateSecurityRuleListParams);
+        } catch (Exception e) {
+            log.error("新增入站规则失败", e);
+            throw new OciException(-1, "新增入站规则失败");
+        }
+    }
+
+    @Override
+    public void addEgress(AddEgressSecurityRuleParams params) {
+        SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            Vcn vcn = fetcher.getVcnById(params.getVcnId());
+            UpdateSecurityRuleListParams updateSecurityRuleListParams = new UpdateSecurityRuleListParams();
+            UpdateSecurityRuleListParams.EgressRule egressRule = new UpdateSecurityRuleListParams.EgressRule();
+            AddEgressSecurityRuleParams.EgressInfo outboundRule = params.getOutboundRule();
+            egressRule.setIcmpOptions(outboundRule.getIcmpOptions());
+            egressRule.setDestination(outboundRule.getDestination());
+            egressRule.setDestinationType(outboundRule.getDestinationType());
+            egressRule.setIsStateless(outboundRule.getIsStateless());
+            egressRule.setProtocol(outboundRule.getProtocol());
+            egressRule.setDescription(outboundRule.getDescription());
+            Tuple2<Integer, Integer> sourcePort = getPortRange(outboundRule.getSourcePort());
+            Tuple2<Integer, Integer> destinationPort = getPortRange(outboundRule.getDestinationPort());
+            if ("6".equals(outboundRule.getProtocol())) {
+                egressRule.setTcpSourcePortMin(sourcePort.getFirst());
+                egressRule.setTcpSourcePortMax(sourcePort.getSecond());
+                egressRule.setTcpDesPortMin(destinationPort.getFirst());
+                egressRule.setTcpDesPortMax(destinationPort.getSecond());
+            }
+            if ("17".equals(outboundRule.getProtocol())) {
+                egressRule.setUdpSourcePortMin(sourcePort.getFirst());
+                egressRule.setUdpSourcePortMax(sourcePort.getSecond());
+                egressRule.setUdpDesPortMin(destinationPort.getFirst());
+                egressRule.setUdpDesPortMax(destinationPort.getSecond());
+            }
+            updateSecurityRuleListParams.setEgressRuleList(Collections.singletonList(egressRule));
+            fetcher.updateSecurityRuleList(vcn, updateSecurityRuleListParams);
+        } catch (Exception e) {
+            log.error("新增出站规则失败", e);
+            throw new OciException(-1, "新增出站规则失败");
+        }
+    }
+
+    @Override
+    public void remove(RemoveSecurityRuleParams params) {
+        SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
+        Map<String, IngressSecurityRule> ingressMap = (Map<String, IngressSecurityRule>) customCache.get(CacheConstant.PREFIX_INGRESS_SECURITY_RULE_MAP + params.getVcnId());
+        Map<String, EgressSecurityRule> egressMap = (Map<String, EgressSecurityRule>) customCache.get(CacheConstant.PREFIX_EGRESS_SECURITY_RULE_MAP + params.getVcnId());
+        params.getRuleIds().forEach(ruleId -> {
+            ingressMap.remove(ruleId);
+            egressMap.remove(ruleId);
+        });
+
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            Vcn vcn = fetcher.getVcnById(params.getVcnId());
+            fetcher.getVirtualNetworkClient().updateSecurityList(UpdateSecurityListRequest.builder()
+                    .securityListId(vcn.getDefaultSecurityListId())
+                    .updateSecurityListDetails(UpdateSecurityListDetails.builder()
+                            .ingressSecurityRules(new ArrayList<>(ingressMap.values()))
+                            .egressSecurityRules(new ArrayList<>(egressMap.values()))
+                            .build())
+                    .build());
+        } catch (Exception e) {
+            log.error("删除安全规则失败", e);
+            throw new OciException(-1, "删除安全规则失败");
+        }
+        customCache.remove(CacheConstant.PREFIX_INGRESS_SECURITY_RULE_PAGE + params.getOciCfgId());
+        customCache.remove(CacheConstant.PREFIX_EGRESS_SECURITY_RULE_PAGE + params.getOciCfgId());
+        customCache.remove(CacheConstant.PREFIX_INGRESS_SECURITY_RULE_MAP + params.getVcnId());
+        customCache.remove(CacheConstant.PREFIX_EGRESS_SECURITY_RULE_MAP + params.getVcnId());
+    }
+
+    private Tuple2<Integer, Integer> getPortRange(String portRangeStr) {
+        String[] split = portRangeStr.split("-");
+        if (split.length == 1) {
+            return Tuple2.of(Integer.valueOf(split[0]), null);
+        } else if (split.length == 2) {
+            return Tuple2.of(Integer.valueOf(split[0]), Integer.valueOf(split[1]));
+        } else {
+            throw new OciException(-1, "格式有误：" + portRangeStr);
+        }
     }
 }
