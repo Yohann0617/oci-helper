@@ -191,7 +191,7 @@ public class SecurityRuleServiceImpl implements ISecurityRuleService {
                 .sorted(Comparator.comparing(SecurityRuleListRsp.SecurityRuleInfo::getSourceOrDestination))
                 .collect(Collectors.toList());
         List<SecurityRuleListRsp.SecurityRuleInfo> pageList = CommonUtils.getPage(resList, params.getCurrentPage(), params.getPageSize());
-        return VcnPageRsp.buildPage(pageList, params.getPageSize(), params.getCurrentPage(), pageList.size());
+        return VcnPageRsp.buildPage(pageList, params.getPageSize(), params.getCurrentPage(), resList.size());
     }
 
     @Override
