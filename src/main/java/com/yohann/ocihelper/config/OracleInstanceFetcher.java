@@ -16,6 +16,7 @@ import com.oracle.bmc.identity.model.*;
 import com.oracle.bmc.identity.requests.*;
 import com.oracle.bmc.identity.responses.*;
 import com.oracle.bmc.model.BmcException;
+import com.oracle.bmc.monitoring.MonitoringClient;
 import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
@@ -54,6 +55,7 @@ public class OracleInstanceFetcher implements Closeable {
     private final WorkRequestClient workRequestClient;
     private final VirtualNetworkClient virtualNetworkClient;
     private final BlockstorageClient blockstorageClient;
+    private final MonitoringClient monitoringClient;
     private final String compartmentId;
 
     private static final String CIDR_BLOCK = "10.0.0.0/16";
@@ -65,6 +67,7 @@ public class OracleInstanceFetcher implements Closeable {
         workRequestClient.close();
         virtualNetworkClient.close();
         blockstorageClient.close();
+        monitoringClient.close();
     }
 
     public OracleInstanceFetcher(SysUserDTO user) {
@@ -92,19 +95,11 @@ public class OracleInstanceFetcher implements Closeable {
 
         identityClient = IdentityClient.builder().build(provider);
         compartmentId = findRootCompartment(identityClient, provider.getTenantId());
-        identityClient.setRegion(ociCfg.getRegion());
-
         computeClient = ComputeClient.builder().build(provider);
-        computeClient.setRegion(ociCfg.getRegion());
-
         blockstorageClient = BlockstorageClient.builder().build(provider);
-        blockstorageClient.setRegion(ociCfg.getRegion());
-
         workRequestClient = WorkRequestClient.builder().build(provider);
-        workRequestClient.setRegion(ociCfg.getRegion());
-
         virtualNetworkClient = VirtualNetworkClient.builder().build(provider);
-        virtualNetworkClient.setRegion(ociCfg.getRegion());
+        monitoringClient = MonitoringClient.builder().build(provider);
     }
 
     synchronized public InstanceDetailDTO createInstanceData() {

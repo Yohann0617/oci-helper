@@ -11,7 +11,7 @@
         <java.version>1.8</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <oci-version>3.54.0</oci-version>
+        <oci-version>3.59.0</oci-version>
         <spring-boot.version>2.7.6</spring-boot.version>
     </properties>
     <dependencies>
@@ -54,6 +54,16 @@
         <dependency>
             <groupId>com.oracle.oci.sdk</groupId>
             <artifactId>oci-java-sdk-identity</artifactId>
+            <version>${oci-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.oci.sdk</groupId>
+            <artifactId>oci-java-sdk-monitoring</artifactId>
+            <version>${oci-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.oci.sdk</groupId>
+            <artifactId>oci-java-sdk-usage</artifactId>
             <version>${oci-version}</version>
         </dependency>
         <dependency>

@@ -3,6 +3,16 @@ package com.yohann.ocihelper;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.json.JSONUtil;
 import com.oracle.bmc.core.model.SecurityList;
+import com.oracle.bmc.monitoring.MonitoringClient;
+import com.oracle.bmc.monitoring.model.*;
+import com.oracle.bmc.monitoring.requests.ListMetricsRequest;
+import com.oracle.bmc.monitoring.requests.PostMetricDataRequest;
+import com.oracle.bmc.monitoring.requests.SummarizeMetricsDataRequest;
+import com.oracle.bmc.monitoring.responses.SummarizeMetricsDataResponse;
+import com.oracle.bmc.usage.UsagelimitsClient;
+import com.oracle.bmc.usage.model.UsageLimitSummary;
+import com.oracle.bmc.usage.requests.ListUsageLimitsRequest;
+import com.oracle.bmc.usage.responses.ListUsageLimitsResponse;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.response.oci.securityrule.SecurityRuleListRsp;
@@ -17,6 +27,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 
 
@@ -52,13 +66,28 @@ class OciHelperApplicationTests {
         System.out.println(sysUserDTO);
 
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
-            SecurityList securityList = fetcher.listSecurityRule(fetcher.listVcn().get(0));
-            SecurityRuleListRsp rsp = new SecurityRuleListRsp();
-            BeanUtils.copyProperties(securityList, rsp);
-            System.out.println(JSONUtil.toJsonStr(rsp));
+            SummarizeMetricsDataResponse summarizeMetricsDataResponse = fetcher.getMonitoringClient()
+                    .summarizeMetricsData(SummarizeMetricsDataRequest.builder()
+                            .compartmentId(fetcher.getCompartmentId())
+                            .summarizeMetricsDataDetails(SummarizeMetricsDataDetails.builder()
+                                    .namespace("oci_vcn")
+                                    .query("VnicFromNetworkBytes[1440m]{resourceId = \"ocid1.vnic.oc1.sa-saopaulo-1.abtxeljracruzyrxlywlznnz6d7frxfgok3pnrliawamiz65yzgr3gapvqda\"}.sum()")
+                                    .startTime(CommonUtils.localDateTime2Date(LocalDateTime.of(2025, 3, 1, 0, 0, 0)))
+                                    .endTime(CommonUtils.localDateTime2Date(LocalDateTime.of(2025, 3, 7, 0, 0, 0)))
+                                    .build())
+                            .build());
+            List<MetricData> items = summarizeMetricsDataResponse.getItems();
+            System.out.println(JSONUtil.toJsonStr(items));
+            for (MetricData item : items) {
+                System.out.println("------------------------------------");
+                item.getAggregatedDatapoints().forEach(x -> {
+                    System.out.println(CommonUtils.dateFmt2String(x.getTimestamp()) + " = " + x.getValue().longValue() + " B");
+                });
+                System.out.println("------------------------------------");
+            }
+
         } catch (Exception e) {
-
-
+            e.printStackTrace();
         }
 
     }

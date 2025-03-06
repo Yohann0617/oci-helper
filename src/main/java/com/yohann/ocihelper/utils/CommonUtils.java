@@ -349,6 +349,11 @@ public class CommonUtils {
         return formatter.format(date);
     }
 
+    public static Date localDateTime2Date(LocalDateTime localDateTime){
+        ZoneId zoneId = ZoneId.of("Asia/Shanghai");
+        return Date.from(localDateTime.atZone(zoneId).toInstant());
+    }
+
     /**
      * 校验输入的 CIDR 字符串是否为合法网段
      *
