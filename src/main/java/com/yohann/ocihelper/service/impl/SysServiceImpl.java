@@ -8,6 +8,8 @@ import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.CharsetUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.cron.CronUtil;
+import cn.hutool.cron.task.Task;
 import cn.hutool.extra.servlet.ServletUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.hutool.json.JSONUtil;
@@ -18,6 +20,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.*;
 
+import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciKv;
@@ -26,6 +29,7 @@ import com.yohann.ocihelper.bean.params.sys.*;
 import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
+import com.yohann.ocihelper.enums.EnableEnum;
 import com.yohann.ocihelper.enums.MessageTypeEnum;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.enums.SysCfgTypeEnum;
@@ -56,6 +60,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.*;
+import static com.yohann.ocihelper.task.OciTask.pushVersionUpdateMsg;
 
 /**
  * @projectName: oci-helper
@@ -147,6 +152,15 @@ public class SysServiceImpl implements ISysService {
                         case SYS_DING_BOT_SECRET:
                             ociKv.setValue(params.getDingSecret());
                             break;
+                        case ENABLE_DAILY_BROADCAST:
+                            ociKv.setValue(params.getEnableDailyBroadcast());
+                            break;
+                        case DAILY_BROADCAST_CRON:
+                            ociKv.setValue(params.getDailyBroadcastCron());
+                            break;
+                        case ENABLED_VERSION_UPDATE_NOTIFICATIONS:
+                            ociKv.setValue(params.getEnableVersionInform());
+                            break;
                         default:
                             break;
                     }
@@ -170,6 +184,22 @@ public class SysServiceImpl implements ISysService {
             kvService.remove(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
             FileUtil.del(CommonUtils.MFA_QR_PNG_PATH);
         }
+
+        stopTask(CacheConstant.PREFIX_PUSH_VERSION_UPDATE_MSG);
+        stopTask(CacheConstant.PREFIX_PUSH_VERSION_UPDATE_MSG + "_push");
+        if (params.getEnableVersionInform().equals(EnableEnum.ON.getCode())) {
+            pushVersionUpdateMsg(kvService, this);
+        }
+
+        CronUtil.remove(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID);
+        if (params.getEnableDailyBroadcast().equals(EnableEnum.ON.getCode())) {
+            if (StrUtil.isNotBlank(params.getDailyBroadcastCron()) && !CommonUtils.isValidCron(params.getDailyBroadcastCron())) {
+                throw new OciException(-1, "无效的cron表达式：" + params.getDailyBroadcastCron());
+            }
+            String cronId = CronUtil.schedule(StrUtil.isBlank(params.getDailyBroadcastCron()) ?
+                    CacheConstant.TASK_CRON : params.getDailyBroadcastCron(), (Task) this::dailyBroadcastTask);
+            TEMP_MAP.put(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID, cronId);
+        }
     }
 
     @Override
@@ -179,6 +209,13 @@ public class SysServiceImpl implements ISysService {
         rsp.setDingSecret(getCfgValue(SysCfgEnum.SYS_DING_BOT_SECRET));
         rsp.setTgChatId(getCfgValue(SysCfgEnum.SYS_TG_CHAT_ID));
         rsp.setTgBotToken(getCfgValue(SysCfgEnum.SYS_TG_BOT_TOKEN));
+        String edbValue = getCfgValue(SysCfgEnum.ENABLE_DAILY_BROADCAST);
+        rsp.setEnableDailyBroadcast(null == edbValue ? EnableEnum.ON.getCode() : edbValue);
+        String dbcValue = getCfgValue(SysCfgEnum.DAILY_BROADCAST_CRON);
+        rsp.setDailyBroadcastCron(null == dbcValue ? CacheConstant.TASK_CRON : dbcValue);
+        String evunValue = getCfgValue(SysCfgEnum.ENABLED_VERSION_UPDATE_NOTIFICATIONS);
+        rsp.setEnableVersionInform(null == evunValue ? EnableEnum.ON.getCode() : evunValue);
+
         OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
         rsp.setEnableMfa(mfa != null);
@@ -323,24 +360,24 @@ public class SysServiceImpl implements ISysService {
                 .isNotNull(OciUser::getId)
                 .select(OciUser::getId), String::valueOf);
 
-        CompletableFuture<String> usersFuture = CompletableFuture.supplyAsync(() -> {
-
-            if (CollectionUtil.isEmpty(ids)) {
-                return "0/0";
-            }
-
-            List<String> failNames = ids.parallelStream().filter(id -> {
-                SysUserDTO ociUser = getOciUser(id);
-                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
-                    fetcher.getAvailabilityDomains();
-                } catch (Exception e) {
-                    return true;
-                }
-                return false;
-            }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
-
-            return failNames.size() + "/" + ids.size();
-        });
+//        CompletableFuture<String> usersFuture = CompletableFuture.supplyAsync(() -> {
+//
+//            if (CollectionUtil.isEmpty(ids)) {
+//                return "0/0";
+//            }
+//
+//            List<String> failNames = ids.parallelStream().filter(id -> {
+//                SysUserDTO ociUser = getOciUser(id);
+//                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
+//                    fetcher.getAvailabilityDomains();
+//                } catch (Exception e) {
+//                    return true;
+//                }
+//                return false;
+//            }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
+//
+//            return failNames.size() + "/" + ids.size();
+//        });
 
         CompletableFuture<String> tasksFuture = CompletableFuture.supplyAsync(() -> {
             List<String> userIds = createTaskService.listObjs(new LambdaQueryWrapper<OciCreateTask>()
@@ -365,10 +402,10 @@ public class SysServiceImpl implements ISysService {
             return String.valueOf(uptimeMillis / (24 * 60 * 60 * 1000));
         });
 
-        CompletableFuture.allOf(usersFuture, tasksFuture, regionsFuture, daysFuture).join();
+        CompletableFuture.allOf(tasksFuture, regionsFuture, daysFuture).join();
 
         try {
-            rsp.setUsers(usersFuture.get());
+            rsp.setUsers(String.valueOf(ids.size()));
             rsp.setTasks(tasksFuture.get());
             rsp.setRegions(regionsFuture.get());
             rsp.setDays(daysFuture.get());
@@ -441,6 +478,75 @@ public class SysServiceImpl implements ISysService {
             String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, "oci-helper");
             CommonUtils.genQRPic(CommonUtils.MFA_QR_PNG_PATH, qrCodeURL);
         });
+    }
+
+    private void dailyBroadcastTask() {
+        OciKv edb = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.ENABLE_DAILY_BROADCAST.getCode()));
+        OciKv dbc = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.DAILY_BROADCAST_CRON.getCode()));
+        if (null != edb && edb.getValue().equals(EnableEnum.OFF.getCode())) {
+            return;
+        }
+
+        String cronId = CronUtil.schedule(null == dbc ? CacheConstant.TASK_CRON : dbc.getValue(), (Task) () -> {
+            String message = "【每日播报】\n" +
+                    "\n" +
+                    "时间：\t%s\n" +
+                    "总API配置数：\t%s\n" +
+                    "失效API配置数：\t%s\n" +
+                    "失效的API配置：\t%s\n" +
+                    "正在执行的开机任务：\n" +
+                    "%s\n";
+            List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
+                    .isNotNull(OciUser::getId)
+                    .select(OciUser::getId), String::valueOf);
+
+            CompletableFuture<List<?>> fails = CompletableFuture.supplyAsync(() -> {
+                if (ids.isEmpty()) {
+                    return Collections.emptyList();
+                }
+                return ids.parallelStream().filter(id -> {
+                    SysUserDTO ociUser = this.getOciUser(id);
+                    try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
+                        fetcher.getAvailabilityDomains();
+                    } catch (Exception e) {
+                        return true;
+                    }
+                    return false;
+                }).map(id -> this.getOciUser(id).getUsername()).collect(Collectors.toList());
+            });
+
+            CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
+                List<OciCreateTask> ociCreateTaskList = createTaskService.list();
+                if (ociCreateTaskList.isEmpty()) {
+                    return "无";
+                }
+                String template = "[%s] [%s] [%s] [%s核/%sGB/%sGB] [%s台] [%s] [%s次]";
+                return ociCreateTaskList.parallelStream().map(x -> {
+                    OciUser ociUser = userService.getById(x.getUserId());
+                    Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
+                    return String.format(template, ociUser.getUsername(), ociUser.getOciRegion(), x.getArchitecture(),
+                            x.getOcpus().longValue(), x.getMemory().longValue(), x.getDisk(), x.getCreateNumbers(),
+                            CommonUtils.getTimeDifference(x.getCreateTime()), counts == null ? "0" : counts);
+                }).collect(Collectors.joining("\n"));
+            });
+
+            CompletableFuture.allOf(fails, task).join();
+
+            this.sendMessage(String.format(message,
+                    LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
+                    CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
+                    fails.join().size(),
+                    fails.join(),
+                    task.join()
+            ));
+        });
+
+        CronUtil.setMatchSecond(true);
+        CronUtil.start();
+
+        TEMP_MAP.put(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID, cronId);
     }
 
 }

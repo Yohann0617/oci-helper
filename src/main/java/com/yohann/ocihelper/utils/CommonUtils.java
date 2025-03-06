@@ -131,6 +131,11 @@ public class CommonUtils {
         return ignoreCase ? StrUtil.containsIgnoreCase(target, keyword) : StrUtil.contains(target, keyword);
     }
 
+    public static boolean isValidCron(String cronExpression) {
+        String cronRegex = "^([0-5]?\\d|\\*) ([0-5]?\\d|\\*) ([0-1]?\\d|2[0-3]|\\*) ([1-9]|[12]\\d|3[01]|\\*) ([1-9]|1[0-2]|\\*) ([?*/LW#-]+)$";
+        return Pattern.matches(cronRegex, cronExpression);
+    }
+
     public static ZipFile zipFile(boolean enableEnc, String sourceFolderPath, String password, String zipFilePath) {
         ZipFile zipFile;
         try {

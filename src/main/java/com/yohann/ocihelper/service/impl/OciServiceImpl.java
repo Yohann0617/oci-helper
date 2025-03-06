@@ -486,6 +486,9 @@ public class OciServiceImpl implements IOciService {
             return false;
         }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
 
+        sysService.sendMessage(String.format("【API测活结果】\n\n有效配置数：%s\n失效配置数：%s\n总配置数：%s\n失效配置：【%s】",
+                ids.size() - failNames.size(), failNames.size(), ids.size(), String.join("\n", failNames)));
+
         return String.format(rst, ids.size(), failNames.size(), String.join(" , ", failNames));
     }
 

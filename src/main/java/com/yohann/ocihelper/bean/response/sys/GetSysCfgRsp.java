@@ -20,4 +20,7 @@ public class GetSysCfgRsp {
     private String mfaSecret;
     private String mfaQrData;
 
+    private String enableDailyBroadcast;
+    private String dailyBroadcastCron;
+    private String enableVersionInform;
 }

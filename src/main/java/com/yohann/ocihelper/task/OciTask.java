@@ -3,12 +3,16 @@ package com.yohann.ocihelper.task;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.cron.CronUtil;
+import cn.hutool.cron.task.Task;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
+import com.yohann.ocihelper.enums.EnableEnum;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.enums.SysCfgTypeEnum;
 import com.yohann.ocihelper.service.*;
@@ -70,7 +74,9 @@ public class OciTask implements ApplicationRunner {
         cleanAndRestartTask();
         initGenMfaPng();
         saveVersion();
-        pushVersionUpdateMsg();
+        startInform();
+        pushVersionUpdateMsg(kvService, sysService);
+        dailyBroadcastTask();
     }
 
     private void cleanLogTask() {
@@ -141,8 +147,7 @@ public class OciTask implements ApplicationRunner {
         }
     }
 
-    private void pushVersionUpdateMsg() {
-        String taskId = "pushVersionUpdateMsg";
+    private void startInform(){
         String latestVersion = CommonUtils.getLatestVersion();
         String nowVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
@@ -150,8 +155,17 @@ public class OciTask implements ApplicationRunner {
                 .select(OciKv::getValue), String::valueOf);
         log.info(String.format("【oci-helper】服务启动成功~ 当前版本：%s 最新版本：%s", nowVersion, latestVersion));
         sysService.sendMessage(String.format("【oci-helper】服务启动成功🎉🎉\n当前版本：%s\n最新版本：%s", nowVersion, latestVersion));
+    }
+
+    public static void pushVersionUpdateMsg(IOciKvService kvService, ISysService sysService) {
+        String taskId = CacheConstant.PREFIX_PUSH_VERSION_UPDATE_MSG;
 
         addTask(taskId, () -> {
+            OciKv evun = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                    .eq(OciKv::getCode, SysCfgEnum.ENABLED_VERSION_UPDATE_NOTIFICATIONS.getCode()));
+            if (null != evun && evun.getValue().equals(EnableEnum.OFF.getCode())) {
+                return;
+            }
             String latest = CommonUtils.getLatestVersion();
             String now = kvService.getObj(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
@@ -164,69 +178,88 @@ public class OciTask implements ApplicationRunner {
                 log.warn(String.format("【oci-helper】版本更新啦！！！当前版本：%s 最新版本：%s", now, latest));
                 if (!isPushedLatestVersion) {
                     sysService.sendMessage(String.format("🔔【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s\n一键脚本：%s",
-                            now, latest,"bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)"));
+                            now, latest, "bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)"));
                     isPushedLatestVersion = true;
                 }
             }
         }, 0, 7, TimeUnit.HOURS);
 
         addTask(taskId + "_push", () -> {
+            OciKv evun = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                    .eq(OciKv::getCode, SysCfgEnum.ENABLED_VERSION_UPDATE_NOTIFICATIONS.getCode()));
+            if (null != evun && evun.getValue().equals(EnableEnum.OFF.getCode())) {
+                return;
+            }
             isPushedLatestVersion = false;
         }, 12, 12, TimeUnit.HOURS);
     }
 
-    @Scheduled(cron = "0 0 0 * * ?")
-    public void dailyBroadcastTask() {
-        String message = "【每日播报】\n" +
-                "\n" +
-                "时间：\t%s\n" +
-                "总API配置数：\t%s\n" +
-                "失效API配置数：\t%s\n" +
-                "失效的API配置：\t%s\n" +
-                "正在执行的开机任务：\n" +
-                "%s\n";
-        List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
-                .isNotNull(OciUser::getId)
-                .select(OciUser::getId), String::valueOf);
+    private void dailyBroadcastTask() {
+        OciKv edb = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.ENABLE_DAILY_BROADCAST.getCode()));
+        OciKv dbc = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.DAILY_BROADCAST_CRON.getCode()));
+        if (null != edb && edb.getValue().equals(EnableEnum.OFF.getCode())) {
+            return;
+        }
 
-        CompletableFuture<List<?>> fails = CompletableFuture.supplyAsync(() -> {
-            if (ids.isEmpty()) {
-                return Collections.emptyList();
-            }
-            return ids.parallelStream().filter(id -> {
-                SysUserDTO ociUser = sysService.getOciUser(id);
-                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
-                    fetcher.getAvailabilityDomains();
-                } catch (Exception e) {
-                    return true;
+        String cronId = CronUtil.schedule(null == dbc ? CacheConstant.TASK_CRON : dbc.getValue(), (Task) () -> {
+            String message = "【每日播报】\n" +
+                    "\n" +
+                    "时间：\t%s\n" +
+                    "总API配置数：\t%s\n" +
+                    "失效API配置数：\t%s\n" +
+                    "失效的API配置：\t%s\n" +
+                    "正在执行的开机任务：\n" +
+                    "%s\n";
+            List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
+                    .isNotNull(OciUser::getId)
+                    .select(OciUser::getId), String::valueOf);
+
+            CompletableFuture<List<?>> fails = CompletableFuture.supplyAsync(() -> {
+                if (ids.isEmpty()) {
+                    return Collections.emptyList();
                 }
-                return false;
-            }).map(id -> sysService.getOciUser(id).getUsername()).collect(Collectors.toList());
+                return ids.parallelStream().filter(id -> {
+                    SysUserDTO ociUser = sysService.getOciUser(id);
+                    try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
+                        fetcher.getAvailabilityDomains();
+                    } catch (Exception e) {
+                        return true;
+                    }
+                    return false;
+                }).map(id -> sysService.getOciUser(id).getUsername()).collect(Collectors.toList());
+            });
+
+            CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
+                List<OciCreateTask> ociCreateTaskList = createTaskService.list();
+                if (ociCreateTaskList.isEmpty()) {
+                    return "无";
+                }
+                String template = "[%s] [%s] [%s] [%s核/%sGB/%sGB] [%s台] [%s] [%s次]";
+                return ociCreateTaskList.parallelStream().map(x -> {
+                    OciUser ociUser = userService.getById(x.getUserId());
+                    Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
+                    return String.format(template, ociUser.getUsername(), ociUser.getOciRegion(), x.getArchitecture(),
+                            x.getOcpus().longValue(), x.getMemory().longValue(), x.getDisk(), x.getCreateNumbers(),
+                            CommonUtils.getTimeDifference(x.getCreateTime()), counts == null ? "0" : counts);
+                }).collect(Collectors.joining("\n"));
+            });
+
+            CompletableFuture.allOf(fails, task).join();
+
+            sysService.sendMessage(String.format(message,
+                    LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
+                    CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
+                    fails.join().size(),
+                    fails.join(),
+                    task.join()
+            ));
         });
 
-        CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
-            List<OciCreateTask> ociCreateTaskList = createTaskService.list();
-            if (ociCreateTaskList.isEmpty()) {
-                return "无";
-            }
-            String template = "[%s] [%s] [%s] [%s核/%sGB/%sGB] [%s台] [%s] [%s次]";
-            return ociCreateTaskList.parallelStream().map(x -> {
-                OciUser ociUser = userService.getById(x.getUserId());
-                Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
-                return String.format(template, ociUser.getUsername(), ociUser.getOciRegion(), x.getArchitecture(),
-                        x.getOcpus().longValue(), x.getMemory().longValue(), x.getDisk(), x.getCreateNumbers(),
-                        CommonUtils.getTimeDifference(x.getCreateTime()), counts == null ? "0" : counts);
-            }).collect(Collectors.joining("\n"));
-        });
+        CronUtil.setMatchSecond(true);
+        CronUtil.start();
 
-        CompletableFuture.allOf(fails, task).join();
-
-        sysService.sendMessage(String.format(message,
-                LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
-                CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
-                fails.join().size(),
-                fails.join(),
-                task.join()
-        ));
+        TEMP_MAP.put(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID, cronId);
     }
 }

@@ -17,4 +17,8 @@ public class UpdateSysCfgParams {
     private String tgChatId;
     private String tgBotToken;
     private boolean enableMfa;
+
+    private String enableDailyBroadcast;
+    private String dailyBroadcastCron;
+    private String enableVersionInform;
 }

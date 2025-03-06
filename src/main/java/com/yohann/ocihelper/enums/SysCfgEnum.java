@@ -24,6 +24,9 @@ public enum SysCfgEnum {
     SYS_DING_BOT_TOKEN("Y103", "钉钉机器人accessToken", SysCfgTypeEnum.SYS_INIT_CFG),
     SYS_DING_BOT_SECRET("Y104", "钉钉机器人secret", SysCfgTypeEnum.SYS_INIT_CFG),
     SYS_MFA_SECRET("Y105", "谷歌MFA", SysCfgTypeEnum.SYS_MFA_CFG),
+    ENABLE_DAILY_BROADCAST("Y107", "是否开启每日播报", SysCfgTypeEnum.SYS_INIT_CFG),
+    DAILY_BROADCAST_CRON("Y108", "每日播报cron", SysCfgTypeEnum.SYS_INIT_CFG),
+    ENABLED_VERSION_UPDATE_NOTIFICATIONS("Y109", "是否开启版本更新通知", SysCfgTypeEnum.SYS_INIT_CFG),
 
     SYS_INFO_VERSION("Y106", "系统版本号", SysCfgTypeEnum.SYS_INFO),
 
