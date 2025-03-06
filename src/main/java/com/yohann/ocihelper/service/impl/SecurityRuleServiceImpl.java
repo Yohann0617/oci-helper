@@ -196,7 +196,7 @@ public class SecurityRuleServiceImpl implements ISecurityRuleService {
 
     @Override
     public void addIngress(AddIngressSecurityRuleParams params) {
-        List<String> list = Arrays.asList("6", "17", "6_RDP", "6_SSH");
+        List<String> list = Arrays.asList("6", "17");
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             Vcn vcn = fetcher.getVcnById(params.getVcnId());
@@ -235,7 +235,7 @@ public class SecurityRuleServiceImpl implements ISecurityRuleService {
 
     @Override
     public void addEgress(AddEgressSecurityRuleParams params) {
-        List<String> list = Arrays.asList("6", "17", "6_RDP", "6_SSH");
+        List<String> list = Arrays.asList("6", "17");
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             Vcn vcn = fetcher.getVcnById(params.getVcnId());
