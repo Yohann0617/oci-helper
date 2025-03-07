@@ -35,6 +35,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -352,6 +353,29 @@ public class CommonUtils {
     public static Date localDateTime2Date(LocalDateTime localDateTime){
         ZoneId zoneId = ZoneId.of("Asia/Shanghai");
         return Date.from(localDateTime.atZone(zoneId).toInstant());
+    }
+
+    public static LocalDateTime getMonthFirstDayFirstSecond(){
+        return LocalDateTime.now()
+                .with(TemporalAdjusters.firstDayOfMonth()) // 设为本月第一天
+                .withHour(0)
+                .withMinute(0)
+                .withSecond(0)
+                .withNano(0);
+    }
+
+    public static LocalDateTime getMonthLastDayLastSecond(){
+        return LocalDateTime.now()
+                .with(TemporalAdjusters.lastDayOfMonth()) // 设为本月最后一天
+                .withHour(23)
+                .withMinute(59)
+                .withSecond(59)
+                .withNano(999999999);
+    }
+
+    public static void main(String[] args) {
+        System.out.println(getMonthLastDayLastSecond().format(DATETIME_FMT_NORM));
+        System.out.println(getMonthFirstDayFirstSecond().format(DATETIME_FMT_NORM));
     }
 
     /**

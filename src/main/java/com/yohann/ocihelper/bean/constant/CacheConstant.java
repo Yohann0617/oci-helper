@@ -9,6 +9,9 @@ package com.yohann.ocihelper.bean.constant;
  * @since 2025/1/2 18:54
  */
 public class CacheConstant {
+    public static final String OCI_TRAFFIC_NAMESPACE = "oci_vcn";
+    public static final String OCI_TRAFFIC_QUERY_IN = "VnicToNetworkBytes[1440m]{resourceId = \"%s\"}.sum()";
+    public static final String OCI_TRAFFIC_QUERY_OUT = "VnicFromNetworkBytes[1440m]{resourceId = \"%s\"}.sum()";
     public static final String TASK_CRON = "0 0 0 * * ?";
     public static final String DAILY_BROADCAST_TASK_ID = "daily_broadcast_task";
     public static final String PREFIX_BOOT_VOLUME_PAGE = "bootVolume_page_";
