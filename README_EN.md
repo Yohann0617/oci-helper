@@ -16,15 +16,15 @@
 
 ## Core functions
 
-1. Manage multiple tenant configuration information at the same time, support fuzzy search and status filtering.
-2. Support functions such as changing instance configuration, boot volume configuration, attaching ipv6, releasing **security lists**, etc.
-3. Change the instance public IP according to multiple **CIDR network segments**. If there are abnormalities such as frequent requests, they will be ignored directly, and will not affect the next execution until the IP of the specified IP segment is changed.
-4. Multiple tenants **start up in batches at the same time**, and the background will run until the startup is successful.
+1. Support **batch adding** multiple tenant configuration information at the same time, and all paginated lists support **fuzzy search** and **status filtering**.
+2. Support changing instance configuration, boot volume configuration, one-click attachment of ipv6, one-click release of all ports, instance list, boot volume list, **security list**, **real-time traffic statistics** and other functions.
+3. Change the instance public IP according to multiple **CIDR network segments**. If you encounter abnormalities such as frequent requests, they will be directly ignored and will not affect the next execution until the IP of the specified IP segment is changed.
+4. Multiple tenants **batch start** at the same time, and the background will run until the startup is successful.
 5. Support **breakpoint continuation**, the configuration and machine grabbing tasks are saved in the local database, and the machine grabbing tasks will continue to be executed when the service is restarted, without repeated configuration.
-6. Support multiple area codes (configuration items are distinguished by `region`), for example: I have a 4-area code, then add 4 configurations, modify `region`, and other configuration items are the same.
+6. Support multiple area codes (configuration items are distinguished by region). For example: I have a 4-area code, then add 4 configurations, modify the region, and other configuration items are the same.
 7. Support **real-time viewing of backend logs** on the front-end page.
-8. Support **encrypted backup and recovery** to facilitate data migration.
-9. Support **MFA** login verification function.
+8. Support **encrypted backup and recovery**, realize seamless data migration, convenient and fast.
+9. Support **MFA** login verification function (not Turtle Shell, but the login of my panel) to ensure the security of the service.
 
 ## One-click docker-compose deployment or update
 
