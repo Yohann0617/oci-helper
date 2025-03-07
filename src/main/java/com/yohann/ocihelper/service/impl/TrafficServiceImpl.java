@@ -54,8 +54,12 @@ public class TrafficServiceImpl implements ITrafficService {
                     params.getOutQuery(), params.getBeginTime(), params.getEndTime());
             GetTrafficDataRsp rsp = new GetTrafficDataRsp();
             rsp.setTime(inTrafficData.stream().map(ValueLabelDTO::getLabel).collect(Collectors.toList()));
-            rsp.setInbound(inTrafficData.stream().map(x -> Integer.parseInt(x.getValue())).collect(Collectors.toList()));
-            rsp.setOutbound(outTrafficData.stream().map(x -> Integer.parseInt(x.getValue())).collect(Collectors.toList()));
+            rsp.setInbound(inTrafficData.stream()
+                    .map(x -> CommonUtils.formatBytes(Long.parseLong(x.getValue()), "MB"))
+                    .collect(Collectors.toList()));
+            rsp.setOutbound(outTrafficData.stream()
+                    .map(x -> CommonUtils.formatBytes(Long.parseLong(x.getValue()), "MB"))
+                    .collect(Collectors.toList()));
             return rsp;
         } catch (Exception e) {
             log.error("获取数据失败", e);
@@ -108,30 +112,36 @@ public class TrafficServiceImpl implements ITrafficService {
             FetchInstancesRsp rsp = new FetchInstancesRsp();
             List<Instance> instanceList = fetcher.listInstances();
             rsp.setInstanceCount(instanceList.size());
-            rsp.setInboundTraffic(Optional.ofNullable(instanceList)
+            rsp.setInboundTraffic(CommonUtils.formatBytes(Optional.ofNullable(instanceList)
                     .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
-                    .map(x -> getTrafficData(fetcher, CacheConstant.OCI_TRAFFIC_NAMESPACE,
-                            String.format(CacheConstant.OCI_TRAFFIC_QUERY_IN, fetcher.getVnicByInstanceId(x.getId()).getId()),
-                            CommonUtils.localDateTime2Date(CommonUtils.getMonthFirstDayFirstSecond()),
-                            CommonUtils.localDateTime2Date(CommonUtils.getMonthLastDayLastSecond())))
+                    .map(x -> fetcher.listVnicByInstanceId(x.getId()).parallelStream().map(y ->
+                                    getTrafficData(fetcher, CacheConstant.OCI_TRAFFIC_NAMESPACE,
+                                            String.format(CacheConstant.OCI_TRAFFIC_QUERY_IN, y.getId()),
+                                            CommonUtils.localDateTime2Date(CommonUtils.getMonthFirstDayFirstSecond()),
+                                            CommonUtils.localDateTime2Date(CommonUtils.getMonthLastDayLastSecond())))
+                            .flatMap(Collection::stream)
+                            .collect(Collectors.toList()))
                     .flatMap(Collection::stream)
                     .map(ValueLabelDTO::getValue)
                     .filter(Objects::nonNull)
                     .filter(v -> v.matches("\\d+"))
-                    .mapToInt(Integer::parseInt)
-                    .sum() + " MB");
-            rsp.setOutboundTraffic(Optional.ofNullable(instanceList)
+                    .mapToLong(Long::parseLong)
+                    .sum()));
+            rsp.setOutboundTraffic(CommonUtils.formatBytes(Optional.ofNullable(instanceList)
                     .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
-                    .map(x -> getTrafficData(fetcher, CacheConstant.OCI_TRAFFIC_NAMESPACE,
-                            String.format(CacheConstant.OCI_TRAFFIC_QUERY_OUT, fetcher.getVnicByInstanceId(x.getId()).getId()),
-                            CommonUtils.localDateTime2Date(CommonUtils.getMonthFirstDayFirstSecond()),
-                            CommonUtils.localDateTime2Date(CommonUtils.getMonthLastDayLastSecond())))
+                    .map(x -> fetcher.listVnicByInstanceId(x.getId()).parallelStream().map(y ->
+                                    getTrafficData(fetcher, CacheConstant.OCI_TRAFFIC_NAMESPACE,
+                                            String.format(CacheConstant.OCI_TRAFFIC_QUERY_OUT, y.getId()),
+                                            CommonUtils.localDateTime2Date(CommonUtils.getMonthFirstDayFirstSecond()),
+                                            CommonUtils.localDateTime2Date(CommonUtils.getMonthLastDayLastSecond())))
+                            .flatMap(Collection::stream)
+                            .collect(Collectors.toList()))
                     .flatMap(Collection::stream)
                     .map(ValueLabelDTO::getValue)
                     .filter(Objects::nonNull)
                     .filter(v -> v.matches("\\d+"))
-                    .mapToInt(Integer::parseInt)
-                    .sum() + " MB");
+                    .mapToLong(Long::parseLong)
+                    .sum()));
             return rsp;
         } catch (Exception e) {
             log.error("获取区域实例失败", e);
@@ -177,7 +187,7 @@ public class TrafficServiceImpl implements ITrafficService {
                 .map(x -> Optional.ofNullable(x.getAggregatedDatapoints())
                         .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
                         .map(y -> new ValueLabelDTO(CommonUtils.dateFmt2String(y.getTimestamp()),
-                                (y.getValue().longValue() / (1024 * 1024)) + ""))
+                                (y.getValue().longValue()) + ""))
                         .collect(Collectors.toList()))
                 .flatMap(Collection::stream)
                 .sorted(Comparator.comparing(ValueLabelDTO::getLabel))

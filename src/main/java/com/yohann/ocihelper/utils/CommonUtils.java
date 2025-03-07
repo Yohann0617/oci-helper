@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -373,10 +374,53 @@ public class CommonUtils {
                 .withNano(999999999);
     }
 
-    public static void main(String[] args) {
-        System.out.println(getMonthLastDayLastSecond().format(DATETIME_FMT_NORM));
-        System.out.println(getMonthFirstDayFirstSecond().format(DATETIME_FMT_NORM));
+    public static String formatBytes(long bytes) {
+        if (bytes < 0) {
+            throw new IllegalArgumentException("Bytes must be non-negative");
+        }
+
+        String[] units = {"B", "KB", "MB", "GB", "TB"};
+        double size = bytes;
+        int unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        return new DecimalFormat("#.##").format(size) + " " + units[unitIndex];
     }
+
+    public static String formatBytes(long bytes, String targetUnit) {
+        if (bytes < 0) {
+            throw new IllegalArgumentException("Bytes must be non-negative");
+        }
+
+        String[] units = {"B", "KB", "MB", "GB", "TB"};
+        int unitIndex = -1;
+
+        for (int i = 0; i < units.length; i++) {
+            if (units[i].equalsIgnoreCase(targetUnit)) {
+                unitIndex = i;
+                break;
+            }
+        }
+
+        if (unitIndex == -1) {
+            throw new IllegalArgumentException("Invalid target unit: " + targetUnit);
+        }
+
+        double size = bytes / Math.pow(1024, unitIndex);
+        return new DecimalFormat("#.##").format(size);
+    }
+    public static void main(String[] args) {
+        System.out.println(formatBytes(500, "B"));       // 500 B
+        System.out.println(formatBytes(1024, "KB"));      // 1 KB
+        System.out.println(formatBytes(1048576, "MB"));   // 1 MB
+        System.out.println(formatBytes(1073741824, "GB"));// 1 GB
+        System.out.println(formatBytes(1099511627776L, "TB")); // 1 TB
+    }
+
 
     /**
      * 校验输入的 CIDR 字符串是否为合法网段

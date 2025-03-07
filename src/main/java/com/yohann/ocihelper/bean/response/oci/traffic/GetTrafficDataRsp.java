@@ -15,6 +15,6 @@ import java.util.List;
 public class GetTrafficDataRsp {
 
     List<String> time;
-    List<Integer> inbound;
-    List<Integer> outbound;
+    List<String> inbound;
+    List<String> outbound;
 }
