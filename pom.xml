@@ -63,11 +63,6 @@
         </dependency>
         <dependency>
             <groupId>com.oracle.oci.sdk</groupId>
-            <artifactId>oci-java-sdk-usage</artifactId>
-            <version>${oci-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.oracle.oci.sdk</groupId>
             <artifactId>oci-java-sdk-common-httpclient-jersey</artifactId>
             <version>${oci-version}</version>
         </dependency>
