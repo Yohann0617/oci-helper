@@ -8,8 +8,6 @@ import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.CharsetUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.cron.CronUtil;
-import cn.hutool.cron.task.Task;
 import cn.hutool.extra.servlet.ServletUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.hutool.json.JSONUtil;
@@ -42,6 +40,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.lingala.zip4j.ZipFile;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,6 +56,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -95,6 +96,8 @@ public class SysServiceImpl implements ISysService {
     private HttpServletResponse response;
     @Resource
     private OciKvMapper kvMapper;
+    @Resource
+    private TaskScheduler taskScheduler;
 
     @Override
     public void sendMessage(String message) {
@@ -153,20 +156,20 @@ public class SysServiceImpl implements ISysService {
                             ociKv.setValue(params.getDingSecret());
                             break;
                         case ENABLE_DAILY_BROADCAST:
-                            ociKv.setValue(params.getEnableDailyBroadcast());
+                            ociKv.setValue(params.getEnableDailyBroadcast().toString());
                             break;
                         case DAILY_BROADCAST_CRON:
                             ociKv.setValue(params.getDailyBroadcastCron());
                             break;
                         case ENABLED_VERSION_UPDATE_NOTIFICATIONS:
-                            ociKv.setValue(params.getEnableVersionInform());
+                            ociKv.setValue(params.getEnableVersionInform().toString());
                             break;
                         default:
                             break;
                     }
                     return ociKv;
                 }).collect(Collectors.toList()));
-        if (params.isEnableMfa()) {
+        if (params.getEnableMfa()) {
             OciKv mfaInDb = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
             if (mfaInDb == null) {
@@ -187,18 +190,17 @@ public class SysServiceImpl implements ISysService {
 
         stopTask(CacheConstant.PREFIX_PUSH_VERSION_UPDATE_MSG);
         stopTask(CacheConstant.PREFIX_PUSH_VERSION_UPDATE_MSG + "_push");
-        if (params.getEnableVersionInform().equals(EnableEnum.ON.getCode())) {
+        if (params.getEnableVersionInform()) {
             pushVersionUpdateMsg(kvService, this);
         }
 
-        CronUtil.remove(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID);
-        if (params.getEnableDailyBroadcast().equals(EnableEnum.ON.getCode())) {
-            if (StrUtil.isNotBlank(params.getDailyBroadcastCron()) && !CommonUtils.isValidCron(params.getDailyBroadcastCron())) {
-                throw new OciException(-1, "无效的cron表达式：" + params.getDailyBroadcastCron());
-            }
-            String cronId = CronUtil.schedule(StrUtil.isBlank(params.getDailyBroadcastCron()) ?
-                    CacheConstant.TASK_CRON : params.getDailyBroadcastCron(), (Task) this::dailyBroadcastTask);
-            TEMP_MAP.put(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID, cronId);
+        ScheduledFuture<?> scheduledFuture = TASK_MAP.get(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID);
+        if (null != scheduledFuture) {
+            scheduledFuture.cancel(true);
+        }
+        if (params.getEnableDailyBroadcast()) {
+            TASK_MAP.put(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID, taskScheduler.schedule(this::dailyBroadcastTask,
+                    new CronTrigger(StrUtil.isBlank(params.getDailyBroadcastCron()) ? CacheConstant.TASK_CRON : params.getDailyBroadcastCron())));
         }
     }
 
@@ -210,11 +212,11 @@ public class SysServiceImpl implements ISysService {
         rsp.setTgChatId(getCfgValue(SysCfgEnum.SYS_TG_CHAT_ID));
         rsp.setTgBotToken(getCfgValue(SysCfgEnum.SYS_TG_BOT_TOKEN));
         String edbValue = getCfgValue(SysCfgEnum.ENABLE_DAILY_BROADCAST);
-        rsp.setEnableDailyBroadcast(null == edbValue ? EnableEnum.ON.getCode() : edbValue);
+        rsp.setEnableDailyBroadcast(Boolean.valueOf(null == edbValue ? EnableEnum.ON.getCode() : edbValue));
         String dbcValue = getCfgValue(SysCfgEnum.DAILY_BROADCAST_CRON);
         rsp.setDailyBroadcastCron(null == dbcValue ? CacheConstant.TASK_CRON : dbcValue);
         String evunValue = getCfgValue(SysCfgEnum.ENABLED_VERSION_UPDATE_NOTIFICATIONS);
-        rsp.setEnableVersionInform(null == evunValue ? EnableEnum.ON.getCode() : evunValue);
+        rsp.setEnableVersionInform(Boolean.valueOf(null == evunValue ? EnableEnum.ON.getCode() : evunValue));
 
         OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
@@ -432,6 +434,15 @@ public class SysServiceImpl implements ISysService {
                 .build();
     }
 
+    @Override
+    public void checkMfaCode(String mfaCode) {
+        OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
+        if (!CommonUtils.verifyMfaCode(mfa.getValue(), Integer.parseInt(mfaCode))) {
+            throw new OciException(-1, "无效的验证码");
+        }
+    }
+
     private String getCfgValue(SysCfgEnum sysCfgEnum) {
         OciKv cfg = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, sysCfgEnum.getCode()));
         return cfg == null ? null : cfg.getValue();
@@ -481,72 +492,57 @@ public class SysServiceImpl implements ISysService {
     }
 
     private void dailyBroadcastTask() {
-        OciKv edb = kvService.getOne(new LambdaQueryWrapper<OciKv>()
-                .eq(OciKv::getCode, SysCfgEnum.ENABLE_DAILY_BROADCAST.getCode()));
-        OciKv dbc = kvService.getOne(new LambdaQueryWrapper<OciKv>()
-                .eq(OciKv::getCode, SysCfgEnum.DAILY_BROADCAST_CRON.getCode()));
-        if (null != edb && edb.getValue().equals(EnableEnum.OFF.getCode())) {
-            return;
-        }
+        String message = "【每日播报】\n" +
+                "\n" +
+                "时间：\t%s\n" +
+                "总API配置数：\t%s\n" +
+                "失效API配置数：\t%s\n" +
+                "失效的API配置：\t%s\n" +
+                "正在执行的开机任务：\n" +
+                "%s\n";
+        List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
+                .isNotNull(OciUser::getId)
+                .select(OciUser::getId), String::valueOf);
 
-        String cronId = CronUtil.schedule(null == dbc ? CacheConstant.TASK_CRON : dbc.getValue(), (Task) () -> {
-            String message = "【每日播报】\n" +
-                    "\n" +
-                    "时间：\t%s\n" +
-                    "总API配置数：\t%s\n" +
-                    "失效API配置数：\t%s\n" +
-                    "失效的API配置：\t%s\n" +
-                    "正在执行的开机任务：\n" +
-                    "%s\n";
-            List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
-                    .isNotNull(OciUser::getId)
-                    .select(OciUser::getId), String::valueOf);
-
-            CompletableFuture<List<?>> fails = CompletableFuture.supplyAsync(() -> {
-                if (ids.isEmpty()) {
-                    return Collections.emptyList();
+        CompletableFuture<List<?>> fails = CompletableFuture.supplyAsync(() -> {
+            if (ids.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return ids.parallelStream().filter(id -> {
+                SysUserDTO ociUser = this.getOciUser(id);
+                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
+                    fetcher.getAvailabilityDomains();
+                } catch (Exception e) {
+                    return true;
                 }
-                return ids.parallelStream().filter(id -> {
-                    SysUserDTO ociUser = this.getOciUser(id);
-                    try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
-                        fetcher.getAvailabilityDomains();
-                    } catch (Exception e) {
-                        return true;
-                    }
-                    return false;
-                }).map(id -> this.getOciUser(id).getUsername()).collect(Collectors.toList());
-            });
-
-            CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
-                List<OciCreateTask> ociCreateTaskList = createTaskService.list();
-                if (ociCreateTaskList.isEmpty()) {
-                    return "无";
-                }
-                String template = "[%s] [%s] [%s] [%s核/%sGB/%sGB] [%s台] [%s] [%s次]";
-                return ociCreateTaskList.parallelStream().map(x -> {
-                    OciUser ociUser = userService.getById(x.getUserId());
-                    Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
-                    return String.format(template, ociUser.getUsername(), ociUser.getOciRegion(), x.getArchitecture(),
-                            x.getOcpus().longValue(), x.getMemory().longValue(), x.getDisk(), x.getCreateNumbers(),
-                            CommonUtils.getTimeDifference(x.getCreateTime()), counts == null ? "0" : counts);
-                }).collect(Collectors.joining("\n"));
-            });
-
-            CompletableFuture.allOf(fails, task).join();
-
-            this.sendMessage(String.format(message,
-                    LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
-                    CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
-                    fails.join().size(),
-                    fails.join(),
-                    task.join()
-            ));
+                return false;
+            }).map(id -> this.getOciUser(id).getUsername()).collect(Collectors.toList());
         });
 
-        CronUtil.setMatchSecond(true);
-        CronUtil.start();
+        CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
+            List<OciCreateTask> ociCreateTaskList = createTaskService.list();
+            if (ociCreateTaskList.isEmpty()) {
+                return "无";
+            }
+            String template = "[%s] [%s] [%s] [%s核/%sGB/%sGB] [%s台] [%s] [%s次]";
+            return ociCreateTaskList.parallelStream().map(x -> {
+                OciUser ociUser = userService.getById(x.getUserId());
+                Long counts = (Long) TEMP_MAP.get(CommonUtils.CREATE_COUNTS_PREFIX + x.getId());
+                return String.format(template, ociUser.getUsername(), ociUser.getOciRegion(), x.getArchitecture(),
+                        x.getOcpus().longValue(), x.getMemory().longValue(), x.getDisk(), x.getCreateNumbers(),
+                        CommonUtils.getTimeDifference(x.getCreateTime()), counts == null ? "0" : counts);
+            }).collect(Collectors.joining("\n"));
+        });
 
-        TEMP_MAP.put(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID, cronId);
+        CompletableFuture.allOf(fails, task).join();
+
+        this.sendMessage(String.format(message,
+                LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
+                CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
+                fails.join().size(),
+                fails.join(),
+                task.join()
+        ));
     }
 
 }

@@ -16,11 +16,11 @@ public class GetSysCfgRsp {
     private String dingSecret;
     private String tgChatId;
     private String tgBotToken;
-    private boolean enableMfa;
+    private Boolean enableMfa;
     private String mfaSecret;
     private String mfaQrData;
 
-    private String enableDailyBroadcast;
+    private Boolean enableDailyBroadcast;
     private String dailyBroadcastCron;
-    private String enableVersionInform;
+    private Boolean enableVersionInform;
 }

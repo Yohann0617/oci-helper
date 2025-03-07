@@ -3,8 +3,6 @@ package com.yohann.ocihelper.task;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.cron.CronUtil;
-import cn.hutool.cron.task.Task;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
@@ -21,7 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
@@ -32,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -59,6 +59,8 @@ public class OciTask implements ApplicationRunner {
     private ISysService sysService;
     @Resource
     private IOciCreateTaskService createTaskService;
+    @Resource
+    private TaskScheduler taskScheduler;
 
     private static volatile boolean isPushedLatestVersion = false;
 
@@ -147,7 +149,7 @@ public class OciTask implements ApplicationRunner {
         }
     }
 
-    private void startInform(){
+    private void startInform() {
         String latestVersion = CommonUtils.getLatestVersion();
         String nowVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
@@ -203,7 +205,7 @@ public class OciTask implements ApplicationRunner {
             return;
         }
 
-        String cronId = CronUtil.schedule(null == dbc ? CacheConstant.TASK_CRON : dbc.getValue(), (Task) () -> {
+        ScheduledFuture<?> scheduled = taskScheduler.schedule(() -> {
             String message = "【每日播报】\n" +
                     "\n" +
                     "时间：\t%s\n" +
@@ -255,11 +257,8 @@ public class OciTask implements ApplicationRunner {
                     fails.join(),
                     task.join()
             ));
-        });
+        }, new CronTrigger(null == dbc ? CacheConstant.TASK_CRON : dbc.getValue()));
 
-        CronUtil.setMatchSecond(true);
-        CronUtil.start();
-
-        TEMP_MAP.put(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID, cronId);
+        TASK_MAP.put(CacheConstant.DAILY_BROADCAST_TASK_ID, scheduled);
     }
 }

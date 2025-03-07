@@ -24,4 +24,6 @@ public interface ISysService {
     GetGlanceRsp glance();
 
     SysUserDTO getOciUser(String ociCfgId);
+
+    void checkMfaCode(String mfaCode);
 }

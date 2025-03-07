@@ -11,8 +11,8 @@ import lombok.Getter;
 @Getter
 public enum EnableEnum {
 
-    ON("on", "开启"),
-    OFF("off", "关闭"),
+    ON("true", "开启"),
+    OFF("false", "关闭"),
     ;
 
     private String code;

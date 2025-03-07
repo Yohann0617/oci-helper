@@ -93,7 +93,7 @@ public class DingMessageServiceImpl implements IMessageService {
 
         int responseCode = connection.getResponseCode();
         if (responseCode == 200) {
-            log.info("dingding message sent successfully!");
+            log.info("dingding message send successfully!");
         } else {
             log.info("Failed to send dingding message, HTTP response code: {}", responseCode);
         }

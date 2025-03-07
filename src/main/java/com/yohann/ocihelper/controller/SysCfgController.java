@@ -11,7 +11,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import java.util.Map;
 
 /**
  * @projectName: oci-helper
@@ -58,6 +57,14 @@ public class SysCfgController {
         CommonUtils.checkAndThrow(bindingResult);
         sysService.sendMessage(params.getMessage());
         return ResponseData.successData("发送消息成功");
+    }
+
+    @PostMapping(path = "/checkMfaCode")
+    public ResponseData<Void> checkMfaCode(@Validated @RequestBody CheckMfaCodeParams params,
+                                      BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        sysService.checkMfaCode(params.getMfaCode());
+        return ResponseData.successData("MFA验证通过");
     }
 
     @PostMapping(path = "/backup")

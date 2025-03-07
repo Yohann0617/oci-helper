@@ -10,6 +10,7 @@ package com.yohann.ocihelper.bean.constant;
  */
 public class CacheConstant {
     public static final String TASK_CRON = "0 0 0 * * ?";
+    public static final String DAILY_BROADCAST_TASK_ID = "daily_broadcast_task";
     public static final String PREFIX_BOOT_VOLUME_PAGE = "bootVolume_page_";
     public static final String PREFIX_INSTANCE_PAGE = "instance_page_";
     public static final String PREFIX_VCN_PAGE = "vcn_page_";

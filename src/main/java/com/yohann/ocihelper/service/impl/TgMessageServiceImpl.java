@@ -50,7 +50,7 @@ public class TgMessageServiceImpl implements IMessageService {
             HttpResponse response = HttpUtil.createGet(urlString).execute();
 
             if (response.getStatus() == 200) {
-                log.info("telegram message sent successfully!");
+                log.info("telegram message send successfully!");
             } else {
                 log.info("failed to send telegram message, response code: [{}]", response.getStatus());
             }
