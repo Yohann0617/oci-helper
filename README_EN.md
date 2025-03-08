@@ -2,7 +2,7 @@
 
 # oci-helper
 
-> A web-based visual Oracle Cloud Assistant developed based on Oracle OCI SDK 🐢. The currently implemented functions include: batch adding multiple tenant configurations, changing instance configurations and boot volume configurations, attaching ipv6, changing instance public IPs according to multiple CIDR network segments, batch grabbing of multiple tenants at the same time, breakpoint resumption, backup and recovery, real-time log viewing, message notifications, MFA login verification and other functions.
+> A web-based visual Oracle Cloud Assistant developed based on Oracle OCI SDK 🐢. The currently implemented functions include: batch adding multiple tenant configurations, changing instance configurations and boot volume configurations, attaching ipv6, security lists, real-time traffic query (minute level), changing instance public IPs according to multiple CIDR network segments, batch grabbing of multiple tenants at the same time, breakpoint resumption, backup and recovery, real-time log viewing, message notifications, MFA login verification and other functions.
 
 ## Notes and Disclaimer
 
@@ -17,7 +17,7 @@
 ## Core functions
 
 1. Support **batch adding** multiple tenant configuration information at the same time, and all paginated lists support **fuzzy search** and **status filtering**.
-2. Support changing instance configuration, boot volume configuration, one-click attachment of ipv6, one-click release of all ports, instance list, boot volume list, **security list**, **real-time traffic statistics** and other functions.
+2. Support changing instance configuration, boot volume configuration, one-click attachment of ipv6, one-click release of all ports, instance list, boot volume list, **security list**, **real-time traffic statistics (minute level)** and other functions.
 3. Change the instance public IP according to multiple **CIDR network segments**. If you encounter abnormalities such as frequent requests, they will be directly ignored and will not affect the next execution until the IP of the specified IP segment is changed.
 4. Multiple tenants **batch start** at the same time, and the background will run until the startup is successful.
 5. Support **breakpoint continuation**, the configuration and machine grabbing tasks are saved in the local database, and the machine grabbing tasks will continue to be executed when the service is restarted, without repeated configuration.
