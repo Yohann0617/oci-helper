@@ -235,7 +235,7 @@ public class OracleInstanceFetcher implements Closeable {
             }
         } catch (Exception e) {
 //            instanceDetailDTO.setOut(true);
-            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",
+            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 出现错误了，原因为：{}",
                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(),
                     e.getMessage(), e);
             return instanceDetailDTO;

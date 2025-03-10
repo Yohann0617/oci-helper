@@ -1,8 +1,10 @@
 package com.yohann.ocihelper.bean.params.oci.cfg;
 
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 
 /**
  * <p>
@@ -20,4 +22,7 @@ public class AddCfgParams {
 
     @NotBlank(message = "配置不能为空")
     private String ociCfgStr;
+
+    @NotNull(message = "私钥不能为空")
+    private MultipartFile file;
 }

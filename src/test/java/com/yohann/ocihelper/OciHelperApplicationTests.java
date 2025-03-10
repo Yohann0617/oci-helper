@@ -1,6 +1,17 @@
 package com.yohann.ocihelper;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.json.JSONUtil;
+import com.oracle.bmc.core.ComputeClient;
+import com.oracle.bmc.core.model.Shape;
+import com.oracle.bmc.core.requests.ListShapesRequest;
+import com.oracle.bmc.identity.IdentityClient;
+import com.oracle.bmc.identity.model.AvailabilityDomain;
+import com.oracle.bmc.identity.model.CreateApiKeyDetails;
+import com.oracle.bmc.identity.model.CreateRegionSubscriptionDetails;
+import com.oracle.bmc.identity.requests.*;
+import com.oracle.bmc.identity.responses.GetTenancyResponse;
+import com.oracle.bmc.identity.responses.ListRegionsResponse;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
@@ -8,15 +19,22 @@ import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.web.socket.server.standard.ServerEndpointExporter;
 
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.*;
+import java.util.stream.Collectors;
 
-
+@ExtendWith(SpringExtension.class)
 @SpringBootTest
+@MockBean(ServerEndpointExporter.class) // Mock 掉，不让它真正注册
 class OciHelperApplicationTests {
 
     @Resource
@@ -26,7 +44,8 @@ class OciHelperApplicationTests {
 
     @Test
     void contextLoads() throws IOException {
-        String s = FileUtil.readString("C:\\Users\\Yohann\\Desktop\\test.txt", Charset.defaultCharset());
+        String baseDir = "C:\\Users\\yohann_fan\\Desktop\\";
+        String s = FileUtil.readString(baseDir + "test.txt", Charset.defaultCharset());
         List<OciUser> ociUsers = CommonUtils.parseConfigContent(s);
         OciUser ociUser = ociUsers.get(0);
 
@@ -40,7 +59,7 @@ class OciHelperApplicationTests {
                         .tenantId(ociUser.getOciTenantId())
                         .region(ociUser.getOciRegion())
                         .fingerprint(ociUser.getOciFingerprint())
-                        .privateKeyPath("C:\\Users\\Yohann\\Desktop\\" + ociUser.getOciKeyPath())
+                        .privateKeyPath(baseDir + ociUser.getOciKeyPath())
                         .build())
                 .username(ociUser.getUsername())
                 .build();
@@ -48,6 +67,27 @@ class OciHelperApplicationTests {
         System.out.println(sysUserDTO);
 
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
+            IdentityClient identityClient = fetcher.getIdentityClient();
+            ComputeClient computeClient = fetcher.getComputeClient();
+
+
+//            System.out.println(JSONUtil.toJsonStr(fetcher.getUserInfo()));
+//
+//            GetTenancyResponse tenancy = identityClient.getTenancy(GetTenancyRequest.builder()
+//                    .tenancyId(sysUserDTO.getOciCfg().getTenantId())
+//                    .build());
+//            System.out.println(JSONUtil.toJsonStr(tenancy.getTenancy()));
+
+            List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains();
+            availabilityDomains.parallelStream().map(availabilityDomain ->
+                            computeClient.listShapes(ListShapesRequest.builder()
+                                    .availabilityDomain(availabilityDomain.getName())
+                                    .compartmentId(fetcher.getCompartmentId())
+                                    .build()).getItems())
+                    .flatMap(Collection::stream)
+                    .map(Shape::getShape)
+                    .collect(Collectors.toList()).forEach(System.out::println);
+
 
         } catch (Exception e) {
             e.printStackTrace();

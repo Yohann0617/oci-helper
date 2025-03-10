@@ -2,6 +2,7 @@ package com.yohann.ocihelper.service.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DatePattern;
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.IdUtil;
@@ -12,6 +13,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oracle.bmc.core.model.Instance;
 import com.oracle.bmc.core.model.Vnic;
+import com.oracle.bmc.identity.requests.ListCompartmentsRequest;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
@@ -48,9 +50,9 @@ import javax.annotation.Resource;
 import com.yohann.ocihelper.mapper.OciUserMapper;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -108,6 +110,16 @@ public class OciServiceImpl implements IOciService {
         if (ociUserList.size() != 0) {
             throw new OciException(-1, "当前配置名称已存在");
         }
+
+        String priKeyPath = keyDirPath + File.separator + params.getFile().getOriginalFilename();
+        File priKey = FileUtil.touch(priKeyPath);
+        try (InputStream inputStream = params.getFile().getInputStream();
+             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(priKey.toPath()))){
+            IoUtil.copy(inputStream,bufferedOutputStream);
+        }catch (Exception e){
+            throw new OciException(-1,"写入私钥文件失败");
+        }
+
         Map<String, String> ociCfgMap = CommonUtils.getOciCfgFromStr(params.getOciCfgStr());
         OciUser ociUser = OciUser.builder()
                 .id(IdUtil.randomUUID())
@@ -116,7 +128,7 @@ public class OciServiceImpl implements IOciService {
                 .ociUserId(ociCfgMap.get(OciCfgEnum.OCI_CFG_USER_ID.getType()))
                 .ociFingerprint(ociCfgMap.get(OciCfgEnum.OCI_CFG_FINGERPRINT.getType()))
                 .ociRegion(ociCfgMap.get(OciCfgEnum.OCI_CFG_REGION.getType()))
-                .ociKeyPath(keyDirPath + File.separator + ociCfgMap.get(OciCfgEnum.OCI_CFG_KEY_FILE.getType()))
+                .ociKeyPath(priKeyPath)
                 .build();
         SysUserDTO sysUserDTO = SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
@@ -127,8 +139,8 @@ public class OciServiceImpl implements IOciService {
                         .privateKeyPath(ociUser.getOciKeyPath())
                         .build())
                 .build();
-        try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            ociFetcher.getAvailabilityDomains();
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            fetcher.getAvailabilityDomains();
         } catch (Exception e) {
             log.error("配置：[{}] ，区域：[{}] ，不生效，错误信息：[{}]",
                     ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());

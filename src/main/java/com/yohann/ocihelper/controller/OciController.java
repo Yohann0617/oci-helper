@@ -48,7 +48,7 @@ public class OciController {
     }
 
     @PostMapping(path = "/addCfg")
-    public ResponseData<Void> addCfg(@Validated @RequestBody AddCfgParams params,
+    public ResponseData<Void> addCfg(@Validated AddCfgParams params,
                                      BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         ociService.addCfg(params);
