@@ -402,6 +402,7 @@ public class OciServiceImpl implements IOciService {
             throw new OciException(-1, "无效的验证码");
         }
 
+        stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + params.getInstanceId());
         SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
         CompletableFuture.runAsync(() -> {
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
