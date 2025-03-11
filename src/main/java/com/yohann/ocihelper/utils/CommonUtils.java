@@ -413,14 +413,6 @@ public class CommonUtils {
         double size = bytes / Math.pow(1024, unitIndex);
         return new DecimalFormat("#.##").format(size);
     }
-    public static void main(String[] args) {
-        System.out.println(formatBytes(500, "B"));       // 500 B
-        System.out.println(formatBytes(1024, "KB"));      // 1 KB
-        System.out.println(formatBytes(1048576, "MB"));   // 1 MB
-        System.out.println(formatBytes(1073741824, "GB"));// 1 GB
-        System.out.println(formatBytes(1099511627776L, "TB")); // 1 TB
-    }
-
 
     /**
      * 校验输入的 CIDR 字符串是否为合法网段
@@ -577,6 +569,46 @@ public class CommonUtils {
                 // Parse the response as JSON
                 JSONObject jsonResponse = new JSONObject(response.toString());
                 version = jsonResponse.getStr("tag_name");
+            } else {
+                log.error("Failed to fetch the latest release. HTTP response code: {}", responseCode);
+            }
+
+            connection.disconnect();
+        } catch (Exception e) {
+            log.error("Failed to fetch the latest release. exception: {}", e.getMessage());
+            throw new OciException(-1, "获取系统最新版本失败");
+        }
+        return version;
+    }
+
+    public static String getLatestVersionBody() {
+        String repository = "Yohann0617/oci-helper";
+        String apiUrl = "https://api.github.com/repos/" + repository + "/releases/latest";
+        String version = null;
+        try {
+            // Create a connection to the GitHub API
+            URL url = new URL(apiUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
+
+            // Check the response code
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // Read the response
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+
+                reader.close();
+
+                // Parse the response as JSON
+                JSONObject jsonResponse = new JSONObject(response.toString());
+                version = jsonResponse.getStr("body");
             } else {
                 log.error("Failed to fetch the latest release. HTTP response code: {}", responseCode);
             }
