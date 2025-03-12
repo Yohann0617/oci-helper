@@ -19,5 +19,6 @@ public class TenantInfoRsp {
     private String description;
     private String homeRegionKey;
     private String upiIdcsCompatibilityLayerEndpoint;
+    private List<String> regions;
     private List<User> userList;
 }

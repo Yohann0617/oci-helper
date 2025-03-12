@@ -5,6 +5,8 @@ import cn.hutool.core.io.file.Tailer;
 import cn.hutool.jwt.JWTUtil;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.input.TailerListener;
+import org.apache.commons.io.input.TailerListenerAdapter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -35,7 +37,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
     private final BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
     private final ExecutorService pushThreadExecutor = Executors.newSingleThreadExecutor();
     private final Deque<String> recentLogs = new ConcurrentLinkedDeque<>();
-    private static final int MAX_RECENT_LOGS = 100;
+    private static final int MAX_RECENT_LOGS = 200;
     Tailer tailer;
     Future<?> logPushTask;
     private volatile boolean close = false;
@@ -77,10 +79,12 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
             if (e.getLocalizedMessage().contains("Negative seek offset")) {
                 List<String> readUtf8Lines = FileUtil.readUtf8Lines(CommonUtils.LOG_FILE_PATH);
                 readUtf8Lines.add("\n");
-                FileUtil.writeUtf8Lines(new ArrayList<>(100), CommonUtils.LOG_FILE_PATH);
+                FileUtil.writeUtf8Lines(new ArrayList<>(MAX_RECENT_LOGS), CommonUtils.LOG_FILE_PATH);
                 FileUtil.writeUtf8Lines(readUtf8Lines, CommonUtils.LOG_FILE_PATH);
+                tailer.stop();
+                startLogTailer(CommonUtils.LOG_FILE_PATH);
             } else {
-                log.error("启动日志监听服务失败：{}", e.getLocalizedMessage());
+                log.error("启动日志监听服务失败：{}", e.getLocalizedMessage(), e);
             }
         }
 
@@ -93,7 +97,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        synchronized (LogWebSocketHandler.class) {
+        synchronized (recentLogs) {
             recentLogs.forEach(recentLog -> {
                 try {
                     currentSession.sendMessage(new TextMessage(recentLog));
@@ -159,8 +163,6 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         try {
             tailer.stop();
-            recentLogs.poll();
-            messageQueue.poll();
             if (logPushTask != null) {
                 logPushTask.cancel(false);
             }

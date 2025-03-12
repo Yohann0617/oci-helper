@@ -6,7 +6,7 @@ package com.yohann.ocihelper.bean;
  */
 public class ResponseData<T> {
     private boolean success;
-    private int errorCode;
+    private int code = 200;
     private T data;
     private String msg;
 
@@ -18,12 +18,12 @@ public class ResponseData<T> {
         this.success = success;
     }
 
-    public int getErrorCode() {
-        return this.errorCode;
+    public int getCode() {
+        return this.code;
     }
 
-    public void setErrorCode(int errorCode) {
-        this.errorCode = errorCode;
+    public void setCode(int code) {
+        this.code = code;
     }
 
     public T getData() {
@@ -49,9 +49,9 @@ public class ResponseData<T> {
         this.success = success;
     }
 
-    public ResponseData(boolean success, int errorCode, T data, String msg) {
+    public ResponseData(boolean success, int code, T data, String msg) {
         this.success = success;
-        this.errorCode = errorCode;
+        this.code = code;
         this.data = data;
         this.msg = msg;
     }
@@ -63,31 +63,31 @@ public class ResponseData<T> {
     }
 
     public static <T> ResponseData<T> successData() {
-        return new ResponseData(true, 0, (Object) null, (String) null);
+        return new ResponseData(true, 200, null, "请求成功");
     }
 
     public static <T> ResponseData<T> successData(T data) {
-        return new ResponseData(true, 0, data, "请求成功");
+        return new ResponseData(true, 200, data, "请求成功");
     }
 
     public static <T> ResponseData<T> successData(T data, String msg) {
-        return new ResponseData(true, 0, data, msg);
+        return new ResponseData(true, 200, data, msg);
     }
 
     public static <T> ResponseData<T> successData(String msg) {
-        return new ResponseData(true, (Object) null, msg);
+        return new ResponseData(true, 200,null, msg);
     }
 
     public static <T> ResponseData<T> errorData(String msg) {
-        return new ResponseData(false, (Object) null, msg);
+        return new ResponseData(false,-1, null, msg);
     }
 
-    public static <T> ResponseData<T> errorData(int errorCode, String msg) {
-        return new ResponseData(false, errorCode, (Object) null, msg);
+    public static <T> ResponseData<T> errorData(int code, String msg) {
+        return new ResponseData(false, code, null, msg);
     }
 
-    public static <T> ResponseData<T> errorData(int errorCode) {
-        return new ResponseData(false, errorCode, (Object) null, "请求失败");
+    public static <T> ResponseData<T> errorData(int code) {
+        return new ResponseData(false, code, null, "请求失败");
     }
 }
 

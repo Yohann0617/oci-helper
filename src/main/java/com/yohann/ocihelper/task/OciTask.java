@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.task;
 
 import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -83,13 +84,9 @@ public class OciTask implements ApplicationRunner {
 
     private void cleanLogTask() {
         addAtFixedRateTask(account, () -> {
-            try (FileWriter fw = new FileWriter(CommonUtils.LOG_FILE_PATH, false)) {
-                fw.write("");
-                log.info("【日志清理任务】日志文件：{} 已清空", CommonUtils.LOG_FILE_PATH);
-            } catch (IOException e) {
-                log.error("【日志清理任务】清理日志文件时出错：{}", e.getMessage());
-            }
-        }, 4, 4, TimeUnit.HOURS);
+            FileUtil.writeUtf8String("",CommonUtils.LOG_FILE_PATH);
+            log.info("【日志清理任务】日志文件：{} 已清空", CommonUtils.LOG_FILE_PATH);
+        }, 8, 8, TimeUnit.HOURS);
     }
 
     private void cleanAndRestartTask() {

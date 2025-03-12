@@ -9,6 +9,7 @@ import com.oracle.bmc.identity.IdentityClient;
 import com.oracle.bmc.identity.model.AvailabilityDomain;
 import com.oracle.bmc.identity.model.CreateApiKeyDetails;
 import com.oracle.bmc.identity.model.CreateRegionSubscriptionDetails;
+import com.oracle.bmc.identity.model.User;
 import com.oracle.bmc.identity.requests.*;
 import com.oracle.bmc.identity.responses.GetTenancyResponse;
 import com.oracle.bmc.identity.responses.ListRegionsResponse;
@@ -70,23 +71,28 @@ class OciHelperApplicationTests {
             IdentityClient identityClient = fetcher.getIdentityClient();
             ComputeClient computeClient = fetcher.getComputeClient();
 
+//            identityClient.listUsers(ListUsersRequest.builder()
+//                    .compartmentId(fetcher.getCompartmentId())
+//                    .build()).getItems().forEach(x->{
+//                System.out.println(JSONUtil.toJsonStr(x));
+//            });
 
 //            System.out.println(JSONUtil.toJsonStr(fetcher.getUserInfo()));
 //
-//            GetTenancyResponse tenancy = identityClient.getTenancy(GetTenancyRequest.builder()
-//                    .tenancyId(sysUserDTO.getOciCfg().getTenantId())
-//                    .build());
-//            System.out.println(JSONUtil.toJsonStr(tenancy.getTenancy()));
+            GetTenancyResponse tenancy = identityClient.getTenancy(GetTenancyRequest.builder()
+                    .tenancyId(sysUserDTO.getOciCfg().getTenantId())
+                    .build());
+            System.out.println(JSONUtil.toJsonStr(tenancy.getTenancy()));
 
-            List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains();
-            availabilityDomains.parallelStream().map(availabilityDomain ->
-                            computeClient.listShapes(ListShapesRequest.builder()
-                                    .availabilityDomain(availabilityDomain.getName())
-                                    .compartmentId(fetcher.getCompartmentId())
-                                    .build()).getItems())
-                    .flatMap(Collection::stream)
-                    .map(Shape::getShape)
-                    .collect(Collectors.toList()).forEach(System.out::println);
+//            List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains();
+//            availabilityDomains.parallelStream().map(availabilityDomain ->
+//                            computeClient.listShapes(ListShapesRequest.builder()
+//                                    .availabilityDomain(availabilityDomain.getName())
+//                                    .compartmentId(fetcher.getCompartmentId())
+//                                    .build()).getItems())
+//                    .flatMap(Collection::stream)
+//                    .map(Shape::getShape)
+//                    .collect(Collectors.toList()).forEach(System.out::println);
 
 
         } catch (Exception e) {

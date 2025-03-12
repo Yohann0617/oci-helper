@@ -62,7 +62,7 @@ public class CommonUtils {
     private static final String CIDR_REGEX =
             "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$";
     private static final Pattern CIDR_PATTERN = Pattern.compile(CIDR_REGEX);
-    public static final DateTimeFormatter DATETIME_FMT_PURE = DateTimeFormatter.ofPattern(DatePattern.PURE_DATETIME_PATTERN);
+    public static final DateTimeFormatter DATETIME_FMT_PURE = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm");
     public static final DateTimeFormatter DATETIME_FMT_NORM = DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN);
 
     public static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
@@ -542,49 +542,17 @@ public class CommonUtils {
     }
 
     public static String getLatestVersion() {
-        String repository = "Yohann0617/oci-helper";
-        String apiUrl = "https://api.github.com/repos/" + repository + "/releases/latest";
-        String version = null;
-        try {
-            // Create a connection to the GitHub API
-            URL url = new URL(apiUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
-
-            // Check the response code
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                // Read the response
-                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                StringBuilder response = new StringBuilder();
-                String line;
-
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
-
-                reader.close();
-
-                // Parse the response as JSON
-                JSONObject jsonResponse = new JSONObject(response.toString());
-                version = jsonResponse.getStr("tag_name");
-            } else {
-                log.error("Failed to fetch the latest release. HTTP response code: {}", responseCode);
-            }
-
-            connection.disconnect();
-        } catch (Exception e) {
-            log.error("Failed to fetch the latest release. exception: {}", e.getMessage());
-            throw new OciException(-1, "获取系统最新版本失败");
-        }
-        return version;
+        return getGithubRepositoryInfo("tag_name");
     }
 
     public static String getLatestVersionBody() {
+        return getGithubRepositoryInfo("body");
+    }
+
+    private static String getGithubRepositoryInfo(String item){
         String repository = "Yohann0617/oci-helper";
         String apiUrl = "https://api.github.com/repos/" + repository + "/releases/latest";
-        String version = null;
+        String rst = null;
         try {
             // Create a connection to the GitHub API
             URL url = new URL(apiUrl);
@@ -608,7 +576,7 @@ public class CommonUtils {
 
                 // Parse the response as JSON
                 JSONObject jsonResponse = new JSONObject(response.toString());
-                version = jsonResponse.getStr("body");
+                rst = jsonResponse.getStr(item);
             } else {
                 log.error("Failed to fetch the latest release. HTTP response code: {}", responseCode);
             }
@@ -616,9 +584,9 @@ public class CommonUtils {
             connection.disconnect();
         } catch (Exception e) {
             log.error("Failed to fetch the latest release. exception: {}", e.getMessage());
-            throw new OciException(-1, "获取系统最新版本失败");
+            throw new OciException(-1, "获取 oci-helper 项目信息失败");
         }
-        return version;
+        return rst;
     }
 
     public static String getPwdShell(String passwd) {
