@@ -124,7 +124,10 @@ public class OracleInstanceFetcher implements Closeable {
                     List<Vcn> vcnList = listVcn();
                     List<Shape> shapes = getShape(computeClient, compartmentId, availableDomain, user);
                     if (shapes.size() == 0) {
-                        continue;
+                        instanceDetailDTO.setNoShape(true);
+                        log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机失败，该区域可能不支持 CPU 架构：{}",
+                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getArchitecture());
+                        return instanceDetailDTO;
                     }
                     for (Shape shape : shapes) {
                         Image image = getImage(computeClient, compartmentId, shape, user);
@@ -409,24 +412,14 @@ public class OracleInstanceFetcher implements Closeable {
             String compartmentId,
             AvailabilityDomain availabilityDomain,
             SysUserDTO user) {
-        ListShapesRequest listShapesRequest =
-                ListShapesRequest.builder()
-                        .availabilityDomain(availabilityDomain.getName())
-                        .compartmentId(compartmentId)
-                        .build();
-        ListShapesResponse listShapesResponse = computeClient.listShapes(listShapesRequest);
+        ListShapesResponse listShapesResponse = computeClient.listShapes(ListShapesRequest.builder()
+                .availabilityDomain(availabilityDomain.getName())
+                .compartmentId(compartmentId)
+                .build());
         List<Shape> shapes = listShapesResponse.getItems();
-//        if (shapes.isEmpty()) {
-////            throw new IllegalStateException("No available shape was found.");
-//            log.warn("AvailabilityDomain: {} No available shape was found.", availabilityDomain.getName());
-//        }
         List<Shape> vmShapes = shapes.isEmpty() ? Collections.emptyList() : shapes.stream()
                 .filter(shape -> shape.getShape().startsWith("VM"))
                 .collect(Collectors.toList());
-//        if (vmShapes.isEmpty()) {
-////            throw new IllegalStateException("No available VM shape was found.");
-//            log.warn("AvailabilityDomain: {} No available VM shape was found.", availabilityDomain.getName());
-//        }
         List<Shape> shapesNewList = new ArrayList<>();
         ArchitectureEnum type = ArchitectureEnum.getType(user.getArchitecture());
         if (!vmShapes.isEmpty()) {

@@ -114,10 +114,10 @@ public class OciServiceImpl implements IOciService {
         String priKeyPath = keyDirPath + File.separator + params.getFile().getOriginalFilename();
         File priKey = FileUtil.touch(priKeyPath);
         try (InputStream inputStream = params.getFile().getInputStream();
-             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(priKey.toPath()))){
-            IoUtil.copy(inputStream,bufferedOutputStream);
-        }catch (Exception e){
-            throw new OciException(-1,"写入私钥文件失败");
+             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(Files.newOutputStream(priKey.toPath()))) {
+            IoUtil.copy(inputStream, bufferedOutputStream);
+        } catch (Exception e) {
+            throw new OciException(-1, "写入私钥文件失败");
         }
 
         Map<String, String> ociCfgMap = CommonUtils.getOciCfgFromStr(params.getOciCfgStr());
@@ -542,27 +542,26 @@ public class OciServiceImpl implements IOciService {
             IInstanceService instanceService,
             IOciCreateTaskService createTaskService) {
 
-//        if (createTaskService.getById(sysUserDTO.getTaskId()) == null) {
-//            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务终止......",
-//                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
-//                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-//            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
-//            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
-////            throw new OciException(-1, "任务终止");
-//            return;
-//        }
-
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
 
             List<InstanceDetailDTO> createInstanceList = instanceService.createInstance(fetcher).getCreateInstanceList();
+            long noShapeCounts = createInstanceList.stream().filter(InstanceDetailDTO::isNoShape).count();
             long successCounts = createInstanceList.stream().filter(InstanceDetailDTO::isSuccess).count();
             long outCounts = createInstanceList.stream().filter(InstanceDetailDTO::isOut).count();
             long leftCreateNum = sysUserDTO.getCreateNumbers() - successCounts;
 
+            if (noShapeCounts > 0) {
+                stopAndRemoveTask(sysUserDTO, createTaskService);
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因不支持 CPU 架构：[{}] 而终止任务......",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), sysUserDTO.getArchitecture());
+                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因不支持 CPU 架构：[%s] 而终止任务",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), sysUserDTO.getArchitecture()));
+            }
+
             if (sysUserDTO.getCreateNumbers() == outCounts) {
-                TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
-                stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
-                createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
+                stopAndRemoveTask(sysUserDTO, createTaskService);
                 log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因超额而终止任务......",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
@@ -572,9 +571,7 @@ public class OciServiceImpl implements IOciService {
             }
 
             if (sysUserDTO.getCreateNumbers() == successCounts || leftCreateNum == 0) {
-                TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
-                stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
-                createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
+                stopAndRemoveTask(sysUserDTO, createTaskService);
                 log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务结束......",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
@@ -590,14 +587,18 @@ public class OciServiceImpl implements IOciService {
             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 发生了异常：{}",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                     sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), e.getLocalizedMessage());
-//            TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
-//            stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
-//            createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
+//            stopAndRemoveTask(sysUserDTO, createTaskService);
             sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] " +
                             "发生了异常但并未停止枪机任务，可能是网络响应超时等原因，具体情况自行查看日志",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                     sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
         }
+    }
+
+    private static void stopAndRemoveTask(SysUserDTO sysUserDTO, IOciCreateTaskService createTaskService) {
+        TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
+        stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
+        createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
     }
 
     public void execChange(String instanceId,

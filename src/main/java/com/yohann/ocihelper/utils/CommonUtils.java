@@ -58,7 +58,7 @@ public class CommonUtils {
     public static final String CHANGE_IP_ERROR_COUNTS_PREFIX = "CHANGE_IP_ERROR_COUNTS_PREFIX_";
     public static final String TERMINATE_INSTANCE_PREFIX = "TERMINATE_INSTANCE_PREFIX_";
     public static final String LOG_FILE_PATH = "/var/log/oci-helper.log";
-    public static final String MFA_QR_PNG_PATH = System.getProperty("user.dir") + "mfa.png";
+    public static final String MFA_QR_PNG_PATH = System.getProperty("user.dir") + File.separator + "mfa.png";
     private static final String CIDR_REGEX =
             "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$";
     private static final Pattern CIDR_PATTERN = Pattern.compile(CIDR_REGEX);
@@ -118,8 +118,8 @@ public class CommonUtils {
     /**
      * 判断目标字符串中是否包含指定关键字（模糊查询）
      *
-     * @param target    目标字符串
-     * @param keyword   查询关键字
+     * @param target     目标字符串
+     * @param keyword    查询关键字
      * @param ignoreCase 是否忽略大小写
      * @return 是否包含关键字
      */
@@ -351,12 +351,12 @@ public class CommonUtils {
         return formatter.format(date);
     }
 
-    public static Date localDateTime2Date(LocalDateTime localDateTime){
+    public static Date localDateTime2Date(LocalDateTime localDateTime) {
         ZoneId zoneId = ZoneId.of("Asia/Shanghai");
         return Date.from(localDateTime.atZone(zoneId).toInstant());
     }
 
-    public static LocalDateTime getMonthFirstDayFirstSecond(){
+    public static LocalDateTime getMonthFirstDayFirstSecond() {
         return LocalDateTime.now()
                 .with(TemporalAdjusters.firstDayOfMonth()) // 设为本月第一天
                 .withHour(0)
@@ -365,7 +365,7 @@ public class CommonUtils {
                 .withNano(0);
     }
 
-    public static LocalDateTime getMonthLastDayLastSecond(){
+    public static LocalDateTime getMonthLastDayLastSecond() {
         return LocalDateTime.now()
                 .with(TemporalAdjusters.lastDayOfMonth()) // 设为本月最后一天
                 .withHour(23)
@@ -549,7 +549,7 @@ public class CommonUtils {
         return getGithubRepositoryInfo("body");
     }
 
-    private static String getGithubRepositoryInfo(String item){
+    private static String getGithubRepositoryInfo(String item) {
         String repository = "Yohann0617/oci-helper";
         String apiUrl = "https://api.github.com/repos/" + repository + "/releases/latest";
         String rst = null;

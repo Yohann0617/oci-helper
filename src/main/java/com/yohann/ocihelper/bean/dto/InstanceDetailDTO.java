@@ -20,6 +20,7 @@ import lombok.NoArgsConstructor;
 public class InstanceDetailDTO {
 
     private String taskId;
+    private boolean isNoShape = false;
     private boolean isSuccess = false;
     private boolean isOut = false;
     private boolean isTooManyReq = false;
