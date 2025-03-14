@@ -98,6 +98,7 @@ docker compose pull && docker compose up -d
 ![image.png](./img/0-login.png)
 ![image.png](./img/1-home.png)
 ![image.png](./img/1-user.png)
+![image.png](./img/1-tenantInfo.png)
 ![image.png](./img/3-add-1.png)
 ![image.png](./img/3-add-2.png)
 ![image.png](./img/3-create.png)
