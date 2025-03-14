@@ -1124,14 +1124,18 @@ public class OracleInstanceFetcher implements Closeable {
                 .accessLevel(ListCompartmentsRequest.AccessLevel.Accessible)
                 .build();
 
-        ListCompartmentsResponse response = identityClient.listCompartments(request);
-        List<Compartment> compartments = response.getItems();
+        try {
+            ListCompartmentsResponse response = identityClient.listCompartments(request);
+            List<Compartment> compartments = response.getItems();
 
-        // 根区间是没有parentCompartmentId的区间
-        for (Compartment compartment : compartments) {
-            if (compartment.getCompartmentId().equals(tenantId) && compartment.getId().equals(compartment.getCompartmentId())) {
-                return compartment.getId(); // 返回根区间ID
+            // 根区间是没有parentCompartmentId的区间
+            for (Compartment compartment : compartments) {
+                if (compartment.getCompartmentId().equals(tenantId) && compartment.getId().equals(compartment.getCompartmentId())) {
+                    return compartment.getId(); // 返回根区间ID
+                }
             }
+        } catch (Exception e) {
+            return tenantId;
         }
 
         // 如果没有找到根区间，返回租户ID作为默认值

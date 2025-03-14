@@ -8,6 +8,7 @@
         SELECT
         t1.id,
         t1.username,
+        t1.tenant_name,
         t1.oci_region AS region,
         t1.create_time,
         CASE
@@ -26,10 +27,12 @@
                 </if>
             </if>
             <if test="keyword != null and keyword != ''">
-                and (t1.username like '%' || #{keyword} || '%' or t1.oci_region like '%' || #{keyword} || '%')
+                and (t1.username like '%' || #{keyword} || '%' or
+                t1.oci_region like '%' || #{keyword} || '%' or
+                t1.tenant_name like '%' || #{keyword} || '%' )
             </if>
         </where>
-        GROUP BY t1.id, t1.username, t1.oci_region, t1.create_time
+        GROUP BY t1.id, t1.username,t1.tenant_name,t1.oci_region, t1.create_time
         order by t1.username, t1.create_time DESC limit #{offset}, #{size}
     </select>
     <select id="userPageTotal" resultType="java.lang.Long">
@@ -46,7 +49,9 @@
                 </if>
             </if>
             <if test="keyword != null and keyword != ''">
-                AND (t1.username LIKE '%' || #{keyword} || '%' OR t1.oci_region LIKE '%' || #{keyword} || '%')
+                and (t1.username like '%' || #{keyword} || '%' or
+                t1.oci_region like '%' || #{keyword} || '%' or
+                t1.tenant_name like '%' || #{keyword} || '%' )
             </if>
         </where>
     </select>

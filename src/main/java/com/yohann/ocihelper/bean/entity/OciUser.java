@@ -27,6 +27,8 @@ public class OciUser implements Serializable {
 
     private String username;
 
+    private String tenantName;
+
     private String ociTenantId;
 
     private String ociUserId;

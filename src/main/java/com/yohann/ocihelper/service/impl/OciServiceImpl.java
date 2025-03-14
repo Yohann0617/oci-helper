@@ -13,6 +13,8 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oracle.bmc.core.model.Instance;
 import com.oracle.bmc.core.model.Vnic;
+import com.oracle.bmc.identity.model.Tenancy;
+import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.oracle.bmc.identity.requests.ListCompartmentsRequest;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
@@ -141,6 +143,10 @@ public class OciServiceImpl implements IOciService {
                 .build();
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             fetcher.getAvailabilityDomains();
+            Tenancy tenancy = fetcher.getIdentityClient().getTenancy(GetTenancyRequest.builder()
+                    .tenancyId(sysUserDTO.getOciCfg().getTenantId())
+                    .build()).getTenancy();
+            ociUser.setTenantName(tenancy.getName());
         } catch (Exception e) {
             log.error("配置：[{}] ，区域：[{}] ，不生效，错误信息：[{}]",
                     ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
@@ -373,6 +379,10 @@ public class OciServiceImpl implements IOciService {
                             .build();
                     try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
                         ociFetcher.getAvailabilityDomains();
+                        Tenancy tenancy = ociFetcher.getIdentityClient().getTenancy(GetTenancyRequest.builder()
+                                .tenancyId(sysUserDTO.getOciCfg().getTenantId())
+                                .build()).getTenancy();
+                        ociUser.setTenantName(tenancy.getName());
                     } catch (Exception e) {
                         log.error("配置：[{}] ，区域：[{}] 不生效，请检查密钥与配置项是否准确无误，错误信息：{}",
                                 ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());

@@ -5,6 +5,8 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.oracle.bmc.identity.model.Tenancy;
+import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
@@ -16,6 +18,7 @@ import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.enums.SysCfgTypeEnum;
 import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.SQLiteHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
@@ -62,6 +65,8 @@ public class OciTask implements ApplicationRunner {
     private IOciCreateTaskService createTaskService;
     @Resource
     private TaskScheduler taskScheduler;
+    @Resource
+    private SQLiteHelper sqLiteHelper;
 
     private static volatile boolean isPushedLatestVersion = false;
 
@@ -73,6 +78,7 @@ public class OciTask implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         TEMP_MAP.put("password", password);
+        updateUserInDb();
         cleanLogTask();
         cleanAndRestartTask();
         initGenMfaPng();
@@ -84,66 +90,95 @@ public class OciTask implements ApplicationRunner {
 
     private void cleanLogTask() {
         addAtFixedRateTask(account, () -> {
-            FileUtil.writeUtf8String("",CommonUtils.LOG_FILE_PATH);
+            FileUtil.writeUtf8String("", CommonUtils.LOG_FILE_PATH);
             log.info("【日志清理任务】日志文件：{} 已清空", CommonUtils.LOG_FILE_PATH);
         }, 8, 8, TimeUnit.HOURS);
     }
 
-    private void cleanAndRestartTask() {
-        Optional.ofNullable(createTaskService.list())
-                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
-                .forEach(task -> {
-                    if (task.getCreateNumbers() <= 0) {
-                        createTaskService.removeById(task.getId());
-                    } else {
-                        OciUser ociUser = userService.getById(task.getUserId());
-                        SysUserDTO sysUserDTO = SysUserDTO.builder()
-                                .ociCfg(SysUserDTO.OciCfg.builder()
-                                        .userId(ociUser.getOciUserId())
-                                        .tenantId(ociUser.getOciTenantId())
-                                        .region(ociUser.getOciRegion())
-                                        .fingerprint(ociUser.getOciFingerprint())
-                                        .privateKeyPath(ociUser.getOciKeyPath())
-                                        .build())
-                                .taskId(task.getId())
-                                .username(ociUser.getUsername())
-                                .ocpus(task.getOcpus())
-                                .memory(task.getMemory())
-                                .disk(Long.valueOf(task.getDisk()))
-                                .architecture(task.getArchitecture())
-                                .interval(Long.valueOf(task.getInterval()))
-                                .createNumbers(task.getCreateNumbers())
-                                .operationSystem(task.getOperationSystem())
-                                .rootPassword(task.getRootPassword())
-                                .build();
-                        addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
-                                        execCreate(sysUserDTO, sysService, instanceService, createTaskService),
-                                0, task.getInterval(), TimeUnit.SECONDS);
+    private void updateUserInDb() {
+        sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_name", "VARCHAR(64) NULL");
+        CompletableFuture.runAsync(() -> {
+            List<OciUser> ociUsers = userService.list(new LambdaQueryWrapper<OciUser>()
+                    .isNull(OciUser::getTenantName)
+                    .or().eq(OciUser::getTenantName, ""));
+            if (!ociUsers.isEmpty()) {
+                userService.updateBatchById(ociUsers.parallelStream().peek(x -> {
+                    SysUserDTO sysUserDTO = sysService.getOciUser(x.getId());
+                    try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+                        Tenancy tenancy = fetcher.getIdentityClient().getTenancy(GetTenancyRequest.builder()
+                                .tenancyId(sysUserDTO.getOciCfg().getTenantId())
+                                .build()).getTenancy();
+                        x.setTenantName(tenancy.getName());
+                    } catch (Exception e) {
+                        log.error("更新配置：{} 失败", x.getUsername());
                     }
-                });
+                }).collect(Collectors.toList()));
+            }
+        });
+    }
+
+    private void cleanAndRestartTask() {
+        CompletableFuture.runAsync(() -> {
+            Optional.ofNullable(createTaskService.list())
+                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList)
+                    .forEach(task -> {
+                        if (task.getCreateNumbers() <= 0) {
+                            createTaskService.removeById(task.getId());
+                        } else {
+                            OciUser ociUser = userService.getById(task.getUserId());
+                            SysUserDTO sysUserDTO = SysUserDTO.builder()
+                                    .ociCfg(SysUserDTO.OciCfg.builder()
+                                            .userId(ociUser.getOciUserId())
+                                            .tenantId(ociUser.getOciTenantId())
+                                            .region(ociUser.getOciRegion())
+                                            .fingerprint(ociUser.getOciFingerprint())
+                                            .privateKeyPath(ociUser.getOciKeyPath())
+                                            .build())
+                                    .taskId(task.getId())
+                                    .username(ociUser.getUsername())
+                                    .ocpus(task.getOcpus())
+                                    .memory(task.getMemory())
+                                    .disk(Long.valueOf(task.getDisk()))
+                                    .architecture(task.getArchitecture())
+                                    .interval(Long.valueOf(task.getInterval()))
+                                    .createNumbers(task.getCreateNumbers())
+                                    .operationSystem(task.getOperationSystem())
+                                    .rootPassword(task.getRootPassword())
+                                    .build();
+                            addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
+                                            execCreate(sysUserDTO, sysService, instanceService, createTaskService),
+                                    0, task.getInterval(), TimeUnit.SECONDS);
+                        }
+                    });
+        });
     }
 
     private void initGenMfaPng() {
-        Optional.ofNullable(kvService.getOne(new LambdaQueryWrapper<OciKv>()
-                .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()))).ifPresent(mfa -> {
-            String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, "oci-helper");
-            CommonUtils.genQRPic(CommonUtils.MFA_QR_PNG_PATH, qrCodeURL);
+        CompletableFuture.runAsync(() -> {
+            Optional.ofNullable(kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                    .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()))).ifPresent(mfa -> {
+                String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, "oci-helper");
+                CommonUtils.genQRPic(CommonUtils.MFA_QR_PNG_PATH, qrCodeURL);
+            });
         });
     }
 
     private void saveVersion() {
-        String latestVersion = CommonUtils.getLatestVersion();
-        OciKv oldVersion = kvService.getOne(new LambdaQueryWrapper<OciKv>()
-                .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
-                .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode()));
-        if (null == oldVersion) {
-            kvService.save(OciKv.builder()
-                    .id(IdUtil.getSnowflake().nextIdStr())
-                    .code(SysCfgEnum.SYS_INFO_VERSION.getCode())
-                    .type(SysCfgTypeEnum.SYS_INFO.getCode())
-                    .value(latestVersion)
-                    .build());
-        }
+        CompletableFuture.runAsync(() -> {
+            String latestVersion = CommonUtils.getLatestVersion();
+            OciKv oldVersion = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                    .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                    .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode()));
+            if (null == oldVersion) {
+                kvService.save(OciKv.builder()
+                        .id(IdUtil.getSnowflake().nextIdStr())
+                        .code(SysCfgEnum.SYS_INFO_VERSION.getCode())
+                        .type(SysCfgTypeEnum.SYS_INFO.getCode())
+                        .value(latestVersion)
+                        .build());
+            }
+        });
+
     }
 
     private void startInform() {

@@ -3,6 +3,8 @@ package com.yohann.ocihelper.bean.params.oci.tenant;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import javax.validation.constraints.NotBlank;
+
 /**
  * @ClassName UpdateUserInfoParams
  * @Description:
@@ -13,7 +15,9 @@ import lombok.EqualsAndHashCode;
 @Data
 public class UpdateUserInfoParams extends UpdateUserBasicParams{
 
+    @NotBlank(message = "邮箱不能为空")
     private String email;
+    @NotBlank(message = "dbUserName不能为空")
     private String dbUserName;
     private String description;
 }
