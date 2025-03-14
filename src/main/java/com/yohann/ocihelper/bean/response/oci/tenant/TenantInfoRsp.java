@@ -20,5 +20,18 @@ public class TenantInfoRsp {
     private String homeRegionKey;
     private String upiIdcsCompatibilityLayerEndpoint;
     private List<String> regions;
-    private List<User> userList;
+    private List<TenantUserInfo> userList;
+
+    @Data
+    public static class TenantUserInfo{
+           private String id;
+           private String name;
+           private String email;
+           private String lifecycleState;
+           private Boolean emailVerified;
+           private Boolean isMfaActivated;
+           private String timeCreated;
+           private String lastSuccessfulLoginTime;
+           private String jsonStr;
+    }
 }

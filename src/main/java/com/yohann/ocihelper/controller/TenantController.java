@@ -2,6 +2,8 @@ package com.yohann.ocihelper.controller;
 
 import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
+import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserBasicParams;
+import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserInfoParams;
 import com.yohann.ocihelper.bean.response.oci.tenant.TenantInfoRsp;
 import com.yohann.ocihelper.service.ITenantService;
 import com.yohann.ocihelper.utils.CommonUtils;
@@ -31,6 +33,46 @@ public class TenantController {
                                                   BindingResult bindingResult) {
         CommonUtils.checkAndThrow(bindingResult);
         return ResponseData.successData(tenantService.tenantInfo(params));
+    }
+
+    @RequestMapping("deleteUser")
+    public ResponseData<Void> deleteUser(@Validated @RequestBody UpdateUserBasicParams params,
+                                            BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        tenantService.deleteUser(params);
+        return ResponseData.successData("删除用户成功");
+    }
+
+    @RequestMapping("deleteMfaDevice")
+    public ResponseData<Void> deleteMfaDevice(@Validated @RequestBody UpdateUserBasicParams params,
+                                                  BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        tenantService.deleteMfaDevice(params);
+        return ResponseData.successData("清除 MFA 设备成功");
+    }
+
+    @RequestMapping("deleteApiKey")
+    public ResponseData<Void> deleteApiKey(@Validated @RequestBody UpdateUserBasicParams params,
+                                                  BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        tenantService.deleteApiKey(params);
+        return ResponseData.successData("清除所有 API 成功");
+    }
+
+    @RequestMapping("resetPassword")
+    public ResponseData<Void> resetPassword(@Validated @RequestBody UpdateUserBasicParams params,
+                                                  BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        tenantService.resetPassword(params);
+        return ResponseData.successData("重置用户密码成功");
+    }
+
+    @RequestMapping("updateUserInfo")
+    public ResponseData<Void> updateUserInfo(@Validated @RequestBody UpdateUserInfoParams params,
+                                                  BindingResult bindingResult) {
+        CommonUtils.checkAndThrow(bindingResult);
+        tenantService.updateUserInfo(params);
+        return ResponseData.successData("更新用户信息成功");
     }
 
 }
