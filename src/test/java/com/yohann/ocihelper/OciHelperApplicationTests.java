@@ -45,7 +45,7 @@ class OciHelperApplicationTests {
 
     @Test
     void contextLoads() throws IOException {
-        String baseDir = "C:\\Users\\yohann_fan\\Desktop\\";
+        String baseDir = "C:\\Users\\Yohann\\Desktop\\";
         String s = FileUtil.readString(baseDir + "test.txt", Charset.defaultCharset());
         List<OciUser> ociUsers = CommonUtils.parseConfigContent(s);
         OciUser ociUser = ociUsers.get(0);
@@ -71,29 +71,28 @@ class OciHelperApplicationTests {
             IdentityClient identityClient = fetcher.getIdentityClient();
             ComputeClient computeClient = fetcher.getComputeClient();
 
-//            identityClient.listUsers(ListUsersRequest.builder()
-//                    .compartmentId(fetcher.getCompartmentId())
-//                    .build()).getItems().forEach(x->{
-//                System.out.println(JSONUtil.toJsonStr(x));
-//            });
+            List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains();
+            for (AvailabilityDomain availabilityDomain : availabilityDomains) {
+                System.out.println("-----------------可用域：" + availabilityDomain.getName() + "-----------------");
+                computeClient.listShapes(ListShapesRequest.builder()
+                        .availabilityDomain(availabilityDomain.getName())
+                        .compartmentId(fetcher.getCompartmentId())
+                        .build()).getItems().forEach(x -> {
+                    System.out.println(x.getShape());
+                });
+                System.out.println("-----------------可用域：" + availabilityDomain.getName() + "-----------------");
+            }
 
-//            System.out.println(JSONUtil.toJsonStr(fetcher.getUserInfo()));
-//
-            GetTenancyResponse tenancy = identityClient.getTenancy(GetTenancyRequest.builder()
-                    .tenancyId(sysUserDTO.getOciCfg().getTenantId())
-                    .build());
-            System.out.println(JSONUtil.toJsonStr(tenancy.getTenancy()));
-
-//            List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains();
-//            availabilityDomains.parallelStream().map(availabilityDomain ->
-//                            computeClient.listShapes(ListShapesRequest.builder()
-//                                    .availabilityDomain(availabilityDomain.getName())
-//                                    .compartmentId(fetcher.getCompartmentId())
-//                                    .build()).getItems())
-//                    .flatMap(Collection::stream)
-//                    .map(Shape::getShape)
-//                    .collect(Collectors.toList()).forEach(System.out::println);
-
+            List<String> shapeList = availabilityDomains.parallelStream().map(availabilityDomain ->
+                            computeClient.listShapes(ListShapesRequest.builder()
+                                    .availabilityDomain(availabilityDomain.getName())
+                                    .compartmentId(fetcher.getCompartmentId())
+                                    .build()).getItems())
+                    .flatMap(Collection::stream)
+                    .map(Shape::getShape)
+                    .distinct()
+                    .collect(Collectors.toList());
+            shapeList.forEach(System.out::println);
 
         } catch (Exception e) {
             e.printStackTrace();

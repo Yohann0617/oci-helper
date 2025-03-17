@@ -112,6 +112,24 @@ public class OracleInstanceFetcher implements Closeable {
 
         List<AvailabilityDomain> availabilityDomains = getAvailabilityDomains(identityClient, compartmentId);
         int size = availabilityDomains.size();
+
+        List<String> shapeList = availabilityDomains.parallelStream().map(availabilityDomain ->
+                        computeClient.listShapes(ListShapesRequest.builder()
+                                .availabilityDomain(availabilityDomain.getName())
+                                .compartmentId(compartmentId)
+                                .build()).getItems())
+                .flatMap(Collection::stream)
+                .map(Shape::getShape)
+                .distinct()
+                .collect(Collectors.toList());
+        ArchitectureEnum type = ArchitectureEnum.getType(user.getArchitecture());
+        if (shapeList.isEmpty() || !shapeList.contains(type.getShapeDetail())) {
+            instanceDetailDTO.setNoShape(true);
+            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机失败，该区域可能不支持 CPU 架构：{}",
+                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getArchitecture());
+            return instanceDetailDTO;
+        }
+
         try {
             for (AvailabilityDomain availableDomain : availabilityDomains) {
                 try {
@@ -124,10 +142,7 @@ public class OracleInstanceFetcher implements Closeable {
                     List<Vcn> vcnList = listVcn();
                     List<Shape> shapes = getShape(computeClient, compartmentId, availableDomain, user);
                     if (shapes.size() == 0) {
-                        instanceDetailDTO.setNoShape(true);
-                        log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机失败，该区域可能不支持 CPU 架构：{}",
-                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getArchitecture());
-                        return instanceDetailDTO;
+                        continue;
                     }
                     for (Shape shape : shapes) {
                         Image image = getImage(computeClient, compartmentId, shape, user);

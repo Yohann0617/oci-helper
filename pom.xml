@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.yohann</groupId>
     <artifactId>oci-helper</artifactId>
-    <version>1.1.5</version>
+    <version>1.1.6</version>
     <name>oci-helper</name>
     <description>oci helper</description>
     <properties>
@@ -193,5 +193,31 @@
             </resource>
         </resources>
     </build>
+
+<!--    <profiles>-->
+<!--        <profile>-->
+<!--            <id>native</id>-->
+<!--            <build>-->
+<!--                <plugins>-->
+<!--                    <plugin>-->
+<!--                        <groupId>org.graalvm.buildtools</groupId>-->
+<!--                        <artifactId>native-maven-plugin</artifactId>-->
+<!--                        <version>0.9.28</version>-->
+<!--                        <executions>-->
+<!--                            <execution>-->
+<!--                                <id>build-native</id>-->
+<!--                                <goals>-->
+<!--                                    <goal>compile</goal>-->
+<!--                                </goals>-->
+<!--                                <configuration>-->
+<!--                                    <mainClass>com.yohann.ocihelper.OciHelperApplication</mainClass>-->
+<!--                                </configuration>-->
+<!--                            </execution>-->
+<!--                        </executions>-->
+<!--                    </plugin>-->
+<!--                </plugins>-->
+<!--            </build>-->
+<!--        </profile>-->
+<!--    </profiles>-->
 
 </project>
