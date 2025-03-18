@@ -515,6 +515,13 @@ public class OciServiceImpl implements IOciService {
         return String.format(rst, ids.size(), failNames.size(), String.join(" , ", failNames));
     }
 
+    @Override
+    public void updateCfgName(UpdateCfgNameParams params) {
+        userService.update(new LambdaUpdateWrapper<OciUser>()
+                .eq(OciUser::getId, params.getCfgId())
+                .set(OciUser::getUsername, params.getUpdateCfgName()));
+    }
+
     public SysUserDTO getOciUser(String ociCfgId) {
         OciUser ociUser = userService.getById(ociCfgId);
         return SysUserDTO.builder()

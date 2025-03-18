@@ -10,6 +10,7 @@ import com.oracle.bmc.identity.requests.DeleteUserRequest;
 import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.oracle.bmc.identity.requests.ListRegionSubscriptionsRequest;
 import com.oracle.bmc.identity.requests.ListUsersRequest;
+import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserBasicParams;
@@ -20,6 +21,7 @@ import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.service.ITenantService;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -41,9 +43,15 @@ public class TenantServiceImpl implements ITenantService {
 
     @Resource
     private ISysService sysService;
+    @Resource
+    private CustomExpiryGuavaCache<String, Object> customCache;
 
     @Override
     public TenantInfoRsp tenantInfo(GetTenantInfoParams params) {
+        if (params.isCleanReLaunch()) {
+            customCache.remove(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId());
+        }
+
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
         if (StrUtil.isNotBlank(params.getRegion())) {
             SysUserDTO.OciCfg ociCfg = sysUserDTO.getOciCfg();
@@ -51,8 +59,13 @@ public class TenantServiceImpl implements ITenantService {
             sysUserDTO.setOciCfg(ociCfg);
         }
 
+        TenantInfoRsp tenantInfoInCache = (TenantInfoRsp) customCache.get(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId());
+        if (tenantInfoInCache != null) {
+            return tenantInfoInCache;
+        }
+
+        TenantInfoRsp rsp = new TenantInfoRsp();
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            TenantInfoRsp rsp = new TenantInfoRsp();
             IdentityClient identityClient = fetcher.getIdentityClient();
             Tenancy tenancy = identityClient.getTenancy(GetTenancyRequest.builder()
                     .tenancyId(sysUserDTO.getOciCfg().getTenantId())
@@ -84,6 +97,8 @@ public class TenantServiceImpl implements ITenantService {
         } catch (Exception e) {
             log.error("获取租户信息失败", e);
             throw new OciException(-1, "获取租户信息失败", e);
+        } finally {
+            customCache.put(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId(), rsp, 10 * 60 * 1000);
         }
     }
 

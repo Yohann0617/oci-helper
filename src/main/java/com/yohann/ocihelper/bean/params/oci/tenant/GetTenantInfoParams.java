@@ -13,5 +13,5 @@ public class GetTenantInfoParams {
 
     private String ociCfgId;
     private String region;
-
+    private boolean cleanReLaunch;
 }
