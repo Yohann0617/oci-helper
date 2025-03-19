@@ -517,6 +517,13 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public void updateCfgName(UpdateCfgNameParams params) {
+        Optional.ofNullable(userService.getOne(new LambdaQueryWrapper<OciUser>()
+                .eq(OciUser::getUsername, params.getUpdateCfgName()))).ifPresent(user -> {
+            if (!user.getId().equals(params.getCfgId())) {
+                throw new OciException(-1, "配置名称：【" + params.getUpdateCfgName() + "】已存在");
+            }
+        });
+
         userService.update(new LambdaUpdateWrapper<OciUser>()
                 .eq(OciUser::getId, params.getCfgId())
                 .set(OciUser::getUsername, params.getUpdateCfgName()));

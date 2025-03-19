@@ -44,3 +44,14 @@ create table if not exists `oci_kv`
 CREATE INDEX if not exists oci_kv_code ON oci_kv (code DESC);
 CREATE INDEX if not exists oci_kv_type ON oci_kv (type DESC);
 CREATE INDEX if not exists oci_kv_create_time ON oci_kv (create_time DESC);
+
+--CF配置表
+create table if not exists `cf_cfg`
+(
+    id          varchar(64)                                     not null,
+    domain      varchar(64)                                     not null,
+    zone_id     varchar(255)                                    not null,
+    api_token   varchar(255)                                    not null,
+    create_time datetime default (datetime('now', 'localtime')) not null,
+    primary key ("id")
+);
