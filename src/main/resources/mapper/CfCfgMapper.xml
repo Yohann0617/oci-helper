@@ -4,16 +4,28 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.yohann.ocihelper.mapper.CfCfgMapper">
 
-    <resultMap id="BaseResultMap" type="com.yohann.ocihelper.bean.entity.CfCfg">
-            <id property="id" column="id" jdbcType="VARCHAR"/>
-            <result property="domain" column="domain" jdbcType="VARCHAR"/>
-            <result property="zoneId" column="zone_id" jdbcType="VARCHAR"/>
-            <result property="apiToken" column="api_token" jdbcType="VARCHAR"/>
-            <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
-    </resultMap>
-
-    <sql id="Base_Column_List">
-        id,domain,zone_id,
-        api_token,create_time
-    </sql>
+    <select id="listCfg" resultType="com.yohann.ocihelper.bean.response.cf.ListCfCfgPageRsp">
+        select id, domain, zone_id, api_token, create_time
+        from cf_cfg
+        <where>
+            <if test="keyword != null and keyword != ''">
+                and (domain like '%' || #{keyword} || '%' or
+                zone_id like '%' || #{keyword} || '%' or
+                api_token like '%' || #{keyword} || '%' )
+            </if>
+        </where>
+        group by id, domain, zone_id, api_token, create_time
+        order by domain limit #{offset}, #{size}
+    </select>
+    <select id="listCfgTotal" resultType="java.lang.Long">
+        select count(1)
+        from cf_cfg
+        <where>
+            <if test="keyword != null and keyword != ''">
+                and (domain like '%' || #{keyword} || '%' or
+                zone_id like '%' || #{keyword} || '%' or
+                api_token like '%' || #{keyword} || '%' )
+            </if>
+        </where>
+    </select>
 </mapper>

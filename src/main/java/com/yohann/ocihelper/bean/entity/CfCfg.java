@@ -2,7 +2,8 @@ package com.yohann.ocihelper.bean.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
-import java.util.Date;
+import java.time.LocalDateTime;
+
 import lombok.Data;
 
 /**
@@ -19,7 +20,7 @@ public class CfCfg implements Serializable {
 
     private String apiToken;
 
-    private Date createTime;
+    private LocalDateTime createTime;
 
     private static final long serialVersionUID = 1L;
 }
