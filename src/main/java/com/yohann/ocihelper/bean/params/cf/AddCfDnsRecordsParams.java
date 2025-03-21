@@ -20,6 +20,7 @@ public class AddCfDnsRecordsParams {
     private String ipAddress;
     private String zoneId;
     private String apiToken;
+    private String comment;
     /**
      * >=60
      */

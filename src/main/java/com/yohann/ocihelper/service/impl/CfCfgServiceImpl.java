@@ -1,26 +1,33 @@
 package com.yohann.ocihelper.service.impl;
 
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.http.HttpResponse;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yohann.ocihelper.bean.entity.CfCfg;
 import com.yohann.ocihelper.bean.params.IdListParams;
-import com.yohann.ocihelper.bean.params.cf.AddCfCfgParams;
-import com.yohann.ocihelper.bean.params.cf.ListCfCfgParams;
-import com.yohann.ocihelper.bean.params.cf.UpdateCfCfgParams;
+import com.yohann.ocihelper.bean.params.cf.*;
+import com.yohann.ocihelper.bean.response.cf.GetCfCfgSelRsp;
 import com.yohann.ocihelper.bean.response.cf.ListCfCfgPageRsp;
+import com.yohann.ocihelper.bean.response.cf.ListCfDnsRecordRsp;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.ICfCfgService;
 import com.yohann.ocihelper.mapper.CfCfgMapper;
-import com.yohann.ocihelper.service.ICfService;
+import com.yohann.ocihelper.service.ICfApiService;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * @author Yohann_Fan
@@ -28,10 +35,13 @@ import java.util.Optional;
  * @createDate 2025-03-19 16:10:18
  */
 @Service
+@Slf4j
 public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements ICfCfgService {
 
     @Resource
-    private ICfService cfService;
+    private ICfApiService cfApiService;
+    @Resource
+    private CustomExpiryGuavaCache<String, Object> customCache;
 
     @Resource
     private CfCfgMapper cfCfgMapper;
@@ -68,12 +78,72 @@ public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements
 
     @Override
     public void updateCfCfg(UpdateCfCfgParams params) {
-        CfCfg cfCfg = Optional.ofNullable(this.getById(params.getId()))
-                .orElseThrow(() -> new OciException(-1, "当前配置不存在"));
+        CfCfg cfCfg = Optional.ofNullable(this.getById(params.getId())).orElseThrow(() -> new OciException(-1, "当前配置不存在"));
         cfCfg.setDomain(params.getDomain());
         cfCfg.setZoneId(params.getZoneId());
         cfCfg.setApiToken(params.getApiToken());
         this.updateById(cfCfg);
+    }
+
+    @Override
+    public void addCfDnsRecord(OciAddCfDnsRecordsParams params) {
+        CfCfg cfCfg = Optional.ofNullable(this.getById(params.getCfCfgId())).orElseThrow(() -> new OciException(-1, "当前配置不存在"));
+        AddCfDnsRecordsParams addCfDnsRecordsParams = new AddCfDnsRecordsParams();
+        addCfDnsRecordsParams.setDomainPrefix(params.getPrefix());
+        addCfDnsRecordsParams.setType(params.getType());
+        addCfDnsRecordsParams.setProxied(params.getProxied());
+        addCfDnsRecordsParams.setIpAddress(params.getIpAddress());
+        addCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
+        addCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
+        addCfDnsRecordsParams.setComment(params.getComment());
+        addCfDnsRecordsParams.setTtl(params.getTtl());
+        handleHttpRsp(cfApiService.addCfDnsRecords(addCfDnsRecordsParams));
+    }
+
+    @Override
+    public void removeCfDnsRecord(OciRemoveCfDnsRecordsParams params) {
+        CfCfg cfCfg = Optional.ofNullable(this.getById(params.getCfCfgId())).orElseThrow(() -> new OciException(-1, "当前配置不存在"));
+        RemoveCfDnsByIdsParams removeCfDnsRecordsParams = new RemoveCfDnsByIdsParams();
+        removeCfDnsRecordsParams.setRecordIds(params.getRecordIds());
+        removeCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
+        removeCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
+        cfApiService.removeCfDnsByIdsRecords(removeCfDnsRecordsParams);
+    }
+
+    @Override
+    public void updateCfDnsRecord(OciUpdateCfDnsRecordsParams params) {
+        CfCfg cfCfg = Optional.ofNullable(this.getById(params.getCfCfgId())).orElseThrow(() -> new OciException(-1, "当前配置不存在"));
+        UpdateCfDnsRecordsParams updateCfDnsRecordsParams = new UpdateCfDnsRecordsParams();
+        updateCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
+        updateCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
+        updateCfDnsRecordsParams.setId(params.getId());
+        updateCfDnsRecordsParams.setName(params.getName());
+        updateCfDnsRecordsParams.setType(params.getType());
+        updateCfDnsRecordsParams.setIpAddress(params.getIpAddress());
+        updateCfDnsRecordsParams.setProxied(params.getProxied());
+        updateCfDnsRecordsParams.setTtl(params.getTtl());
+        updateCfDnsRecordsParams.setComment(params.getComment());
+        handleHttpRsp(cfApiService.updateCfDnsRecords(updateCfDnsRecordsParams));
+    }
+
+    @Override
+    public Page<ListCfDnsRecordRsp> listCfDnsRecord(ListCfDnsRecordsParams params) {
+        return null;
+    }
+
+    @Override
+    public GetCfCfgSelRsp getCfCfgSel() {
+        return new GetCfCfgSelRsp(Optional.ofNullable(this.list())
+                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
+                .map(x -> new GetCfCfgSelRsp.CfCfgSel(x.getId(), x.getDomain()))
+                .collect(Collectors.toList()));
+    }
+
+    private void handleHttpRsp(HttpResponse httpResponse) {
+        if (!Boolean.parseBoolean(String.valueOf(JSONUtil.parseObj(httpResponse.body()).get("success")))) {
+            log.error("请求失败，接口返回数据：{}", httpResponse.body());
+            throw new OciException(-1, "请求失败，接口返回数据：" + httpResponse.body());
+        }
     }
 }
 

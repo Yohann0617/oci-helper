@@ -4,10 +4,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yohann.ocihelper.bean.entity.CfCfg;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yohann.ocihelper.bean.params.IdListParams;
-import com.yohann.ocihelper.bean.params.cf.AddCfCfgParams;
-import com.yohann.ocihelper.bean.params.cf.ListCfCfgParams;
-import com.yohann.ocihelper.bean.params.cf.UpdateCfCfgParams;
+import com.yohann.ocihelper.bean.params.cf.*;
+import com.yohann.ocihelper.bean.response.cf.GetCfCfgSelRsp;
 import com.yohann.ocihelper.bean.response.cf.ListCfCfgPageRsp;
+import com.yohann.ocihelper.bean.response.cf.ListCfDnsRecordRsp;
 
 /**
 * @author Yohann_Fan
@@ -23,4 +23,14 @@ public interface ICfCfgService extends IService<CfCfg> {
     void removeCfCfg(IdListParams params);
 
     void updateCfCfg(UpdateCfCfgParams params);
+
+    void addCfDnsRecord(OciAddCfDnsRecordsParams params);
+
+    void removeCfDnsRecord(OciRemoveCfDnsRecordsParams params);
+
+    void updateCfDnsRecord(OciUpdateCfDnsRecordsParams params);
+
+    Page<ListCfDnsRecordRsp> listCfDnsRecord(ListCfDnsRecordsParams params);
+
+    GetCfCfgSelRsp getCfCfgSel();
 }
