@@ -2,6 +2,8 @@ package com.yohann.ocihelper.bean.params.cf;
 
 import lombok.Data;
 
+import javax.validation.constraints.NotBlank;
+
 /**
  * @ClassName AddCfCfgParams
  * @Description:
@@ -11,7 +13,10 @@ import lombok.Data;
 @Data
 public class AddCfCfgParams {
 
+    @NotBlank(message = "域名不能为空")
     private String domain;
+    @NotBlank(message = "区域ID不能为空")
     private String zoneId;
+    @NotBlank(message = "API令牌不能为空")
     private String apiToken;
 }

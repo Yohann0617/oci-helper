@@ -15,5 +15,6 @@ import lombok.EqualsAndHashCode;
 public class ListCfDnsRecordsParams extends BasicPageParams {
 
     private String cfCfgId;
-    
+    private Boolean cleanReLaunch;
+
 }

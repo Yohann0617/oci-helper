@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.yohann</groupId>
     <artifactId>oci-helper</artifactId>
-    <version>1.1.6</version>
+    <version>1.1.7</version>
     <name>oci-helper</name>
     <description>oci helper</description>
     <properties>
@@ -32,6 +32,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
         <dependency>
             <groupId>commons-io</groupId>

@@ -2,7 +2,7 @@
 
 # oci-helper
 
-> A web-based visual Oracle Cloud Assistant developed based on Oracle OCI SDK 🐢. The currently implemented functions include: batch adding multiple tenant configurations, changing instance configurations and boot volume configurations, attaching ipv6, security lists, real-time traffic query (minute level), changing instance public IPs according to multiple CIDR network segments, batch grabbing of multiple tenants at the same time, breakpoint resumption, backup and recovery, real-time log viewing, message notifications, MFA login verification and other functions.
+> A web-based visual Oracle Cloud Assistant developed based on Oracle OCI SDK 🐢. The currently implemented functions include: batch adding multiple tenant configurations, changing instance configurations and boot volume configurations, attaching ipv6, security lists, real-time traffic query (minute level), changing instance public IPs according to multiple CIDR network segments, batch grabbing of multiple tenants at the same time, breakpoint resumption, backup and recovery, real-time log viewing, message notifications, MFA login verification, Update Cloudflare DNS records and other functions.
 
 ## Notes and Disclaimer
 
@@ -25,6 +25,7 @@
 7. Support **real-time viewing of backend logs** on the front-end page.
 8. Support **encrypted backup and recovery**, realize seamless data migration, convenient and fast.
 9. Support **MFA** login verification function (not Turtle Shell, but the login of my panel) to ensure the security of the service.
+10. Support update **Cloudflare** DNS record function
 
 ## One-click docker-compose deployment or update
 
@@ -58,7 +59,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 ### 2. Download files
 
 1. Download the latest `application.yml` and `oci-helper.db` files in `Releases` to the `/app/oci-helper` directory, and modify some configurations of `application.yml`.
-2. If you do not use docker deployment, download another `oci-helper-1.1.6.jar` file to the `/app/oci-helper` directory, and run it directly `nohup java -jar oci-helper-1.1.6.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8`).
+2. If you do not use docker deployment, download another `oci-helper-1.1.7.jar` file to the `/app/oci-helper` directory, and run it directly `nohup java -jar oci-helper-1.1.7.jar > /var/log/oci-helper.log &` (the prerequisite is that the environment must have `jre8` or `jdk8`).
 3. If you update the jar package or docker image later, you need to install sqlite and run the command to update the version number in `sh_oci-helper_install.sh` (solve it yourself).
 
 ### 3. Docker deployment
@@ -111,7 +112,9 @@ docker compose pull && docker compose up -d
 ![image.png](./img/5-log.png)
 ![image.png](./img/6-basic-cfg.png)
 ![image.png](./img/7-backup.png)
+![image.png](./img/7-cf.png)
 ![image.png](./img/8-inform.png)
+
 
 ## Stargazers over time
 

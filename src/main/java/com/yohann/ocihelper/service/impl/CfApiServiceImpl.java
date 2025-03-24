@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -125,6 +126,7 @@ public class CfApiServiceImpl implements ICfApiService {
 
         JSONArray recordsArray = JSONUtil.parseArray(JSONUtil.parseObj(responseBody).get("result"));
         return recordsArray.stream()
+                .filter(Objects::nonNull)
                 .map(x -> JSONUtil.toBean(JSONUtil.parseObj(x), CfDnsRecordDTO.class))
                 .collect(Collectors.toList());
     }

@@ -7,6 +7,8 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yohann.ocihelper.bean.constant.CacheConstant;
+import com.yohann.ocihelper.bean.dto.CfDnsRecordDTO;
 import com.yohann.ocihelper.bean.entity.CfCfg;
 import com.yohann.ocihelper.bean.params.IdListParams;
 import com.yohann.ocihelper.bean.params.cf.*;
@@ -20,11 +22,13 @@ import com.yohann.ocihelper.service.ICfApiService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -128,7 +132,37 @@ public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements
 
     @Override
     public Page<ListCfDnsRecordRsp> listCfDnsRecord(ListCfDnsRecordsParams params) {
-        return null;
+        if (params.getCleanReLaunch()) {
+            customCache.remove(CacheConstant.PREFIX_VCN_PAGE + params.getCfCfgId());
+        }
+
+        CfCfg cfCfg = Optional.ofNullable(this.getById(params.getCfCfgId())).orElseThrow(() -> new OciException(-1, "当前配置不存在"));
+        List<ListCfDnsRecordRsp> cfDnsRecordRspList = (List<ListCfDnsRecordRsp>) customCache.get(CacheConstant.PREFIX_CF_DNS_RECORDS + params.getCfCfgId());
+        if (CollectionUtil.isEmpty(cfDnsRecordRspList)) {
+            GetCfDnsRecordsParams getCfDnsRecordsParams = new GetCfDnsRecordsParams();
+            getCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
+            getCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
+            cfDnsRecordRspList = Optional.ofNullable(cfApiService.getCfDnsRecords(getCfDnsRecordsParams))
+                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
+                    .map(x -> {
+                        ListCfDnsRecordRsp rsp = new ListCfDnsRecordRsp();
+                        BeanUtils.copyProperties(x, rsp);
+                        rsp.setCreatedOn(x.getCreatedOn().format(CommonUtils.DATETIME_FMT_NORM));
+                        rsp.setModifiedOn(x.getModifiedOn().format(CommonUtils.DATETIME_FMT_NORM));
+                        return rsp;
+                    })
+//                    .sorted(Comparator.comparing(ListCfDnsRecordRsp::getName))
+                    .collect(Collectors.toList());
+        }
+
+        customCache.put(CacheConstant.PREFIX_VCN_PAGE + params.getCfCfgId(), cfDnsRecordRspList, 10 * 60 * 1000);
+        List<ListCfDnsRecordRsp> dnsRecordsRsp = cfDnsRecordRspList.parallelStream()
+                .filter(x -> CommonUtils.contains(x.getName(), params.getKeyword(), true) ||
+                        CommonUtils.contains(x.getContent(), params.getKeyword(), true) ||
+                        CommonUtils.contains(x.getComment(), params.getKeyword(), true))
+                .collect(Collectors.toList());
+        List<ListCfDnsRecordRsp> page = CommonUtils.getPage(dnsRecordsRsp, params.getCurrentPage(), params.getPageSize());
+        return CommonUtils.buildPage(page, params.getPageSize(), params.getCurrentPage(), dnsRecordsRsp.size());
     }
 
     @Override
