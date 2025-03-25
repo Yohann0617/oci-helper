@@ -2,7 +2,7 @@ FROM maven:3.8.7-openjdk-18-slim AS builder
 
 WORKDIR /app
 
-COPY ../asusdemo/src/main/java/com/yohann/asusdemo/utils .
+COPY . .
 
 RUN mvn clean package -DskipTests \
     && cp target/oci-helper-1.1.7.jar /app/oci-helper.jar
