@@ -17,15 +17,19 @@ import com.yohann.ocihelper.enums.EnableEnum;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.enums.SysCfgTypeEnum;
 import com.yohann.ocihelper.service.*;
+import com.yohann.ocihelper.telegram.TgBot;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.SQLiteHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import javax.annotation.Resource;
 import java.io.FileWriter;
@@ -69,6 +73,7 @@ public class OciTask implements ApplicationRunner {
     private SQLiteHelper sqLiteHelper;
 
     private static volatile boolean isPushedLatestVersion = false;
+    public static volatile TelegramBotsLongPollingApplication botsApplication;
 
     @Value("${web.account}")
     private String account;
@@ -78,6 +83,7 @@ public class OciTask implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         TEMP_MAP.put("password", password);
+        startTgBog();
         updateUserInDb();
         cleanLogTask();
         cleanAndRestartTask();
@@ -86,6 +92,24 @@ public class OciTask implements ApplicationRunner {
         startInform();
         pushVersionUpdateMsg(kvService, sysService);
         dailyBroadcastTask();
+    }
+
+    private void startTgBog() {
+        CompletableFuture.runAsync(() -> {
+            OciKv tgToken = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_BOT_TOKEN.getCode()));
+            OciKv tgChatId = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_CHAT_ID.getCode()));
+
+            if (StrUtil.isNotBlank(tgToken.getValue()) && StrUtil.isNotBlank(tgChatId.getValue())) {
+                botsApplication = new TelegramBotsLongPollingApplication();
+                try {
+                    botsApplication.registerBot(tgToken.getValue(), new TgBot(tgToken.getValue(), tgChatId.getValue()));
+                    Thread.currentThread().join();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                log.info("TG Bot successfully started");
+            }
+        });
     }
 
     private void cleanLogTask() {

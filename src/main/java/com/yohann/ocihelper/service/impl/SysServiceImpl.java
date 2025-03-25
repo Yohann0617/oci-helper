@@ -34,6 +34,7 @@ import com.yohann.ocihelper.enums.SysCfgTypeEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.mapper.OciKvMapper;
 import com.yohann.ocihelper.service.*;
+import com.yohann.ocihelper.telegram.TgBot;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.MessageServiceFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,8 @@ import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -61,6 +64,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.*;
+import static com.yohann.ocihelper.task.OciTask.botsApplication;
 import static com.yohann.ocihelper.task.OciTask.pushVersionUpdateMsg;
 
 /**
@@ -187,6 +191,8 @@ public class SysServiceImpl implements ISysService {
             kvService.remove(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
             FileUtil.del(CommonUtils.MFA_QR_PNG_PATH);
         }
+
+        startTgBot(params.getTgBotToken(), params.getTgChatId());
 
         stopTask(CacheConstant.PREFIX_PUSH_VERSION_UPDATE_MSG);
         stopTask(CacheConstant.PREFIX_PUSH_VERSION_UPDATE_MSG + "_push");
@@ -545,4 +551,33 @@ public class SysServiceImpl implements ISysService {
         ));
     }
 
+    private void startTgBot(String botToken, String chatId) {
+        if (StrUtil.isBlank(botToken) && StrUtil.isBlank(chatId)) {
+            if (botsApplication.isRunning()) {
+                try {
+                    botsApplication.close();
+                } catch (Exception e) {
+                    log.error("TG Bot Application close error", e);
+                }
+            }
+        }
+        CompletableFuture.runAsync(() -> {
+            if (StrUtil.isNotBlank(botToken) && StrUtil.isNotBlank(chatId)) {
+                if (botsApplication.isRunning()) {
+                    try {
+                        botsApplication.close();
+                    } catch (Exception e) {
+                        log.error("TG Bot Application close error", e);
+                    }
+                }
+                botsApplication = new TelegramBotsLongPollingApplication();
+                try {
+                    botsApplication.registerBot(botToken, new TgBot(botToken, chatId));
+                    Thread.currentThread().join();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+    }
 }
