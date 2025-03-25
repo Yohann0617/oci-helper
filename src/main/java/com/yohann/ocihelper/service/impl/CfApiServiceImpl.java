@@ -12,10 +12,7 @@ import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.ICfApiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -131,27 +128,4 @@ public class CfApiServiceImpl implements ICfApiService {
                 .collect(Collectors.toList());
     }
 
-    public static void main(String[] args) {
-        String zoneId = "";
-        String apiToken = "";
-
-//        AddCfDnsRecordsParams addCfDnsRecordsParams = new AddCfDnsRecordsParams();
-//        addCfDnsRecordsParams.setDomainPrefix("oci-test");
-//        addCfDnsRecordsParams.setType("A");
-//        addCfDnsRecordsParams.setProxied(true);
-//        addCfDnsRecordsParams.setIpAddress("1.2.3.4");
-//        addCfDnsRecordsParams.setZoneId(zoneId);
-//        addCfDnsRecordsParams.setApiToken(apiToken);
-//        System.out.println(new CfApiServiceImpl().addCfDnsRecords(addCfDnsRecordsParams).body());
-
-        UpdateCfDnsRecordsParams updateCfDnsRecordsParams = new UpdateCfDnsRecordsParams();
-        updateCfDnsRecordsParams.setZoneId(zoneId);
-        updateCfDnsRecordsParams.setApiToken(apiToken);
-        updateCfDnsRecordsParams.setId("e97f24004f5c7df7b1133c75293e4973");
-        updateCfDnsRecordsParams.setName("oci-test2");
-        updateCfDnsRecordsParams.setType("A");
-        updateCfDnsRecordsParams.setIpAddress("11.22.33.44");
-        updateCfDnsRecordsParams.setProxied(true);
-        System.out.println(new CfApiServiceImpl().updateCfDnsRecords(updateCfDnsRecordsParams).body());
-    }
 }

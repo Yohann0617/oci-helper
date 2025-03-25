@@ -8,7 +8,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
-import com.yohann.ocihelper.bean.dto.CfDnsRecordDTO;
 import com.yohann.ocihelper.bean.entity.CfCfg;
 import com.yohann.ocihelper.bean.params.IdListParams;
 import com.yohann.ocihelper.bean.params.cf.*;
@@ -28,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -95,7 +93,7 @@ public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements
         AddCfDnsRecordsParams addCfDnsRecordsParams = new AddCfDnsRecordsParams();
         addCfDnsRecordsParams.setDomainPrefix(params.getPrefix());
         addCfDnsRecordsParams.setType(params.getType());
-        addCfDnsRecordsParams.setProxied(params.getProxied());
+        addCfDnsRecordsParams.setProxied(params.isProxied());
         addCfDnsRecordsParams.setIpAddress(params.getIpAddress());
         addCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
         addCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
@@ -117,17 +115,34 @@ public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements
     @Override
     public void updateCfDnsRecord(OciUpdateCfDnsRecordsParams params) {
         CfCfg cfCfg = Optional.ofNullable(this.getById(params.getCfCfgId())).orElseThrow(() -> new OciException(-1, "当前配置不存在"));
-        UpdateCfDnsRecordsParams updateCfDnsRecordsParams = new UpdateCfDnsRecordsParams();
-        updateCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
-        updateCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
-        updateCfDnsRecordsParams.setId(params.getId());
-        updateCfDnsRecordsParams.setName(params.getName());
-        updateCfDnsRecordsParams.setType(params.getType());
-        updateCfDnsRecordsParams.setIpAddress(params.getIpAddress());
-        updateCfDnsRecordsParams.setProxied(params.getProxied());
-        updateCfDnsRecordsParams.setTtl(params.getTtl());
-        updateCfDnsRecordsParams.setComment(params.getComment());
-        handleHttpRsp(cfApiService.updateCfDnsRecords(updateCfDnsRecordsParams));
+//        UpdateCfDnsRecordsParams updateCfDnsRecordsParams = new UpdateCfDnsRecordsParams();
+//        updateCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
+//        updateCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
+//        updateCfDnsRecordsParams.setId(params.getId());
+//        updateCfDnsRecordsParams.setName(params.getPrefix() + "." + cfCfg.getDomain());
+//        updateCfDnsRecordsParams.setType(params.getType());
+//        updateCfDnsRecordsParams.setIpAddress(params.getIpAddress());
+//        updateCfDnsRecordsParams.setProxied(params.isProxied());
+//        updateCfDnsRecordsParams.setTtl(params.getTtl());
+//        updateCfDnsRecordsParams.setComment(params.getComment());
+//        cfApiService.updateCfDnsRecords(updateCfDnsRecordsParams);
+
+        RemoveCfDnsByIdsParams removeCfDnsRecordsParams = new RemoveCfDnsByIdsParams();
+        removeCfDnsRecordsParams.setRecordIds(Collections.singletonList(params.getId()));
+        removeCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
+        removeCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
+        cfApiService.removeCfDnsByIdsRecords(removeCfDnsRecordsParams);
+
+        AddCfDnsRecordsParams addCfDnsRecordsParams = new AddCfDnsRecordsParams();
+        addCfDnsRecordsParams.setDomainPrefix(params.getPrefix());
+        addCfDnsRecordsParams.setType(params.getType());
+        addCfDnsRecordsParams.setProxied(params.isProxied());
+        addCfDnsRecordsParams.setIpAddress(params.getIpAddress());
+        addCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
+        addCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
+        addCfDnsRecordsParams.setComment(params.getComment());
+        addCfDnsRecordsParams.setTtl(params.getTtl());
+        handleHttpRsp(cfApiService.addCfDnsRecords(addCfDnsRecordsParams));
     }
 
     @Override

@@ -32,7 +32,7 @@ public class CrossDomainFilter extends WebMvcConfigurationSupport {
                 .allowedHeaders("*")
                 .allowCredentials(false)
                 .maxAge(3600)
-                .exposedHeaders("Upgrade", "Connection","Content-Disposition");
+                .exposedHeaders("Upgrade", "Connection", "Content-Disposition");
         super.addCorsMappings(registry);
     }
 

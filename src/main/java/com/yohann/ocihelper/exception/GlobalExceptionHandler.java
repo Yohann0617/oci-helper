@@ -33,6 +33,7 @@ public class GlobalExceptionHandler {
             }
             return ResponseData.errorData(-1, message);
         } else {
+            log.error("unknown Exception", e);
             return ResponseData.errorData(-1, e.getLocalizedMessage());
         }
     }

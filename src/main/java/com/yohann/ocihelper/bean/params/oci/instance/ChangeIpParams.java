@@ -22,6 +22,5 @@ public class ChangeIpParams {
     @NotBlank(message = "实例id不能为空")
     private String instanceId;
 
-    @NotEmpty(message = "cidr列表不能为空")
     private List<String> cidrList;
 }

@@ -74,6 +74,8 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                         .build();
                 try {
                     telegramClient.execute(message);
+                    ISysService sysService = SpringUtil.getBean(ISysService.class);
+                    sysService.sendMessage("用户：" + chat_id + " 操作失败，发送的消息：" + message_text);
                     return;
                 } catch (TelegramApiException e) {
                     log.error("TG Bot error", e);
@@ -137,7 +139,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             telegramClient.execute(SendMessage
                     .builder()
                     .chatId(chatId)
-                    .text("请选择操作：")
+                    .text("请选择需要执行的操作：")
                     .replyMarkup(InlineKeyboardMarkup
                             .builder()
                             .keyboard(getStartInlineKeyboardRowList())
@@ -155,9 +157,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                                 .builder()
                                 .text("\uD83D\uDECE 一键测活")
                                 .callbackData("check_alive")
-                                .build()
-                ),
-                new InlineKeyboardRow(
+                                .build(),
                         InlineKeyboardButton
                                 .builder()
                                 .text("\uD83D\uDCC3 任务详情")
@@ -184,8 +184,6 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             return "暂无配置";
         }
 
-        String rst = "总配置数：%s ，失效配置数：%s 。\n 失效配置：【%s】";
-
         List<String> failNames = ids.parallelStream().filter(id -> {
             SysUserDTO ociUser = sysService.getOciUser(id);
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
@@ -201,35 +199,13 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
 
     private String taskDetails() {
         IOciUserService userService = SpringUtil.getBean(IOciUserService.class);
-        ISysService sysService = SpringUtil.getBean(ISysService.class);
         IOciCreateTaskService createTaskService = SpringUtil.getBean(IOciCreateTaskService.class);
 
         String message = "【任务详情】\n" +
                 "\n" +
                 "时间：\t%s\n" +
-                "总API配置数：\t%s\n" +
-                "失效API配置数：\t%s\n" +
-                "失效的API配置：\t%s\n" +
                 "正在执行的开机任务：\n" +
                 "%s\n";
-        List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
-                .isNotNull(OciUser::getId)
-                .select(OciUser::getId), String::valueOf);
-
-        CompletableFuture<List<?>> fails = CompletableFuture.supplyAsync(() -> {
-            if (ids.isEmpty()) {
-                return Collections.emptyList();
-            }
-            return ids.parallelStream().filter(id -> {
-                SysUserDTO ociUser = sysService.getOciUser(id);
-                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
-                    fetcher.getAvailabilityDomains();
-                } catch (Exception e) {
-                    return true;
-                }
-                return false;
-            }).map(id -> sysService.getOciUser(id).getUsername()).collect(Collectors.toList());
-        });
 
         CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
             List<OciCreateTask> ociCreateTaskList = createTaskService.list();
@@ -246,13 +222,10 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             }).collect(Collectors.joining("\n"));
         });
 
-        CompletableFuture.allOf(fails, task).join();
+        CompletableFuture.allOf(task).join();
 
         return String.format(message,
                 LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
-                CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
-                fails.join().size(),
-                fails.join(),
                 task.join()
         );
     }
