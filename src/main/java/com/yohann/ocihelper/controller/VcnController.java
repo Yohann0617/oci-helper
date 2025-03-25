@@ -30,16 +30,12 @@ public class VcnController {
     private IVcnService vcnService;
 
     @RequestMapping(path = "page")
-    public ResponseData<Page<VcnPageRsp.VcnInfo>> page(@Validated @RequestBody VcnPageParams params,
-                                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Page<VcnPageRsp.VcnInfo>> page(@Validated @RequestBody VcnPageParams params) {
         return ResponseData.successData(vcnService.page(params));
     }
 
     @RequestMapping(path = "/remove")
-    public ResponseData<Void> remove(@Validated @RequestBody RemoveVcnParams params,
-                                     BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> remove(@Validated @RequestBody RemoveVcnParams params) {
         vcnService.remove(params);
         return ResponseData.successData("删除vcn成功");
     }

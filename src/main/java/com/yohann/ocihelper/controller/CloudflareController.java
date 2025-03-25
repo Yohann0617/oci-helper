@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import javax.validation.Valid;
 
 /**
  * @ClassName CloudflareController
@@ -31,64 +32,48 @@ public class CloudflareController {
     private ICfCfgService cfCfgService;
 
     @RequestMapping("/listCfg")
-    public ResponseData<Page<ListCfCfgPageRsp>> listCfg(@Validated @RequestBody ListCfCfgParams params,
-                                                        BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Page<ListCfCfgPageRsp>> listCfg(@Validated @RequestBody ListCfCfgParams params) {
         return ResponseData.successData(cfCfgService.listCfg(params));
     }
 
     @RequestMapping("/add")
-    public ResponseData<Void> addCfCfg(@Validated @RequestBody AddCfCfgParams params,
-                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> addCfCfg(@Validated @RequestBody AddCfCfgParams params) {
         cfCfgService.addCfCfg(params);
         return ResponseData.successData();
     }
 
     @RequestMapping("/removeBatch")
-    public ResponseData<Void> removeCfCfg(@Validated @RequestBody IdListParams params,
-                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> removeCfCfg(@Validated @RequestBody IdListParams params) {
         cfCfgService.removeCfCfg(params);
         return ResponseData.successData();
     }
 
     @RequestMapping("/update")
-    public ResponseData<Void> updateCfCfg(@Validated @RequestBody UpdateCfCfgParams params,
-                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> updateCfCfg(@Validated @RequestBody UpdateCfCfgParams params) {
         cfCfgService.updateCfCfg(params);
         return ResponseData.successData();
     }
 
     @RequestMapping("/addCfDnsRecord")
-    public ResponseData<Void> addCfDnsRecord(@Validated @RequestBody OciAddCfDnsRecordsParams params,
-                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> addCfDnsRecord(@Validated @RequestBody OciAddCfDnsRecordsParams params) {
         cfCfgService.addCfDnsRecord(params);
         return ResponseData.successData();
     }
 
     @RequestMapping("/removeCfDnsRecord")
-    public ResponseData<Void> removeCfDnsRecord(@Validated @RequestBody OciRemoveCfDnsRecordsParams params,
-                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> removeCfDnsRecord(@Validated @RequestBody OciRemoveCfDnsRecordsParams params) {
         cfCfgService.removeCfDnsRecord(params);
         return ResponseData.successData();
     }
 
     @RequestMapping("/updateCfDnsRecord")
-    public ResponseData<Void> updateCfDnsRecord(@Validated @RequestBody OciUpdateCfDnsRecordsParams params,
-                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> updateCfDnsRecord(@Validated @RequestBody OciUpdateCfDnsRecordsParams params) {
         cfCfgService.updateCfDnsRecord(params);
         return ResponseData.successData();
     }
 
     @RequestMapping("/listCfDnsRecord")
-    public ResponseData<Page<ListCfDnsRecordRsp>> listCfDnsRecord(@Validated @RequestBody ListCfDnsRecordsParams params,
-                                                                  BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Page<ListCfDnsRecordRsp>> listCfDnsRecord(@Validated @RequestBody ListCfDnsRecordsParams params) {
         return ResponseData.successData(cfCfgService.listCfDnsRecord(params));
     }
 

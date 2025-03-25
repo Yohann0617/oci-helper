@@ -33,24 +33,18 @@ public class BootVolumeController {
     private IBootVolumeService bootVolumeService;
 
     @PostMapping(path = "/page")
-    public ResponseData<Page<BootVolumeListPage.BootVolumeInfo>> userPage(@Validated @RequestBody BootVolumePageParams params,
-                                                                          BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Page<BootVolumeListPage.BootVolumeInfo>> userPage(@Validated @RequestBody BootVolumePageParams params) {
         return ResponseData.successData(bootVolumeService.bootVolumeListPage(params), "获取引导卷分页列表成功");
     }
 
     @PostMapping(path = "/terminate")
-    public ResponseData<Void> terminate(@Validated @RequestBody TerminateBootVolumeParams params,
-                                     BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> terminate(@Validated @RequestBody TerminateBootVolumeParams params) {
         bootVolumeService.terminateBootVolume(params);
         return ResponseData.successData("终止引导卷命令下发成功");
     }
 
     @PostMapping(path = "/update")
-    public ResponseData<Void> update(@Validated @RequestBody UpdateBootVolumeParams params,
-                                     BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> update(@Validated @RequestBody UpdateBootVolumeParams params) {
         bootVolumeService.update(params);
         return ResponseData.successData("更改引导卷配置成功");
     }

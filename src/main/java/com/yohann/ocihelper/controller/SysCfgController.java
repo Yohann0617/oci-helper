@@ -27,9 +27,7 @@ public class SysCfgController {
     private ISysService sysService;
 
     @PostMapping(path = "/login")
-    public ResponseData<String> addCfg(@Validated @RequestBody LoginParams params,
-                                       BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<String> addCfg(@Validated @RequestBody LoginParams params) {
         return ResponseData.successData(sysService.login(params), "登录成功");
     }
 
@@ -44,25 +42,19 @@ public class SysCfgController {
     }
 
     @PostMapping(path = "/updateSysCfg")
-    public ResponseData<Void> updateSysCfg(@Validated @RequestBody UpdateSysCfgParams params,
-                                           BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> updateSysCfg(@Validated @RequestBody UpdateSysCfgParams params) {
         sysService.updateSysCfg(params);
         return ResponseData.successData("更新系统配置成功");
     }
 
     @PostMapping(path = "/sendMsg")
-    public ResponseData<Void> sendMsg(@Validated @RequestBody SendMsgParams params,
-                                      BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> sendMsg(@Validated @RequestBody SendMsgParams params) {
         sysService.sendMessage(params.getMessage());
         return ResponseData.successData("发送消息成功");
     }
 
     @PostMapping(path = "/checkMfaCode")
-    public ResponseData<Void> checkMfaCode(@Validated @RequestBody CheckMfaCodeParams params,
-                                      BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> checkMfaCode(@Validated @RequestBody CheckMfaCodeParams params) {
         sysService.checkMfaCode(params.getMfaCode());
         return ResponseData.successData("MFA验证通过");
     }
@@ -73,9 +65,7 @@ public class SysCfgController {
     }
 
     @PostMapping(path = "/recover")
-    public ResponseData<Void> recover(@Validated RecoverParams params,
-                                      BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> recover(@Validated RecoverParams params) {
         sysService.recover(params);
         return ResponseData.successData("恢复数据成功");
     }

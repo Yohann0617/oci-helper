@@ -29,48 +29,36 @@ public class TenantController {
     private ITenantService tenantService;
 
     @RequestMapping("tenantInfo")
-    public ResponseData<TenantInfoRsp> tenantInfo(@Validated @RequestBody GetTenantInfoParams params,
-                                                  BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<TenantInfoRsp> tenantInfo(@Validated @RequestBody GetTenantInfoParams params) {
         return ResponseData.successData(tenantService.tenantInfo(params));
     }
 
     @RequestMapping("deleteUser")
-    public ResponseData<Void> deleteUser(@Validated @RequestBody UpdateUserBasicParams params,
-                                            BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> deleteUser(@Validated @RequestBody UpdateUserBasicParams params) {
         tenantService.deleteUser(params);
         return ResponseData.successData("删除用户成功");
     }
 
     @RequestMapping("deleteMfaDevice")
-    public ResponseData<Void> deleteMfaDevice(@Validated @RequestBody UpdateUserBasicParams params,
-                                                  BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> deleteMfaDevice(@Validated @RequestBody UpdateUserBasicParams params) {
         tenantService.deleteMfaDevice(params);
         return ResponseData.successData("清除 MFA 设备成功");
     }
 
     @RequestMapping("deleteApiKey")
-    public ResponseData<Void> deleteApiKey(@Validated @RequestBody UpdateUserBasicParams params,
-                                                  BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> deleteApiKey(@Validated @RequestBody UpdateUserBasicParams params) {
         tenantService.deleteApiKey(params);
         return ResponseData.successData("清除所有 API 成功");
     }
 
     @RequestMapping("resetPassword")
-    public ResponseData<Void> resetPassword(@Validated @RequestBody UpdateUserBasicParams params,
-                                                  BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> resetPassword(@Validated @RequestBody UpdateUserBasicParams params) {
         tenantService.resetPassword(params);
         return ResponseData.successData("重置用户密码成功");
     }
 
     @RequestMapping("updateUserInfo")
-    public ResponseData<Void> updateUserInfo(@Validated @RequestBody UpdateUserInfoParams params,
-                                                  BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> updateUserInfo(@Validated @RequestBody UpdateUserInfoParams params) {
         tenantService.updateUserInfo(params);
         return ResponseData.successData("更新用户信息成功");
     }

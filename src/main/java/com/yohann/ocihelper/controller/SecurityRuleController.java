@@ -33,32 +33,24 @@ public class SecurityRuleController {
     private ISecurityRuleService securityRuleService;
 
     @RequestMapping("/page")
-    public ResponseData<Page<SecurityRuleListRsp.SecurityRuleInfo>> page(@Validated @RequestBody GetSecurityRuleListPageParams params,
-                                                                         BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Page<SecurityRuleListRsp.SecurityRuleInfo>> page(@Validated @RequestBody GetSecurityRuleListPageParams params) {
         return ResponseData.successData(securityRuleService.page(params));
     }
 
     @RequestMapping("/addIngress")
-    public ResponseData<Void> addIngress(@Validated @RequestBody AddIngressSecurityRuleParams params,
-                                         BindingResult bindingResult){
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> addIngress(@Validated @RequestBody AddIngressSecurityRuleParams params){
         securityRuleService.addIngress(params);
         return ResponseData.successData();
     }
 
     @RequestMapping("/addEgress")
-    public ResponseData<Void> addEgress(@Validated @RequestBody AddEgressSecurityRuleParams params,
-                                         BindingResult bindingResult){
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> addEgress(@Validated @RequestBody AddEgressSecurityRuleParams params){
         securityRuleService.addEgress(params);
         return ResponseData.successData();
     }
 
     @RequestMapping("/remove")
-    public ResponseData<Void> remove(@Validated @RequestBody RemoveSecurityRuleParams params,
-                                         BindingResult bindingResult){
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<Void> remove(@Validated @RequestBody RemoveSecurityRuleParams params){
         securityRuleService.remove(params);
         return ResponseData.successData();
     }

@@ -28,7 +28,9 @@ public class GlobalExceptionHandler {
         } else if (e instanceof MethodArgumentNotValidException) {
             MethodArgumentNotValidException manve = (MethodArgumentNotValidException) e;
             String message = manve.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-            log.error("business exception:{}, original exception : ", manve.getMessage(), manve.getCause());
+            if (manve.getCause() != null) {
+                log.error("business exception:{}, original exception : ", manve.getMessage(), manve.getCause());
+            }
             return ResponseData.errorData(-1, message);
         } else {
             return ResponseData.errorData(-1, e.getLocalizedMessage());

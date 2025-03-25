@@ -33,9 +33,7 @@ public class TrafficStatisticsController {
     private ITrafficService trafficService;
 
     @RequestMapping("data")
-    public ResponseData<GetTrafficDataRsp> getData(@Validated @RequestBody GetTrafficDataParams params,
-                                                   BindingResult bindingResult) {
-        CommonUtils.checkAndThrow(bindingResult);
+    public ResponseData<GetTrafficDataRsp> getData(@Validated @RequestBody GetTrafficDataParams params) {
         return ResponseData.successData(trafficService.getData(params), "获取流量数据成功");
     }
 
