@@ -2,7 +2,7 @@
 
 # oci-helper
 
-> A web-based visual Oracle Cloud Assistant developed based on Oracle OCI SDK 🐢. The currently implemented functions include: batch adding multiple tenant configurations, changing instance configurations and boot volume configurations, attaching ipv6, security lists, real-time traffic query (minute level), changing instance public IPs according to multiple CIDR network segments, batch grabbing of multiple tenants at the same time, breakpoint resumption, backup and recovery, real-time log viewing, message notifications, MFA login verification, Update Cloudflare DNS records and other functions.
+> A web-based visual Oracle Cloud Assistant developed based on Oracle OCI SDK 🐢. The currently implemented functions include: batch adding multiple tenant configurations, changing instance configurations and boot volume configurations, attaching ipv6, security lists, real-time traffic query (minute level), changing instance public IPs according to multiple CIDR network segments, batch grabbing of multiple tenants at the same time, breakpoint resumption, backup and recovery, real-time log viewing, message notifications, MFA login verification, Update Cloudflare DNS records, TG Robot Operation and other functions.
 
 ## Notes and Disclaimer
 
@@ -26,6 +26,7 @@
 8. Support **encrypted backup and recovery**, realize seamless data migration, convenient and fast.
 9. Support **MFA** login verification function (not Turtle Shell, but the login of my panel) to ensure the security of the service.
 10. Support update **Cloudflare** DNS record function
+11. Support **Telegram robot** simple operation. After the service is successfully deployed, send the `/start` selection operation to the robot.
 
 ## One-click docker-compose deployment or update
 
