@@ -98,6 +98,9 @@ docker compose pull && docker compose up -d
 
 ## Page display
 
+<details>
+    <summary> ☜ Click to show 👨‍💻</summary>
+
 ![image.png](./img/0-login.png)
 ![image.png](./img/1-home.png)
 ![image.png](./img/1-user.png)
@@ -115,7 +118,10 @@ docker compose pull && docker compose up -d
 ![image.png](./img/7-backup.png)
 ![image.png](./img/7-cf.png)
 ![image.png](./img/8-inform.png)
+![image.png](./img/9-tg-bot-1.jpg)
+![image.png](./img/9-tg-bot-2.jpg)
 
+</details>
 
 ## Stargazers over time
 
