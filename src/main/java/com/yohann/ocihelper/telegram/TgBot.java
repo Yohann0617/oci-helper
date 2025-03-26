@@ -5,12 +5,13 @@ import cn.hutool.extra.spring.SpringUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
+import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
+import com.yohann.ocihelper.bean.response.oci.traffic.FetchInstancesRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
-import com.yohann.ocihelper.service.IOciCreateTaskService;
-import com.yohann.ocihelper.service.IOciService;
-import com.yohann.ocihelper.service.IOciUserService;
-import com.yohann.ocihelper.service.ISysService;
+import com.yohann.ocihelper.enums.SysCfgEnum;
+import com.yohann.ocihelper.enums.SysCfgTypeEnum;
+import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
@@ -29,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -118,6 +120,30 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                         log.error("TG Bot error", e);
                     }
                     break;
+                case "version_info":
+                    try {
+                        telegramClient.execute(EditMessageText.builder()
+                                .chatId(chat_id)
+                                .messageId(toIntExact(message_id))
+                                .text(getVersionInfo())
+                                .replyMarkup(new InlineKeyboardMarkup(getStartInlineKeyboardRowList()))
+                                .build());
+                    } catch (TelegramApiException e) {
+                        log.error("TG Bot error", e);
+                    }
+                    break;
+                case "traffic_statistics":
+                    try {
+                        telegramClient.execute(EditMessageText.builder()
+                                .chatId(chat_id)
+                                .messageId(toIntExact(message_id))
+                                .text(getTrafficStatistics())
+                                .replyMarkup(new InlineKeyboardMarkup(getStartInlineKeyboardRowList()))
+                                .build());
+                    } catch (TelegramApiException e) {
+                        log.error("TG Bot error", e);
+                    }
+                    break;
                 case "cancel":
                     try {
                         telegramClient.execute(DeleteMessage.builder()
@@ -167,11 +193,66 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                 new InlineKeyboardRow(
                         InlineKeyboardButton
                                 .builder()
-                                .text("❌ 关闭")
+                                .text("\uD83D\uDEE1\uFE0F 版本信息")
+                                .callbackData("version_info")
+                                .build(),
+                        InlineKeyboardButton
+                                .builder()
+                                .text("\uD83D\uDCCA 流量统计")
+                                .callbackData("traffic_statistics")
+                                .build()
+                ),
+                new InlineKeyboardRow(
+                        InlineKeyboardButton
+                                .builder()
+                                .text("\uD83D\uDCBB 开源地址（帮忙点点star⭐）")
+                                .url("https://github.com/Yohann0617/oci-helper")
+                                .build()
+                ),
+                new InlineKeyboardRow(
+                        InlineKeyboardButton
+                                .builder()
+                                .text("❌ 关闭窗口")
                                 .callbackData("cancel")
                                 .build()
                 )
         );
+    }
+
+    private String getTrafficStatistics() {
+        IOciUserService userService = SpringUtil.getBean(IOciUserService.class);
+        ITrafficService trafficService = SpringUtil.getBean(ITrafficService.class);
+        List<OciUser> ociUserList = userService.list();
+        if (CollectionUtil.isEmpty(ociUserList)) {
+            return "暂无配置信息";
+        }
+        return "【流量统计】\n\n" + Optional.ofNullable(userService.list())
+                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
+                .map(ociCfg -> {
+                    FetchInstancesRsp fetchInstancesRsp = trafficService.fetchInstances(ociCfg.getId(), ociCfg.getOciRegion());
+                    return String.format("\uD83D\uDD58 时间：%s\n🔑 配置名：【%s】\n🌏 主区域：【%s】\n\uD83D\uDDA5 实例数量：【%s】 台\n⬇ 本月入站流量总计：%s\n⬆ 本月出站流量总计：%s\n",
+                            LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM), ociCfg.getUsername(),
+                            ociCfg.getOciRegion(), fetchInstancesRsp.getInstanceCount(),
+                            fetchInstancesRsp.getInboundTraffic(), fetchInstancesRsp.getOutboundTraffic()
+                    );
+                }).collect(Collectors.joining("\n"));
+    }
+
+    private String getVersionInfo() {
+        String content = "【版本信息】\n\n当前版本：%s\n最新版本：%s\n";
+        IOciKvService kvService = SpringUtil.getBean(IOciKvService.class);
+        String latest = CommonUtils.getLatestVersion();
+        String now = kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                .select(OciKv::getValue), String::valueOf);
+        String common = String.format(content, now, latest);
+        if (!now.equals(latest)) {
+            common += String.format("一键脚本：%s\n更新内容：\n%s",
+                    "bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)",
+                    CommonUtils.getLatestVersionBody());
+        }
+        return common;
     }
 
     private String checkAlive() {

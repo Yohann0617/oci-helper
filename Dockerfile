@@ -16,7 +16,7 @@ FROM eclipse-temurin:17-jre-jammy
 ENV LANG=zh_CN.UTF-8 \
     LC_ALL=zh_CN.UTF-8 \
     TZ=Asia/Shanghai \
-    OCI_HELPER_VERSION=1.2.1
+    OCI_HELPER_VERSION=1.2.2
 
 RUN locale-gen zh_CN.UTF-8 && \
     ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
