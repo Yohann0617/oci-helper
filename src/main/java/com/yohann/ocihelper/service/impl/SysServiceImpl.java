@@ -552,7 +552,7 @@ public class SysServiceImpl implements ISysService {
     }
 
     private void startTgBot(String botToken, String chatId) {
-        if (StrUtil.isBlank(botToken) && StrUtil.isBlank(chatId)) {
+        if (StrUtil.isBlank(botToken) || StrUtil.isBlank(chatId)) {
             if (botsApplication.isRunning()) {
                 try {
                     botsApplication.close();
