@@ -200,12 +200,12 @@ public class SysServiceImpl implements ISysService {
             pushVersionUpdateMsg(kvService, this);
         }
 
-        ScheduledFuture<?> scheduledFuture = TASK_MAP.get(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID);
+        ScheduledFuture<?> scheduledFuture = TASK_MAP.get(CacheConstant.DAILY_BROADCAST_TASK_ID);
         if (null != scheduledFuture) {
             scheduledFuture.cancel(true);
         }
         if (params.getEnableDailyBroadcast()) {
-            TASK_MAP.put(CacheConstant.PREFIX_DAILY_BROADCAST_CRON_ID, taskScheduler.schedule(this::dailyBroadcastTask,
+            TASK_MAP.put(CacheConstant.DAILY_BROADCAST_TASK_ID, taskScheduler.schedule(this::dailyBroadcastTask,
                     new CronTrigger(StrUtil.isBlank(params.getDailyBroadcastCron()) ? CacheConstant.TASK_CRON : params.getDailyBroadcastCron())));
         }
     }
