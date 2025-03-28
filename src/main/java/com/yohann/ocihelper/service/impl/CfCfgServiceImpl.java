@@ -79,6 +79,7 @@ public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateCfCfg(UpdateCfCfgParams params) {
         CfCfg cfCfg = Optional.ofNullable(this.getById(params.getId())).orElseThrow(() -> new OciException(-1, "当前配置不存在"));
         cfCfg.setDomain(params.getDomain());
