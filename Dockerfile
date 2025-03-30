@@ -7,7 +7,7 @@ COPY . .
 RUN mvn clean package -DskipTests \
     && cp target/oci-helper-*.jar /app/oci-helper.jar
 
-FROM eclipse-temurin:17.0.14_7-jre-alpine
+FROM eclipse-temurin:17-jre-alpine
 
 ENV LANG=zh_CN.UTF-8 \
     LC_ALL=zh_CN.UTF-8 \
