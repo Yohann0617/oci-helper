@@ -7,15 +7,15 @@ COPY . .
 RUN mvn clean package -DskipTests \
     && cp target/oci-helper-*.jar /app/oci-helper.jar
 
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre-jammy
 
 ENV LANG=zh_CN.UTF-8 \
     LC_ALL=zh_CN.UTF-8 \
     TZ=Asia/Shanghai \
-    OCI_HELPER_VERSION=1.2.3
+    OCI_HELPER_VERSION=1.2.2
 
-RUN apk add --no-cache tzdata && \
-    cp /usr/share/zoneinfo/$TZ /etc/localtime && \
+RUN locale-gen zh_CN.UTF-8 && \
+    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
 
 WORKDIR /app/oci-helper
