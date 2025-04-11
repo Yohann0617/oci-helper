@@ -553,7 +553,7 @@ public class SysServiceImpl implements ISysService {
 
     private void startTgBot(String botToken, String chatId) {
         if (StrUtil.isBlank(botToken) || StrUtil.isBlank(chatId)) {
-            if (botsApplication.isRunning()) {
+            if (null != botsApplication && botsApplication.isRunning()) {
                 try {
                     botsApplication.close();
                 } catch (Exception e) {
@@ -563,7 +563,7 @@ public class SysServiceImpl implements ISysService {
         }
         CompletableFuture.runAsync(() -> {
             if (StrUtil.isNotBlank(botToken) && StrUtil.isNotBlank(chatId)) {
-                if (botsApplication.isRunning()) {
+                if (null != botsApplication && botsApplication.isRunning()) {
                     try {
                         botsApplication.close();
                     } catch (Exception e) {
