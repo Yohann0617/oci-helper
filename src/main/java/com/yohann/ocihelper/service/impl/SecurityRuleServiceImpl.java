@@ -78,13 +78,14 @@ public class SecurityRuleServiceImpl implements ISecurityRuleService {
                         info.setIsStateless(ingressSecurityRule.getIsStateless());
                         info.setProtocol(SecurityRuleProtocolEnum.fromCode(ingressSecurityRule.getProtocol()).getDesc());
                         info.setSourceOrDestination(ingressSecurityRule.getSource());
-                        info.setTypeAndCode(null == ingressSecurityRule.getIcmpOptions() ? null :
+                        info.setTypeAndCode(ingressSecurityRule.getProtocol().equals("1") ? (null == ingressSecurityRule.getIcmpOptions() ? "全部" :
                                 ingressSecurityRule.getIcmpOptions().getType() +
                                         (null == ingressSecurityRule.getIcmpOptions().getCode() ? "" :
-                                                ", " + ingressSecurityRule.getIcmpOptions().getCode()));
+                                                ", " + ingressSecurityRule.getIcmpOptions().getCode())) : null);
                         info.setDescription(ingressSecurityRule.getDescription());
-                        String sourcePort = null;
-                        String destinationPort = null;
+                        List<String> protocolList = Arrays.asList("6", "17");
+                        String sourcePort = protocolList.contains(ingressSecurityRule.getProtocol()) ? "全部" : null;
+                        String destinationPort = protocolList.contains(ingressSecurityRule.getProtocol()) ? "全部" : null;
                         if ("6".equals(ingressSecurityRule.getProtocol())) {
                             if (null != ingressSecurityRule.getTcpOptions()) {
                                 if (null != ingressSecurityRule.getTcpOptions().getSourcePortRange()) {
@@ -130,13 +131,14 @@ public class SecurityRuleServiceImpl implements ISecurityRuleService {
                         info.setIsStateless(egressSecurityRule.getIsStateless());
                         info.setProtocol(SecurityRuleProtocolEnum.fromCode(egressSecurityRule.getProtocol()).getDesc());
                         info.setSourceOrDestination(egressSecurityRule.getDestination());
-                        info.setTypeAndCode(null == egressSecurityRule.getIcmpOptions() ? null :
+                        info.setTypeAndCode(egressSecurityRule.getProtocol().equals("1") ? (null == egressSecurityRule.getIcmpOptions() ? "全部" :
                                 egressSecurityRule.getIcmpOptions().getType() +
                                         (null == egressSecurityRule.getIcmpOptions().getCode() ? "" :
-                                                ", " + egressSecurityRule.getIcmpOptions().getCode()));
+                                                ", " + egressSecurityRule.getIcmpOptions().getCode())) : null);
                         info.setDescription(egressSecurityRule.getDescription());
-                        String sourcePort = null;
-                        String destinationPort = null;
+                        List<String> protocolList = Arrays.asList("6", "17");
+                        String sourcePort = protocolList.contains(egressSecurityRule.getProtocol()) ? "全部" : null;
+                        String destinationPort = protocolList.contains(egressSecurityRule.getProtocol()) ? "全部" : null;
                         if ("6".equals(egressSecurityRule.getProtocol())) {
                             if (null != egressSecurityRule.getTcpOptions()) {
                                 if (null != egressSecurityRule.getTcpOptions().getSourcePortRange()) {
@@ -315,6 +317,9 @@ public class SecurityRuleServiceImpl implements ISecurityRuleService {
     }
 
     private Tuple2<Integer, Integer> getPortRange(String portRangeStr) {
+        if (StrUtil.isBlank(portRangeStr)) {
+            return Tuple2.of(null, null);
+        }
         String[] split = portRangeStr.split("-");
         if (split.length == 1) {
             return Tuple2.of(Integer.valueOf(split[0]), Integer.valueOf(split[0]));

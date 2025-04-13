@@ -18,6 +18,7 @@ import com.oracle.bmc.identity.responses.*;
 import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.monitoring.MonitoringClient;
 import com.oracle.bmc.workrequests.WorkRequestClient;
+import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
@@ -1761,29 +1762,57 @@ public class OracleInstanceFetcher implements Closeable {
                     }
 
                     if ("6".equals(ingressRule.getProtocol())) {
-                        builder.tcpOptions(TcpOptions.builder()
-                                .sourcePortRange(PortRange.builder()
-                                        .min(ingressRule.getTcpSourcePortMin())
-                                        .max(ingressRule.getTcpSourcePortMax())
-                                        .build())
-                                .destinationPortRange(PortRange.builder()
-                                        .min(ingressRule.getTcpDesPortMin())
-                                        .max(ingressRule.getTcpDesPortMax())
-                                        .build())
-                                .build());
+                        TcpOptions.Builder tcpBuilder = TcpOptions.builder();
+                        if (ingressRule.getTcpSourcePortMin() == null && ingressRule.getTcpSourcePortMax() == null &&
+                                ingressRule.getTcpDesPortMin() != null && ingressRule.getTcpDesPortMax() != null) {
+                            tcpBuilder.destinationPortRange(PortRange.builder()
+                                    .min(ingressRule.getTcpDesPortMin())
+                                    .max(ingressRule.getTcpDesPortMax())
+                                    .build());
+                        } else if (ingressRule.getTcpSourcePortMin() != null && ingressRule.getTcpSourcePortMax() != null &&
+                                ingressRule.getTcpDesPortMin() == null && ingressRule.getTcpDesPortMax() == null) {
+                            tcpBuilder.sourcePortRange(PortRange.builder()
+                                    .min(ingressRule.getTcpSourcePortMin())
+                                    .max(ingressRule.getTcpSourcePortMax())
+                                    .build());
+                        } else {
+                            tcpBuilder.sourcePortRange(PortRange.builder()
+                                            .min(ingressRule.getTcpSourcePortMin())
+                                            .max(ingressRule.getTcpSourcePortMax())
+                                            .build())
+                                    .destinationPortRange(PortRange.builder()
+                                            .min(ingressRule.getTcpDesPortMin())
+                                            .max(ingressRule.getTcpDesPortMax())
+                                            .build());
+                        }
+                        builder.tcpOptions(tcpBuilder.build());
                     }
 
                     if ("17".equals(ingressRule.getProtocol())) {
-                        builder.udpOptions(UdpOptions.builder()
-                                .sourcePortRange(PortRange.builder()
-                                        .min(ingressRule.getUdpSourcePortMin())
-                                        .max(ingressRule.getUdpSourcePortMax())
-                                        .build())
-                                .destinationPortRange(PortRange.builder()
-                                        .min(ingressRule.getUdpDesPortMin())
-                                        .max(ingressRule.getUdpDesPortMax())
-                                        .build())
-                                .build());
+                        UdpOptions.Builder udpBuilder = UdpOptions.builder();
+                        if (ingressRule.getUdpSourcePortMin() == null && ingressRule.getUdpSourcePortMax() == null &&
+                                ingressRule.getUdpDesPortMin() != null && ingressRule.getUdpDesPortMax() != null) {
+                            udpBuilder.destinationPortRange(PortRange.builder()
+                                    .min(ingressRule.getUdpDesPortMin())
+                                    .max(ingressRule.getUdpDesPortMax())
+                                    .build());
+                        } else if (ingressRule.getUdpSourcePortMin() != null && ingressRule.getUdpSourcePortMax() != null &&
+                                ingressRule.getUdpDesPortMin() == null && ingressRule.getUdpDesPortMax() == null) {
+                            udpBuilder.sourcePortRange(PortRange.builder()
+                                    .min(ingressRule.getUdpSourcePortMin())
+                                    .max(ingressRule.getUdpSourcePortMax())
+                                    .build());
+                        } else {
+                            udpBuilder.sourcePortRange(PortRange.builder()
+                                            .min(ingressRule.getUdpSourcePortMin())
+                                            .max(ingressRule.getUdpSourcePortMax())
+                                            .build())
+                                    .destinationPortRange(PortRange.builder()
+                                            .min(ingressRule.getUdpDesPortMin())
+                                            .max(ingressRule.getUdpDesPortMax())
+                                            .build());
+                        }
+                        builder.udpOptions(udpBuilder.build());
                     }
 
                     return builder.build();
@@ -1805,29 +1834,57 @@ public class OracleInstanceFetcher implements Closeable {
                     }
 
                     if ("6".equals(egressRule.getProtocol())) {
-                        builder.tcpOptions(TcpOptions.builder()
-                                .sourcePortRange(PortRange.builder()
-                                        .min(egressRule.getTcpSourcePortMin())
-                                        .max(egressRule.getTcpSourcePortMax())
-                                        .build())
-                                .destinationPortRange(PortRange.builder()
-                                        .min(egressRule.getTcpDesPortMin())
-                                        .max(egressRule.getTcpDesPortMax())
-                                        .build())
-                                .build());
+                        TcpOptions.Builder tcpBuilder = TcpOptions.builder();
+                        if (egressRule.getTcpSourcePortMin() == null && egressRule.getTcpSourcePortMax() == null &&
+                                egressRule.getTcpDesPortMin() != null && egressRule.getTcpDesPortMax() != null) {
+                            tcpBuilder.destinationPortRange(PortRange.builder()
+                                    .min(egressRule.getTcpDesPortMin())
+                                    .max(egressRule.getTcpDesPortMax())
+                                    .build());
+                        } else if (egressRule.getTcpSourcePortMin() != null && egressRule.getTcpSourcePortMax() != null &&
+                                egressRule.getTcpDesPortMin() == null && egressRule.getTcpDesPortMax() == null) {
+                            tcpBuilder.sourcePortRange(PortRange.builder()
+                                    .min(egressRule.getTcpSourcePortMin())
+                                    .max(egressRule.getTcpSourcePortMax())
+                                    .build());
+                        } else {
+                            tcpBuilder.sourcePortRange(PortRange.builder()
+                                            .min(egressRule.getTcpSourcePortMin())
+                                            .max(egressRule.getTcpSourcePortMax())
+                                            .build())
+                                    .destinationPortRange(PortRange.builder()
+                                            .min(egressRule.getTcpDesPortMin())
+                                            .max(egressRule.getTcpDesPortMax())
+                                            .build());
+                        }
+                        builder.tcpOptions(tcpBuilder.build());
                     }
 
                     if ("17".equals(egressRule.getProtocol())) {
-                        builder.udpOptions(UdpOptions.builder()
-                                .sourcePortRange(PortRange.builder()
-                                        .min(egressRule.getUdpSourcePortMin())
-                                        .max(egressRule.getUdpSourcePortMax())
-                                        .build())
-                                .destinationPortRange(PortRange.builder()
-                                        .min(egressRule.getUdpDesPortMin())
-                                        .max(egressRule.getUdpDesPortMax())
-                                        .build())
-                                .build());
+                        UdpOptions.Builder udpBuilder = UdpOptions.builder();
+                        if (egressRule.getUdpSourcePortMin() == null && egressRule.getUdpSourcePortMax() == null &&
+                                egressRule.getUdpDesPortMin() != null && egressRule.getUdpDesPortMax() != null) {
+                            udpBuilder.destinationPortRange(PortRange.builder()
+                                    .min(egressRule.getUdpDesPortMin())
+                                    .max(egressRule.getUdpDesPortMax())
+                                    .build());
+                        } else if (egressRule.getUdpSourcePortMin() != null && egressRule.getUdpSourcePortMax() != null &&
+                                egressRule.getUdpDesPortMin() == null && egressRule.getUdpDesPortMax() == null) {
+                            udpBuilder.sourcePortRange(PortRange.builder()
+                                    .min(egressRule.getUdpSourcePortMin())
+                                    .max(egressRule.getUdpSourcePortMax())
+                                    .build());
+                        } else {
+                            udpBuilder.sourcePortRange(PortRange.builder()
+                                            .min(egressRule.getUdpSourcePortMin())
+                                            .max(egressRule.getUdpSourcePortMax())
+                                            .build())
+                                    .destinationPortRange(PortRange.builder()
+                                            .min(egressRule.getUdpDesPortMin())
+                                            .max(egressRule.getUdpDesPortMax())
+                                            .build());
+                        }
+                        builder.udpOptions(udpBuilder.build());
                     }
 
                     return builder.build();
@@ -1843,5 +1900,4 @@ public class OracleInstanceFetcher implements Closeable {
                         .build())
                 .build());
     }
-
 }

@@ -2,6 +2,7 @@ package com.yohann.ocihelper.service.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -99,7 +100,7 @@ public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements
         addCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
         addCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
         addCfDnsRecordsParams.setComment(params.getComment());
-        addCfDnsRecordsParams.setTtl(params.getTtl());
+        addCfDnsRecordsParams.setTtl(params.getTtl() == null ? 60 : params.getTtl());
         handleHttpRsp(cfApiService.addCfDnsRecords(addCfDnsRecordsParams));
     }
 

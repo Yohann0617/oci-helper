@@ -26,7 +26,7 @@ public class OciAddCfDnsRecordsParams {
 //    @NotNull(message = "是否代理不能为空")
     private boolean proxied;
 //    @NotNull(message = "ttl不能为空")
-    @Min(value = 60)
+//    @Min(value = 60)
     private Integer ttl;
     private String comment;
 }
