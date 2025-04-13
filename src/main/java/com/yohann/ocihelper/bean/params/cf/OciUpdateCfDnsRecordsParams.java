@@ -19,7 +19,7 @@ public class OciUpdateCfDnsRecordsParams {
     private String cfCfgId;
     @NotBlank(message = "ID不能为空")
     private String id;
-    @NotBlank(message = "域名前缀不能为空")
+//    @NotBlank(message = "域名前缀不能为空")
     private String prefix;
     @NotBlank(message = "类型不能为空")
     private String type;
@@ -28,7 +28,7 @@ public class OciUpdateCfDnsRecordsParams {
 //    @NotNull(message = "是否代理不能为空")
     private boolean proxied;
 //    @NotNull(message = "ttl不能为空")
-    @Min(value = 60)
+//    @Min(value = 60)
     private Integer ttl;
     private String comment;
 }

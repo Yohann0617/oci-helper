@@ -17,7 +17,7 @@ public class OciAddCfDnsRecordsParams {
 
     @NotBlank(message = "配置ID不能为空")
     private String cfCfgId;
-    @NotBlank(message = "域名前缀不能为空")
+//    @NotBlank(message = "域名前缀不能为空")
     private String prefix;
     @NotBlank(message = "类型不能为空")
     private String type;

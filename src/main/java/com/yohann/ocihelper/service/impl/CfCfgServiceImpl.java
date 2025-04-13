@@ -93,7 +93,7 @@ public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements
     public void addCfDnsRecord(OciAddCfDnsRecordsParams params) {
         CfCfg cfCfg = Optional.ofNullable(this.getById(params.getCfCfgId())).orElseThrow(() -> new OciException(-1, "当前配置不存在"));
         AddCfDnsRecordsParams addCfDnsRecordsParams = new AddCfDnsRecordsParams();
-        addCfDnsRecordsParams.setDomainPrefix(params.getPrefix());
+        addCfDnsRecordsParams.setDomainPrefix(StrUtil.isBlank(params.getPrefix()) ? "@" : params.getPrefix());
         addCfDnsRecordsParams.setType(params.getType());
         addCfDnsRecordsParams.setProxied(params.isProxied());
         addCfDnsRecordsParams.setIpAddress(params.getIpAddress());
@@ -121,7 +121,7 @@ public class CfCfgServiceImpl extends ServiceImpl<CfCfgMapper, CfCfg> implements
         updateCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
         updateCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
         updateCfDnsRecordsParams.setId(params.getId());
-        updateCfDnsRecordsParams.setName(params.getPrefix() + "." + cfCfg.getDomain());
+        updateCfDnsRecordsParams.setName(StrUtil.isNotBlank(params.getPrefix()) ? params.getPrefix() + "." + cfCfg.getDomain() : null);
         updateCfDnsRecordsParams.setType(params.getType());
         updateCfDnsRecordsParams.setIpAddress(params.getIpAddress());
         updateCfDnsRecordsParams.setProxied(params.isProxied());
