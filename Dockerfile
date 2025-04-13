@@ -12,7 +12,7 @@ FROM eclipse-temurin:17.0.14_7-jre-alpine
 ENV LANG=zh_CN.UTF-8 \
     LC_ALL=zh_CN.UTF-8 \
     TZ=Asia/Shanghai \
-    OCI_HELPER_VERSION=1.2.3
+    OCI_HELPER_VERSION=1.2.4
 
 RUN apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && \
