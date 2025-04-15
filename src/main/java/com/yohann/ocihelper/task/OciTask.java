@@ -212,7 +212,7 @@ public class OciTask implements ApplicationRunner {
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf);
         log.info(String.format("【oci-helper】服务启动成功~ 当前版本：%s 最新版本：%s", nowVersion, latestVersion));
-        sysService.sendMessage(String.format("【oci-helper】服务启动成功🎉🎉\n当前版本：%s\n最新版本：%s", nowVersion, latestVersion));
+        sysService.sendMessage(String.format("【oci-helper】服务启动成功🎉🎉\n当前版本：%s\n最新版本：%s\n发送 /start 操作机器人🤖", nowVersion, latestVersion));
     }
 
     public static void pushVersionUpdateMsg(IOciKvService kvService, ISysService sysService) {
