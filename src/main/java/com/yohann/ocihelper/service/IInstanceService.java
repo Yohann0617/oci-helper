@@ -39,11 +39,12 @@ public interface IInstanceService {
      * 根据 CIDR 网段更换实例公共IP
      *
      * @param instanceId 实例Id
+     * @param vnicId     vnicId
      * @param sysUserDTO oci配置
      * @param cidrList   CIDR 网段 （传为空则随机更换一个ip）
      * @return 新的实例公共IP，实例
      */
-    Tuple2<String, Instance> changeInstancePublicIp(String instanceId, SysUserDTO sysUserDTO, List<String> cidrList);
+    Tuple2<String, Instance> changeInstancePublicIp(String instanceId, String vnicId, SysUserDTO sysUserDTO, List<String> cidrList);
 
     /**
      * 获取实例需修改的配置信息

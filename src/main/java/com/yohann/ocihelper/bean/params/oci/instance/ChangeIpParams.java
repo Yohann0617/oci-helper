@@ -4,6 +4,7 @@ import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import java.util.List;
 
 /**
@@ -23,4 +24,15 @@ public class ChangeIpParams {
     private String instanceId;
 
     private List<String> cidrList;
+
+    @NotBlank(message = "vnicId不能为空")
+    private String vnicId;
+
+    @NotNull(message = "是否更新 Cloudflare DNS 记录不能为空")
+    private boolean changeCfDns;
+    private String domainPrefix;
+    private String selectedDomainCfgId;
+    private boolean enableProxy;
+    private Integer ttl;
+    private String remark;
 }

@@ -8,6 +8,7 @@ import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -21,9 +22,12 @@ import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.CfCfg;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.params.*;
+import com.yohann.ocihelper.bean.params.cf.OciAddCfDnsRecordsParams;
+import com.yohann.ocihelper.bean.params.cf.RemoveCfDnsRecordsParams;
 import com.yohann.ocihelper.bean.params.oci.cfg.*;
 import com.yohann.ocihelper.bean.params.oci.instance.*;
 import com.yohann.ocihelper.bean.params.oci.securityrule.ReleaseSecurityRuleParams;
@@ -75,6 +79,10 @@ public class OciServiceImpl implements IOciService {
 
     @Resource
     private IInstanceService instanceService;
+    @Resource
+    private ICfCfgService cfCfgService;
+    @Resource
+    private ICfApiService cfApiService;
     @Resource
     private IOciUserService userService;
     @Resource
@@ -251,6 +259,11 @@ public class OciServiceImpl implements IOciService {
 
         customCache.put(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId(), rsp.getInstanceList(), 10 * 60 * 1000);
 
+        rsp.setCfCfgList(Optional.ofNullable(cfCfgService.list())
+                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
+                .map(x -> new OciCfgDetailsRsp.CfCfg(x.getId(), x.getDomain()))
+                .collect(Collectors.toList()));
+
         return rsp;
     }
 
@@ -261,6 +274,12 @@ public class OciServiceImpl implements IOciService {
                 throw new OciException(-1, "无效的CIDR网段：" + cidr);
             }
         });
+
+        if (params.isChangeCfDns()) {
+            if (StrUtil.isBlank(params.getSelectedDomainCfgId()) || StrUtil.isBlank(params.getDomainPrefix())) {
+                throw new OciException(-1, "域名或域名前缀不能为空");
+            }
+        }
 
         SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
@@ -282,9 +301,8 @@ public class OciServiceImpl implements IOciService {
         }
 
         addTask(CommonUtils.CHANGE_IP_TASK_PREFIX + params.getInstanceId(), () -> execChange(
-                params.getInstanceId(),
+                params,
                 sysUserDTO,
-                params.getCidrList(),
                 instanceService,
                 60), 0, 60, TimeUnit.SECONDS);
     }
@@ -625,16 +643,19 @@ public class OciServiceImpl implements IOciService {
         createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
     }
 
-    public void execChange(String instanceId,
+    public void execChange(ChangeIpParams params,
                            SysUserDTO sysUserDTO,
-                           List<String> cidrList,
                            IInstanceService instanceService,
                            int randomIntInterval) {
+        List<String> cidrList = params.getCidrList();
+        String vnicId = params.getVnicId();
+        String instanceId = params.getInstanceId();
         if (CollectionUtil.isEmpty(cidrList)) {
-            Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
+            Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, vnicId, sysUserDTO, cidrList);
             if (tuple2.getFirst() == null || tuple2.getSecond() == null) {
                 return;
             }
+            CompletableFuture.runAsync(() -> updateCfDns(params, tuple2.getFirst()));
             sendChangeIpMsg(
                     sysUserDTO.getUsername(),
                     sysUserDTO.getOciCfg().getRegion(),
@@ -645,7 +666,8 @@ public class OciServiceImpl implements IOciService {
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
             return;
         }
-        Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, sysUserDTO, cidrList);
+
+        Tuple2<String, Instance> tuple2 = instanceService.changeInstancePublicIp(instanceId, vnicId, sysUserDTO, cidrList);
         if (tuple2.getFirst() == null || tuple2.getSecond() == null) {
             Long currentCount = (Long) TEMP_MAP.compute(
                     CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId,
@@ -667,6 +689,7 @@ public class OciServiceImpl implements IOciService {
                     publicIp, randomIntInterval);
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
         } else {
+            CompletableFuture.runAsync(() -> updateCfDns(params, publicIp));
             sendChangeIpMsg(sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
             stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + instanceId);
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
@@ -682,5 +705,28 @@ public class OciServiceImpl implements IOciService {
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                 region, instanceName, publicIp);
         sysService.sendMessage(message);
+    }
+
+    private void updateCfDns(ChangeIpParams params, String publicIp) {
+        if (params.isChangeCfDns()) {
+            log.info("更换IP成功，开始更新 Cloudflare DNS 记录...");
+            CfCfg cfCfg = cfCfgService.getById(params.getSelectedDomainCfgId());
+            RemoveCfDnsRecordsParams removeCfDnsRecordsParams = new RemoveCfDnsRecordsParams();
+            removeCfDnsRecordsParams.setProxyDomainList(Collections.singletonList(params.getDomainPrefix() + "." + cfCfg.getDomain()));
+            removeCfDnsRecordsParams.setZoneId(cfCfg.getZoneId());
+            removeCfDnsRecordsParams.setApiToken(cfCfg.getApiToken());
+            cfApiService.removeCfDnsRecords(removeCfDnsRecordsParams);
+
+            OciAddCfDnsRecordsParams addCfDnsRecordsParams = new OciAddCfDnsRecordsParams();
+            addCfDnsRecordsParams.setCfCfgId(cfCfg.getId());
+            addCfDnsRecordsParams.setPrefix(params.getDomainPrefix());
+            addCfDnsRecordsParams.setType("A");
+            addCfDnsRecordsParams.setIpAddress(publicIp);
+            addCfDnsRecordsParams.setProxied(params.isEnableProxy());
+            addCfDnsRecordsParams.setTtl(params.getTtl());
+            addCfDnsRecordsParams.setComment(params.getRemark());
+            cfCfgService.addCfDnsRecord(addCfDnsRecordsParams);
+            log.info("Cloudflare DNS 记录更新成功");
+        }
     }
 }

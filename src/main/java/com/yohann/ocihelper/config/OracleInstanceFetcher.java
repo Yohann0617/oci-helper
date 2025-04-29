@@ -1371,6 +1371,9 @@ public class OracleInstanceFetcher implements Closeable {
                 .createTime(CommonUtils.dateFmt2String(instance.getTimeCreated()))
                 .state(instance.getLifecycleState().getValue())
                 .availabilityDomain(instance.getAvailabilityDomain())
+                .vnicList(listVnicByInstanceId(instanceId).stream()
+                        .map(x -> new OciCfgDetailsRsp.InstanceVnicInfo(x.getId(), x.getDisplayName() + "（" + x.getPublicIp() + "）"))
+                        .collect(Collectors.toList()))
                 .build();
     }
 

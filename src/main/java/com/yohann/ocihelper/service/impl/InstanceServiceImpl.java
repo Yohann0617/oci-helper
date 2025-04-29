@@ -2,6 +2,7 @@ package com.yohann.ocihelper.service.impl;
 
 import cn.hutool.core.date.DatePattern;
 import com.oracle.bmc.core.model.*;
+import com.oracle.bmc.core.requests.GetVnicRequest;
 import com.oracle.bmc.model.BmcException;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
@@ -118,6 +119,7 @@ public class InstanceServiceImpl implements IInstanceService {
 
     @Override
     public Tuple2<String, Instance> changeInstancePublicIp(String instanceId,
+                                                           String vnicId,
                                                            SysUserDTO sysUserDTO,
                                                            List<String> cidrList) {
         String publicIp = null;
@@ -127,7 +129,9 @@ public class InstanceServiceImpl implements IInstanceService {
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             instance = fetcher.getInstanceById(instanceId);
             instanceName = instance.getDisplayName();
-            publicIp = fetcher.reassignEphemeralPublicIp(fetcher.listInstanceIPs(instance.getId()).get(0));
+            publicIp = fetcher.reassignEphemeralPublicIp(fetcher.getVirtualNetworkClient().getVnic(GetVnicRequest.builder()
+                    .vnicId(vnicId)
+                    .build()).getVnic());
             tuple2 = Tuple2.of(publicIp, instance);
             return tuple2;
         } catch (BmcException ociException) {

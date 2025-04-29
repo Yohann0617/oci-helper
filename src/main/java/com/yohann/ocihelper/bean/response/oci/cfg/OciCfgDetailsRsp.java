@@ -25,6 +25,7 @@ public class OciCfgDetailsRsp {
     private String privateKeyPath;
     private String region;
     private List<InstanceInfo> instanceList;
+    private List<CfCfg> cfCfgList;
 
     @Data
     @Builder
@@ -43,6 +44,22 @@ public class OciCfgDetailsRsp {
         private String createTime;
         private String state;
         private String availabilityDomain;
+        private List<InstanceVnicInfo> vnicList;
     }
 
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class InstanceVnicInfo {
+        private String vnicId;
+        private String name;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class CfCfg {
+        private String cfCfgId;
+        private String domain;
+    }
 }
