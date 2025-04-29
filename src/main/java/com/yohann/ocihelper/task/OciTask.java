@@ -242,7 +242,7 @@ public class OciTask implements ApplicationRunner {
                     isPushedLatestVersion = true;
                 }
             }
-        }, 0, 7, TimeUnit.HOURS);
+        }, 0, 1, TimeUnit.DAYS);
 
         addTask(taskId + "_push", () -> {
             OciKv evun = kvService.getOne(new LambdaQueryWrapper<OciKv>()
