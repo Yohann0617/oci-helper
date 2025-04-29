@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.yohann</groupId>
     <artifactId>oci-helper</artifactId>
-    <version>1.2.4</version>
+    <version>1.2.5</version>
     <name>oci-helper</name>
     <description>oci helper</description>
     <properties>
