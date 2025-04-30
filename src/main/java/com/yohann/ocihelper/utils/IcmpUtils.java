@@ -105,7 +105,7 @@ public class IcmpUtils {
 
     // 示例调用
     public static void main(String[] args) {
-        String result = ping("yohann.nyc.mn", 4, 3000);
+        String result = ping("s14.serv00.com", 4, 3000);
         System.out.println(result);
 
         if (isPacketLoss100(result)) {
