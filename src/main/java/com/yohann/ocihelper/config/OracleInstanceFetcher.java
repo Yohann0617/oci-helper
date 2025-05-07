@@ -98,12 +98,12 @@ public class OracleInstanceFetcher implements Closeable {
                 .build();
 
         identityClient = IdentityClient.builder().build(provider);
-        compartmentId = findRootCompartment(identityClient, provider.getTenantId());
         computeClient = ComputeClient.builder().build(provider);
         blockstorageClient = BlockstorageClient.builder().build(provider);
         workRequestClient = WorkRequestClient.builder().build(provider);
         virtualNetworkClient = VirtualNetworkClient.builder().build(provider);
         monitoringClient = MonitoringClient.builder().build(provider);
+        compartmentId = StrUtil.isBlank(ociCfg.getCompartmentId()) ? findRootCompartment(identityClient, provider.getTenantId()) : ociCfg.getCompartmentId();
     }
 
     synchronized public InstanceDetailDTO createInstanceData() {

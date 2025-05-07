@@ -27,6 +27,8 @@ public class OciCreateTask implements Serializable {
 
     private String userId;
 
+    private String ociRegion;
+
     private Float ocpus;
 
     private Float memory;

@@ -121,6 +121,7 @@ public class OciTask implements ApplicationRunner {
 
     private void updateUserInDb() {
         sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_name", "VARCHAR(64) NULL");
+        sqLiteHelper.addColumnIfNotExists("oci_create_task", "oci_region", "VARCHAR(64) NULL");
         CompletableFuture.runAsync(() -> {
             List<OciUser> ociUsers = userService.list(new LambdaQueryWrapper<OciUser>()
                     .isNull(OciUser::getTenantName)
@@ -154,7 +155,7 @@ public class OciTask implements ApplicationRunner {
                                     .ociCfg(SysUserDTO.OciCfg.builder()
                                             .userId(ociUser.getOciUserId())
                                             .tenantId(ociUser.getOciTenantId())
-                                            .region(ociUser.getOciRegion())
+                                            .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
                                             .fingerprint(ociUser.getOciFingerprint())
                                             .privateKeyPath(ociUser.getOciKeyPath())
                                             .build())

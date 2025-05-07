@@ -441,7 +441,7 @@ public class SysServiceImpl implements ISysService {
     }
 
     @Override
-    public SysUserDTO getOciUser(String ociCfgId, String region) {
+    public SysUserDTO getOciUser(String ociCfgId, String region, String compartmentId) {
         OciUser ociUser = userService.getById(ociCfgId);
         return SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
@@ -450,6 +450,7 @@ public class SysServiceImpl implements ISysService {
                         .region(StrUtil.isBlank(region) ? ociUser.getOciRegion() : region)
                         .fingerprint(ociUser.getOciFingerprint())
                         .privateKeyPath(ociUser.getOciKeyPath())
+                        .compartmentId(compartmentId)
                         .build())
                 .username(ociUser.getUsername())
                 .build();

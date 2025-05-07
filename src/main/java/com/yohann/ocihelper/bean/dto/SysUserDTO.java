@@ -38,6 +38,7 @@ public class SysUserDTO {
         private String fingerprint;
         private String privateKeyPath;
         private String region;
+        private String compartmentId;
     }
 
     @Builder
