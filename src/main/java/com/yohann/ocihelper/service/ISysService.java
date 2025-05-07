@@ -25,5 +25,7 @@ public interface ISysService {
 
     SysUserDTO getOciUser(String ociCfgId);
 
+    SysUserDTO getOciUser(String ociCfgId, String region);
+
     void checkMfaCode(String mfaCode);
 }

@@ -25,4 +25,6 @@ public class CacheConstant {
     public static final String PREFIX_EGRESS_SECURITY_RULE_MAP = "egress_security_rule_map_";
     public static final String PREFIX_DAILY_BROADCAST_CRON_ID = "daily_broadcast_cron_id_";
     public static final String PREFIX_PUSH_VERSION_UPDATE_MSG = "push_version_update_msg_";
+    public static final String PREFIX_TENANT_REGION = "tenant_region_";
+    public static final String PREFIX_TENANT_COMPARTMENT_ID = "tenant_compartment_id_";
 }

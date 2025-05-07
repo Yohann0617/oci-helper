@@ -441,6 +441,21 @@ public class SysServiceImpl implements ISysService {
     }
 
     @Override
+    public SysUserDTO getOciUser(String ociCfgId, String region) {
+        OciUser ociUser = userService.getById(ociCfgId);
+        return SysUserDTO.builder()
+                .ociCfg(SysUserDTO.OciCfg.builder()
+                        .userId(ociUser.getOciUserId())
+                        .tenantId(ociUser.getOciTenantId())
+                        .region(StrUtil.isBlank(region) ? ociUser.getOciRegion() : region)
+                        .fingerprint(ociUser.getOciFingerprint())
+                        .privateKeyPath(ociUser.getOciKeyPath())
+                        .build())
+                .username(ociUser.getUsername())
+                .build();
+    }
+
+    @Override
     public void checkMfaCode(String mfaCode) {
         OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));

@@ -6,12 +6,10 @@ import com.oracle.bmc.core.ComputeClient;
 import com.oracle.bmc.core.model.Shape;
 import com.oracle.bmc.core.requests.ListShapesRequest;
 import com.oracle.bmc.identity.IdentityClient;
-import com.oracle.bmc.identity.model.AvailabilityDomain;
-import com.oracle.bmc.identity.model.CreateApiKeyDetails;
-import com.oracle.bmc.identity.model.CreateRegionSubscriptionDetails;
-import com.oracle.bmc.identity.model.User;
+import com.oracle.bmc.identity.model.*;
 import com.oracle.bmc.identity.requests.*;
 import com.oracle.bmc.identity.responses.GetTenancyResponse;
+import com.oracle.bmc.identity.responses.ListCompartmentsResponse;
 import com.oracle.bmc.identity.responses.ListRegionsResponse;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciUser;
@@ -45,7 +43,7 @@ class OciHelperApplicationTests {
 
     @Test
     void contextLoads() throws IOException {
-        String baseDir = "C:\\Users\\Yohann\\Desktop\\";
+        String baseDir = "C:\\Users\\yohann_fan\\Desktop\\";
         String s = FileUtil.readString(baseDir + "test.txt", Charset.defaultCharset());
         List<OciUser> ociUsers = CommonUtils.parseConfigContent(s);
         OciUser ociUser = ociUsers.get(0);
@@ -69,30 +67,20 @@ class OciHelperApplicationTests {
 
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
             IdentityClient identityClient = fetcher.getIdentityClient();
-            ComputeClient computeClient = fetcher.getComputeClient();
+            ListCompartmentsResponse response = identityClient.listCompartments(ListCompartmentsRequest.builder()
+                    .compartmentId(sysUserDTO.getOciCfg().getTenantId())
+                    .compartmentIdInSubtree(true)
+                    .accessLevel(ListCompartmentsRequest.AccessLevel.Accessible)
+                    .build());
+            List<Compartment> compartments = response.getItems();
 
-            List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains();
-            for (AvailabilityDomain availabilityDomain : availabilityDomains) {
-                System.out.println("-----------------可用域：" + availabilityDomain.getName() + "-----------------");
-                computeClient.listShapes(ListShapesRequest.builder()
-                        .availabilityDomain(availabilityDomain.getName())
-                        .compartmentId(fetcher.getCompartmentId())
-                        .build()).getItems().forEach(x -> {
-                    System.out.println(x.getShape());
-                });
-                System.out.println("-----------------可用域：" + availabilityDomain.getName() + "-----------------");
+            for (Compartment compartment : compartments) {
+                System.out.println(JSONUtil.toJsonStr(compartment));
+                List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains(identityClient, compartment.getId());
+                for (AvailabilityDomain availabilityDomain : availabilityDomains) {
+                    System.out.println(JSONUtil.toJsonStr(availabilityDomain));
+                }
             }
-
-            List<String> shapeList = availabilityDomains.parallelStream().map(availabilityDomain ->
-                            computeClient.listShapes(ListShapesRequest.builder()
-                                    .availabilityDomain(availabilityDomain.getName())
-                                    .compartmentId(fetcher.getCompartmentId())
-                                    .build()).getItems())
-                    .flatMap(Collection::stream)
-                    .map(Shape::getShape)
-                    .distinct()
-                    .collect(Collectors.toList());
-            shapeList.forEach(System.out::println);
 
         } catch (Exception e) {
             e.printStackTrace();

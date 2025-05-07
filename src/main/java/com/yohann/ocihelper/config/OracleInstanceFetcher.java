@@ -2,6 +2,7 @@ package com.yohann.ocihelper.config;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.extra.spring.SpringUtil;
 import com.oracle.bmc.Region;
 import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider;
 import com.oracle.bmc.core.BlockstorageClient;
@@ -19,6 +20,7 @@ import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.monitoring.MonitoringClient;
 import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.Tuple2;
+import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
@@ -27,6 +29,7 @@ import com.yohann.ocihelper.bean.response.oci.cfg.OciCfgDetailsRsp;
 import com.yohann.ocihelper.enums.*;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,14 +53,14 @@ import static com.yohann.ocihelper.service.impl.OciServiceImpl.TASK_MAP;
 @Data
 public class OracleInstanceFetcher implements Closeable {
 
-    private final SysUserDTO user;
     private final ComputeClient computeClient;
     private final IdentityClient identityClient;
     private final WorkRequestClient workRequestClient;
     private final VirtualNetworkClient virtualNetworkClient;
     private final BlockstorageClient blockstorageClient;
     private final MonitoringClient monitoringClient;
-    private final String compartmentId;
+    private SysUserDTO user;
+    private String compartmentId;
 
     private static final String CIDR_BLOCK = "10.0.0.0/16";
 
@@ -396,7 +399,7 @@ public class OracleInstanceFetcher implements Closeable {
         return listVcnsResponse.getItems().get(0).getCidrBlock();
     }
 
-    private List<AvailabilityDomain> getAvailabilityDomains(
+    public List<AvailabilityDomain> getAvailabilityDomains(
             IdentityClient identityClient, String compartmentId) {
         ListAvailabilityDomainsResponse listAvailabilityDomainsResponse =
                 identityClient.listAvailabilityDomains(ListAvailabilityDomainsRequest.builder()
@@ -1132,6 +1135,18 @@ public class OracleInstanceFetcher implements Closeable {
                 .build();
     }
 
+    private String getCompartmentIdFromCache() {
+        CustomExpiryGuavaCache cache = SpringUtil.getBean(CustomExpiryGuavaCache.class);
+        Object compartmentIdInCache = cache.get(CacheConstant.PREFIX_TENANT_COMPARTMENT_ID + getUser().getOciCfg().getTenantId());
+        return compartmentIdInCache == null ? findRootCompartment(identityClient, getUser().getOciCfg().getTenantId()) : String.valueOf(compartmentIdInCache);
+    }
+
+    private String getRegionFromCache() {
+        CustomExpiryGuavaCache cache = SpringUtil.getBean(CustomExpiryGuavaCache.class);
+        Object regionInCache = cache.get(CacheConstant.PREFIX_TENANT_REGION + getUser().getOciCfg().getTenantId());
+        return regionInCache == null ? getUser().getOciCfg().getRegion() : String.valueOf(regionInCache);
+    }
+
     private String findRootCompartment(IdentityClient identityClient, String tenantId) {
         // 使用`compartmentIdInSubtree`参数来获取所有子区间
         ListCompartmentsRequest request = ListCompartmentsRequest.builder()
@@ -1146,7 +1161,7 @@ public class OracleInstanceFetcher implements Closeable {
 
             // 根区间是没有parentCompartmentId的区间
             for (Compartment compartment : compartments) {
-                if (compartment.getCompartmentId().equals(tenantId) && compartment.getId().equals(compartment.getCompartmentId())) {
+                if (compartment.getCompartmentId().equals(tenantId)) {
                     return compartment.getId(); // 返回根区间ID
                 }
             }
