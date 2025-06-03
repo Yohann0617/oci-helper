@@ -1,25 +1,16 @@
 package com.yohann.ocihelper;
 
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.json.JSONUtil;
-import com.oracle.bmc.core.ComputeClient;
-import com.oracle.bmc.core.model.Shape;
-import com.oracle.bmc.core.requests.ListShapesRequest;
-import com.oracle.bmc.identity.IdentityClient;
-import com.oracle.bmc.identity.model.*;
-import com.oracle.bmc.identity.requests.*;
-import com.oracle.bmc.identity.responses.GetTenancyResponse;
-import com.oracle.bmc.identity.responses.ListCompartmentsResponse;
-import com.oracle.bmc.identity.responses.ListRegionsResponse;
+import com.yohann.ocihelper.bean.dto.ConsoleConnectionResultDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
+import com.yohann.ocihelper.utils.OciConsoleUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -29,7 +20,6 @@ import javax.annotation.Resource;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
@@ -43,7 +33,7 @@ class OciHelperApplicationTests {
 
     @Test
     void contextLoads() throws IOException {
-        String baseDir = "C:\\Users\\yohann_fan\\Desktop\\";
+        String baseDir = "C:\\Users\\yohann_fan\\Desktop\\test\\oci-helper\\";
         String s = FileUtil.readString(baseDir + "test.txt", Charset.defaultCharset());
         List<OciUser> ociUsers = CommonUtils.parseConfigContent(s);
         OciUser ociUser = ociUsers.get(0);
@@ -66,21 +56,30 @@ class OciHelperApplicationTests {
         System.out.println(sysUserDTO);
 
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
-            IdentityClient identityClient = fetcher.getIdentityClient();
-            ListCompartmentsResponse response = identityClient.listCompartments(ListCompartmentsRequest.builder()
-                    .compartmentId(sysUserDTO.getOciCfg().getTenantId())
-                    .compartmentIdInSubtree(true)
-                    .accessLevel(ListCompartmentsRequest.AccessLevel.Accessible)
-                    .build());
-            List<Compartment> compartments = response.getItems();
+//            IdentityClient identityClient = fetcher.getIdentityClient();
+//            ListCompartmentsResponse response = identityClient.listCompartments(ListCompartmentsRequest.builder()
+//                    .compartmentId(sysUserDTO.getOciCfg().getTenantId())
+//                    .compartmentIdInSubtree(true)
+//                    .accessLevel(ListCompartmentsRequest.AccessLevel.Accessible)
+//                    .build());
+//            List<Compartment> compartments = response.getItems();
+//
+//            for (Compartment compartment : compartments) {
+//                System.out.println(JSONUtil.toJsonStr(compartment));
+//                List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains(identityClient, compartment.getId());
+//                for (AvailabilityDomain availabilityDomain : availabilityDomains) {
+//                    System.out.println(JSONUtil.toJsonStr(availabilityDomain));
+//                }
+//            }
 
-            for (Compartment compartment : compartments) {
-                System.out.println(JSONUtil.toJsonStr(compartment));
-                List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains(identityClient, compartment.getId());
-                for (AvailabilityDomain availabilityDomain : availabilityDomains) {
-                    System.out.println(JSONUtil.toJsonStr(availabilityDomain));
-                }
-            }
+            OciConsoleUtils build = OciConsoleUtils.builder()
+                    .computeClient(fetcher.getComputeClient())
+                    .build();
+            ConsoleConnectionResultDTO test = build
+                    .createConsoleConnectionWithAutoKey("ocid1.instance.oc1.ap-tokyo-1.anxhiljrrpqflgacuwtxxxx", "test");
+            System.out.println(test);
+
+//            build.deleteConsoleConnection("ocid1.instanceconsoleconnection.oc1.sa-saopaulo-1.antxeljrnc5vuiqctr543oimnc26d4cazw7sw725c5j4pkp2dqlu3tuuvqta");
 
         } catch (Exception e) {
             e.printStackTrace();
