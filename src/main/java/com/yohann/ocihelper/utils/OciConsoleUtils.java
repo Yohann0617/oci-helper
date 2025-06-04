@@ -138,15 +138,14 @@ public class OciConsoleUtils {
      * Creates an OCI console connection for an instance, automatically generating an SSH key pair.
      *
      * @param instanceId  The OCID of the compute instance.
-     * @param displayName A display name for the console connection.
      * @return A ConsoleConnectionResult object if successful, null otherwise.
      */
-    public ConsoleConnectionResultDTO createConsoleConnectionWithAutoKey(String instanceId, String displayName) {
+    public ConsoleConnectionResultDTO createConsoleConnectionWithAutoKey(String instanceId) {
         try {
             SshKeyPairDTO sshKeyPair = generateSshKeyPair();
             log.info("Generated key info: OpenSSH Public Key (first 50 chars): {}", sshKeyPair.getPublicKeyOpenSSH().substring(0, Math.min(50, sshKeyPair.getPublicKeyOpenSSH().length())) + "...");
 
-            String connectionId = createConsoleConnection(instanceId, sshKeyPair.getPublicKeyOpenSSH(), displayName);
+            String connectionId = createConsoleConnection(instanceId, sshKeyPair.getPublicKeyOpenSSH());
             if (connectionId == null) {
                 log.error("Failed to create console connection.");
                 return null;
@@ -168,12 +167,10 @@ public class OciConsoleUtils {
      *
      * @param instanceId  The OCID of the compute instance.
      * @param publicKey   The SSH public key in OpenSSH format.
-     * @param displayName A display name for the console connection.
      * @return The ID of the created console connection if successful, null otherwise.
      */
-    public String createConsoleConnection(String instanceId, String publicKey, String displayName) {
+    public String createConsoleConnection(String instanceId, String publicKey) {
         log.info("🔑 Starting console connection creation for instance ID: {}", instanceId);
-        log.info("  Display Name: {}", displayName);
 
         if (!isValidOpenSSHPublicKey(publicKey)) {
             log.error("❌ Invalid public key format! Expected OpenSSH format (ssh-rsa ...), Actual format: {}",
@@ -419,13 +416,13 @@ public class OciConsoleUtils {
             // If no existing connection, create a new one
             if (publicKey == null || publicKey.trim().isEmpty()) {
                 log.info("🔑 No public key provided, automatically generating SSH key pair.");
-                return createConsoleConnectionWithAutoKey(instanceId, displayName);
+                return createConsoleConnectionWithAutoKey(instanceId);
             } else {
                 if (!isValidOpenSSHPublicKey(publicKey)) {
                     log.error("❌ Provided public key format is invalid, OpenSSH format required.");
                     return null;
                 }
-                String newConnectionId = createConsoleConnection(instanceId, publicKey, displayName);
+                String newConnectionId = createConsoleConnection(instanceId, publicKey);
                 if (newConnectionId == null) {
                     return null;
                 }
@@ -484,7 +481,7 @@ public class OciConsoleUtils {
         Map<String, Object> result = new HashMap<>();
         result.put("success", false);
         try {
-            ConsoleConnectionResultDTO consoleConnectionResult = createConsoleConnectionWithAutoKey(instanceId, displayName);
+            ConsoleConnectionResultDTO consoleConnectionResult = createConsoleConnectionWithAutoKey(instanceId);
             if (consoleConnectionResult == null) {
                 result.put("message", "Failed to create console connection.");
                 return result;
@@ -593,7 +590,7 @@ public class OciConsoleUtils {
      * @param type         The type of detail to retrieve ("connection" for SSH, "vnc" for VNC).
      * @return The requested connection string if successful and active, null otherwise.
      */
-    private String waitForConnectionAndGetDetails(String connectionId, String type) {
+    public String waitForConnectionAndGetDetails(String connectionId, String type) {
         for (int i = 0; i < MAX_POLLING_ATTEMPTS; i++) {
             InstanceConsoleConnection connection = getConsoleConnectionDetails(connectionId);
             if (connection != null && connection.getLifecycleState() == InstanceConsoleConnection.LifecycleState.Active) {

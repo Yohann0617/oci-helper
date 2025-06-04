@@ -4,8 +4,8 @@ server:
 # --------------------------------------- 用户自定义修改项 ------------------------------------
 # web登录管理员账号密码
 web:
-  account: yohann
-  password: yohann
+  account: yohann1
+  password: yohann1
 # --------------------------------------- 用户自定义修改项 ------------------------------------
 
 spring:
@@ -40,5 +40,5 @@ logging:
 
 # 密钥文件存放目录（如果是docker部署则不用修改）
 oci-cfg:
-  key-dir-path: /app/oci-helper/keys
-#  key-dir-path: C:\Users\Yohann\Desktop
+#  key-dir-path: /app/oci-helper/keys
+  key-dir-path: C:\Users\yohann_fan\Desktop

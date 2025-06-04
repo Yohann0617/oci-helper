@@ -69,4 +69,6 @@ public interface IOciService {
     String checkAlive();
 
     void updateCfgName(UpdateCfgNameParams params);
+
+    String startVnc(StartVncParams params);
 }

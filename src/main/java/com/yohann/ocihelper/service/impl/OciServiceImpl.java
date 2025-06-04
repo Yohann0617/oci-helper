@@ -5,10 +5,11 @@ import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.thread.ThreadFactoryBuilder;
-import cn.hutool.core.util.IdUtil;
-import cn.hutool.core.util.ObjUtil;
-import cn.hutool.core.util.RandomUtil;
-import cn.hutool.core.util.StrUtil;
+import cn.hutool.core.util.*;
+import cn.hutool.http.HttpResponse;
+import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -16,7 +17,6 @@ import com.oracle.bmc.core.model.Instance;
 import com.oracle.bmc.core.model.Vnic;
 import com.oracle.bmc.identity.model.Tenancy;
 import com.oracle.bmc.identity.requests.GetTenancyRequest;
-import com.oracle.bmc.identity.requests.ListCompartmentsRequest;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
@@ -46,6 +46,7 @@ import com.yohann.ocihelper.mapper.OciCreateTaskMapper;
 import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
+import com.yohann.ocihelper.utils.OciConsoleUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -545,6 +546,115 @@ public class OciServiceImpl implements IOciService {
         userService.update(new LambdaUpdateWrapper<OciUser>()
                 .eq(OciUser::getId, params.getCfgId())
                 .set(OciUser::getUsername, params.getUpdateCfgName()));
+    }
+
+    @Override
+    public String startVnc(StartVncParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            if (StrUtil.isNotBlank(params.getCompartmentId())) {
+                fetcher.setCompartmentId(params.getCompartmentId());
+            }
+            String ipinfoStr = RuntimeUtil.execForStr("curl", "-s", "ipinfo.io");
+            JSONObject json = JSONUtil.parseObj(ipinfoStr);
+            String ip = json.getStr("ip");
+            String resUrl = "http://" + ip + ":6080/vnc.html?autoconnect=true";
+
+            // 检查并释放 5900 端口
+            try {
+                String portCheckCmd = "lsof -i:5900 -t";
+                String pid = RuntimeUtil.execForStr("sh", "-c", portCheckCmd).trim();
+                if (StrUtil.isNotBlank(pid)) {
+                    log.warn("Port 5900 is occupied by PID {}. Killing it.", pid);
+                    RuntimeUtil.exec("kill", "-9", pid);
+                }
+            } catch (Exception e) {
+                log.error("Failed to check/kill process on port 5900", e);
+            }
+
+            // 避免重复生成密钥
+            File privateKey = new File("/root/.ssh/id_rsa");
+            File publicKey = new File("/root/.ssh/id_rsa.pub");
+
+            if (!privateKey.exists() || !publicKey.exists()) {
+                // 构造命令：生成无密码 SSH 密钥
+                ProcessBuilder builder = new ProcessBuilder(
+                        "ssh-keygen",
+                        "-t", "rsa",
+                        "-b", "4096",
+                        "-f", "/root/.ssh/id_rsa",
+                        "-N", ""
+                );
+                builder.redirectErrorStream(true); // 合并 stdout 和 stderr
+                Process process = builder.start();
+
+                // 读取输出（便于调试）
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[ssh-keygen] " + line);
+                    }
+                }
+
+                int exitCode = process.waitFor();
+                if (exitCode != 0) {
+                    throw new RuntimeException("ssh-keygen failed with exit code " + exitCode);
+                }
+
+                log.info("SSH key pair generated successfully.");
+            }
+
+            // 读取公钥
+            String pub = FileUtil.readUtf8String(publicKey);
+
+            // 已连接？避免重复启动
+            if (customCache.get(params.getInstanceId()) != null) {
+                log.info("VNC connection already running for instanceId: {}", params.getInstanceId());
+                return resUrl;
+            }
+
+            // 创建 Console Connection 并生成 SSH 命令
+            CompletableFuture<String> vncStrFuture = CompletableFuture.supplyAsync(() -> {
+                OciConsoleUtils build = OciConsoleUtils.builder()
+                        .computeClient(fetcher.getComputeClient())
+                        .build();
+                String connectId = build.createConsoleConnection(params.getInstanceId(), pub);
+                return build.waitForConnectionAndGetDetails(connectId, "vnc");
+            });
+
+            String vncConnectionString = vncStrFuture.get();
+
+            // 替换 localhost -> 0.0.0.0
+            String updated = StrUtil.replace(vncConnectionString, "-L localhost:", "-L 0.0.0.0:");
+
+            // 提取 ProxyCommand 并增强
+            String proxyCommand = StrUtil.subBetween(updated, "ProxyCommand='", "'");
+            String enhancedProxy = "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null " + proxyCommand.substring(4);
+            updated = StrUtil.replace(updated, proxyCommand, enhancedProxy);
+
+            // 增强主 ssh 命令：禁用交互，不要尝试连接终端
+            updated = StrUtil.replaceFirst(updated, "ssh ", "ssh -T -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ");
+
+            // ✅ 关键：加上 nohup 和 & 确保后台运行
+            String finalCommand = "nohup " + updated + " > /dev/null 2>&1 &";
+
+            log.info("Starting VNC SSH tunnel for instanceId {}: {}", params.getInstanceId(), finalCommand);
+
+            // ✅ 异步后台执行：使用 ProcessBuilder 不等待
+            try {
+                ProcessBuilder pb = new ProcessBuilder("sh", "-c", finalCommand);
+                pb.redirectErrorStream(true);
+                pb.start(); // 不等待命令结束
+            } catch (Exception e) {
+                log.error("Failed to start VNC SSH tunnel", e);
+            }
+            
+            return resUrl;
+        } catch (Exception e) {
+            log.error("开启 VNC 失败", e);
+            throw new OciException(-1, "开启VNC失败", e);
+        }
     }
 
     public SysUserDTO getOciUser(String ociCfgId) {

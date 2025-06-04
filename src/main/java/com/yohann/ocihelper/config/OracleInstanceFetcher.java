@@ -1161,7 +1161,7 @@ public class OracleInstanceFetcher implements Closeable {
 
             // 根区间是没有parentCompartmentId的区间
             for (Compartment compartment : compartments) {
-                if (compartment.getCompartmentId().equals(tenantId)) {
+                if (compartment.getCompartmentId().equals(tenantId) && compartment.getId().equals(compartment.getCompartmentId())) {
                     return compartment.getId(); // 返回根区间ID
                 }
             }

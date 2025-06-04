@@ -172,4 +172,9 @@ public class OciController {
     public ResponseData<Void> checkAlive() {
         return ResponseData.successData(ociService.checkAlive());
     }
+
+    @PostMapping(path = "/startVnc")
+    public ResponseData<String> startVnc(@Validated @RequestBody StartVncParams params) {
+        return ResponseData.successData(ociService.startVnc(params));
+    }
 }

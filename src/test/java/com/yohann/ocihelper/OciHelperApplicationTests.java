@@ -77,10 +77,10 @@ class OciHelperApplicationTests {
                     .computeClient(fetcher.getComputeClient())
                     .build();
             ConsoleConnectionResultDTO test = build
-                    .createConsoleConnectionWithAutoKey("ocid1.instance.oc1.sa-saopaulo-1.antxeljrnc5vuiqcyzbdjqshxl6nr6xxx", "test");
+                    .createConsoleConnectionWithAutoKey("ocid1.instance.oc1.sa-saopaulo-1.antxeljrnc5vuiqcyzbdjqshxl6nr6xxx");
             System.out.println(JSONUtil.toJsonStr(test));
 
-//            build.deleteConsoleConnection("ocid1.instanceconsoleconnection.oc1.sa-saopaulo-1.antxeljrnc5vuiqctr543oimnc26d4cazw7sw725c5j4pkp2dqlu3tuuvqta");
+//            build.deleteConsoleConnection("ocid1.instanceconsoleconnection.oc1.sa-saopaulo-1.xxx");
 
         } catch (Exception e) {
             e.printStackTrace();
