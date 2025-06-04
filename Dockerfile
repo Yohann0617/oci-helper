@@ -12,9 +12,9 @@ FROM eclipse-temurin:17-jre-jammy
 ENV LANG=zh_CN.UTF-8 \
     LC_ALL=zh_CN.UTF-8 \
     TZ=Asia/Shanghai \
-    OCI_HELPER_VERSION=1.2.5
+    OCI_HELPER_VERSION=2.0.1
 
-RUN apt update && apt install -y openssh-client lsof && \
+RUN apt update && apt install -y openssh-client lsof curl && \
     mkdir -p /root/.ssh && \
     echo "Host *\n  HostKeyAlgorithms +ssh-rsa\n  PubkeyAcceptedKeyTypes +ssh-rsa" > /root/.ssh/config && \
     chmod 700 /root/.ssh && chmod 600 /root/.ssh/config && \

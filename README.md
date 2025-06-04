@@ -2,7 +2,7 @@
 
 # oci-helper
 
-> 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手，目前实现的功能有：批量添加多个租户配置、更改实例配置以及引导卷配置、附加ipv6、安全列表、实时流量查询（分钟级别）、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、断点续抢、备份恢复、日志实时查看、消息通知、MFA登录验证、更新 Cloudflare DNS 记录、TG 机器人操作等功能。
+> 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手，目前实现的功能有：批量添加多个租户配置、更改实例配置以及引导卷配置、附加ipv6、安全列表、实时流量查询（分钟级别）、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、Cloud Shell、断点续抢、备份恢复、日志实时查看、消息通知、MFA登录验证、更新 Cloudflare DNS 记录、TG 机器人操作等功能。
 
 ## 注意事项及免责声明
 
@@ -26,6 +26,7 @@
 9. 支持**MFA**登录验证功能（不是龟壳的，是我这个面板的登录），保证服务的安全性。
 10. 支持更新 **Cloudflare** DNS 记录功能。
 11. 支持 **Telegram 机器人**简单操作，服务成功部署后向机器人发送`/start`选择操作。
+12. 支持类似于甲骨文云 **Cloud Shell** 控制台功能。
 
 ## 一键 docker-compose 部署或更新
 
@@ -108,6 +109,7 @@ docker compose pull && docker compose up -d
 ![image.png](./img/3-add-2.png)
 ![image.png](./img/3-create.png)
 ![image.png](./img/3-instance-details.png)
+![image.png](./img/3-instance-vnc.png)
 ![image.png](./img/3-instance-cfg.png)
 ![image.png](./img/3-security-rule.png)
 ![image.png](./img/3-traffic.png)
