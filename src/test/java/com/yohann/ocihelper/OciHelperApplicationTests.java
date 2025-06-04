@@ -1,6 +1,7 @@
 package com.yohann.ocihelper;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.json.JSONUtil;
 import com.yohann.ocihelper.bean.dto.ConsoleConnectionResultDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciUser;
@@ -76,8 +77,8 @@ class OciHelperApplicationTests {
                     .computeClient(fetcher.getComputeClient())
                     .build();
             ConsoleConnectionResultDTO test = build
-                    .createConsoleConnectionWithAutoKey("ocid1.instance.oc1.ap-tokyo-1.anxhiljrrpqflgacuwtxxxx", "test");
-            System.out.println(test);
+                    .createConsoleConnectionWithAutoKey("ocid1.instance.oc1.sa-saopaulo-1.antxeljrnc5vuiqcyzbdjqshxl6nr6xxx", "test");
+            System.out.println(JSONUtil.toJsonStr(test));
 
 //            build.deleteConsoleConnection("ocid1.instanceconsoleconnection.oc1.sa-saopaulo-1.antxeljrnc5vuiqctr543oimnc26d4cazw7sw725c5j4pkp2dqlu3tuuvqta");
 
