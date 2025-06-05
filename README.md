@@ -2,7 +2,7 @@
 
 > 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手，目前实现的功能有：批量添加多个租户配置、更改实例配置以及引导卷配置、附加ipv6、安全列表、实时流量查询（分钟级别）、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、Cloud Shell、断点续抢、备份恢复、日志实时查看、消息通知、MFA登录验证、更新 Cloudflare DNS 记录、TG 机器人操作等功能。
 
-## 注意事项及免责声明
+## 🔔注意事项及免责声明
 
 - 🔑建议使用低权限的API，参考 [@金箍棒](https://t.me/jin_gubang) 的教程：[如何生成低权限API](https://telegra.ph/oralce-api-role-05-05)
 - ⚠️因开机、换IP频率过高而导致的封号本人概不负责。
@@ -11,7 +11,7 @@
 - 🔐建议使用密钥登录服务器，防止服务器被SSH爆破导致API数据及密钥泄露。
 - 📃记得定时清理docker日志~
 
-## 核心功能
+## ⚙核心功能
 
 1. 支持同时**批量添加**多个租户配置信息，所有分页列表都支持**模糊搜索**、**状态筛选**。
 2. 支持更改实例配置、引导卷配置、一键附加ipv6、一键放行所有端口、实例列表、引导卷列表、**安全列表**、**实时流量统计**（分钟级别）等功能。
@@ -26,7 +26,7 @@
 11. 支持 **Telegram 机器人**简单操作，服务成功部署后向机器人发送`/start`选择操作。
 12. 支持类似于甲骨文云 **Cloud Shell** 控制台功能。
 
-## 一键 docker-compose 部署或更新
+## 💻一键 docker-compose 部署或更新
 
 - 安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，
 如需修改请更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
@@ -43,7 +43,7 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 > 1. 2025年06月04日——新增了支持 Cloud Shell 控制台功能，更新之前**需要先删除**旧的`docker-compose.yml`文件，再执行一键脚本。
 > 2. 2024年11月30日——数据库新增了一张表，TG、钉钉消息通知都改成了在web页面配置，如遇到配置异常，请删除`application.yml`文件，然后重新执行一键命令，修改自定义的账号密码，`docker restart oci-helper`重启容器即可。
 
-## 手动部署（不推荐）
+## 👶手动部署（不推荐）
 
 <details>
     <summary> ☜ Read more 👨‍💻</summary>
@@ -71,7 +71,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 </details>
 
-## 页面展示
+## 🔍页面展示
 
 <details>
     <summary> ☜ 点击查看 👨‍💻</summary>
@@ -99,6 +99,6 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 </details>
 
-## Stargazers over time
+## ⭐Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/Yohann0617/oci-helper.svg)](https://starchart.cc/Yohann0617/oci-helper)
