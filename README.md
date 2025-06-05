@@ -36,7 +36,7 @@
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
 ```
 
-此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
+> 此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
 
 ### 📃更新日志
 
