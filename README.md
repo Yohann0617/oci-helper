@@ -1,5 +1,3 @@
-[ZH](README.md) | [EN](README_EN.md)
-
 # oci-helper
 
 > 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手，目前实现的功能有：批量添加多个租户配置、更改实例配置以及引导卷配置、附加ipv6、安全列表、实时流量查询（分钟级别）、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、Cloud Shell、断点续抢、备份恢复、日志实时查看、消息通知、MFA登录验证、更新 Cloudflare DNS 记录、TG 机器人操作等功能。
@@ -42,7 +40,8 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 ### 📃更新日志
 
-> 2024年11月30日——数据库新增了一张表，TG、钉钉消息通知都改成了在web页面配置，如遇到配置异常，请删除`application.yml`文件，然后重新执行一键命令，修改自定义的账号密码，`docker restart oci-helper`重启容器即可。
+> 1. 2025年06月04日——新增了支持 Cloud Shell 控制台功能，更新之前**需要先删除**旧的`docker-compose.yml`文件，再执行一键脚本。
+> 2. 2024年11月30日——数据库新增了一张表，TG、钉钉消息通知都改成了在web页面配置，如遇到配置异常，请删除`application.yml`文件，然后重新执行一键命令，修改自定义的账号密码，`docker restart oci-helper`重启容器即可。
 
 ## 手动部署（不推荐）
 
@@ -51,7 +50,7 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 ### 1. 新建目录
 
-创建密钥文件存放目录`/app/oci-helper/keys`，存放从甲骨文云控制台生成API时下载的`密钥文件.pem`，新增oci配置时只需输入`密钥文件名称.pem`即可，默认会加上这个目录全路径。
+创建密钥文件存放目录`/app/oci-helper/keys`。
 
 ```bash
 mkdir -p /app/oci-helper/keys && cd /app/oci-helper
@@ -59,40 +58,16 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 
 ### 2. 下载文件
 
-1. 下载`Releases`中最新的`application.yml`、`oci-helper.db`这两个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
-2. 如不使用 docker 部署则再下载一个`oci-helper-1.2.5.jar`文件到`/app/oci-helper`目录下，直接`nohup java -jar oci-helper-1.2.5.jar > /var/log/oci-helper.log &`运行即可（前提是环境上要有`jre8`或`jdk8`环境）。
-3. 后续如果更新jar包或者docker镜像，需要安装sqlite并运行`sh_oci-helper_install.sh`中更新版本号的命令（自行解决）。
+下载[Releases](https://github.com/Yohann0617/oci-helper/releases/tag/deploy)中最新的`application.yml`、`oci-helper.db`、`docker-compose.yml`、`sh_oci-helper_install.sh`这4个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
+`sh_oci-helper_install.sh`是部署脚本，可自行修改内容，执行之前记得先`chmod +x /app/oci-helper/sh_oci-helper_install.sh`。
 
-### 3. docker部署
-
-需提前安装docker环境，支持arm64、amd64架构。
-
-#### 3.1 方式一
-
-docker直接运行：
+### 3. docker-compose 部署或更新
 
 ```bash
-docker run -d --name oci-helper --restart=always \
--p 8818:8818 \
--v /app/oci-helper/application.yml:/app/oci-helper/application.yml \
--v /app/oci-helper/oci-helper.db:/app/oci-helper/oci-helper.db \
--v /app/oci-helper/keys:/app/oci-helper/keys \
-ghcr.io/yohann0617/oci-helper:master
+chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_oci-helper_install.sh
 ```
 
-#### 3.2 方式二
-
-下载`Releases`中最新的`docker-compose.yml`到`/app/oci-helper`目录下，运行以下命令：
-
-```bash
-docker compose up -d
-```
-
-更新最新镜像：
-
-```bash
-docker compose pull && docker compose up -d
-```
+> 此脚本也可以用于更新镜像并重启容器，不会删除已有的配置。
 
 </details>
 
