@@ -101,4 +101,4 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 ## ⭐Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/Yohann0617/oci-helper.svg)](https://starchart.cc/Yohann0617/oci-helper)
+[![Stargazers over time](https://starchart.cc/Yohann0617/oci-helper.svg?variant=adaptive)](https://starchart.cc/Yohann0617/oci-helper)
