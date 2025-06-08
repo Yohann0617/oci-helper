@@ -43,6 +43,73 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 > 1. 2025年06月04日——新增了支持 Cloud Shell 控制台功能，更新之前**需要先删除**旧的`docker-compose.yml`文件，再执行一键脚本。
 > 2. 2024年11月30日——数据库新增了一张表，TG、钉钉消息通知都改成了在web页面配置，如遇到配置异常，请删除`application.yml`文件，然后重新执行一键命令，修改自定义的账号密码，`docker restart oci-helper`重启容器即可。
 
+### 🌏Nginx反向代理
+
+<details>
+    <summary> ☜ Read more 👨‍💻</summary>
+
+#### 1. 修改 docker-compose.yaml
+> 这一步是保证服务端口只有服务器内部网络可以访问，外部无法直接通过IP+端口的方式访问服务，提高安全性。
+
+`docker-compose.yaml`：
+```yaml
+services:
+  oci-helper:
+    image: ghcr.io/yohann0617/oci-helper:master
+    container_name: oci-helper
+    restart: always
+    ports:
+      - "127.0.0.1:8818:8818" # 修改项
+    volumes:
+      - /app/oci-helper/application.yml:/app/oci-helper/application.yml
+      - /app/oci-helper/oci-helper.db:/app/oci-helper/oci-helper.db
+      - /app/oci-helper/keys:/app/oci-helper/keys
+    networks:
+      - app-network
+      
+  websockify:
+    image: ghcr.io/yohann0617/oci-helper-websockify:master
+    container_name: websockify
+    restart: always
+    ports:
+      - "127.0.0.1:6080:6080" # 修改项
+    depends_on:
+      - oci-helper
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+#### 2. Nginx反向代理核心示例
+
+```nginx
+        location /myvnc/ {
+            proxy_pass http://127.0.0.1:6080/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+        }
+
+        location / {
+            add_header Cache-Control no-cache;
+            proxy_pass http://127.0.0.1:8818;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+        }
+```
+
+</details>
+
 ## 👶手动部署（不推荐）
 
 <details>
