@@ -84,6 +84,7 @@ networks:
 ```
 
 #### 2. Nginx反向代理核心示例
+> 修改完记得重启Nginx
 
 ```nginx
         location /myvnc/ {
