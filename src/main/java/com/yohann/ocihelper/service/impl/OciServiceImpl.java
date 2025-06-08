@@ -555,10 +555,8 @@ public class OciServiceImpl implements IOciService {
             if (StrUtil.isNotBlank(params.getCompartmentId())) {
                 fetcher.setCompartmentId(params.getCompartmentId());
             }
-            String ipinfoStr = RuntimeUtil.execForStr("curl", "-s", "ipinfo.io");
-            JSONObject json = JSONUtil.parseObj(ipinfoStr);
-            String ip = json.getStr("ip");
-            String resUrl = "http://" + ip + ":6080/vnc.html?autoconnect=true";
+
+            String resStr = String.format("【%s】【%s】", sysUserDTO.getUsername(), fetcher.getInstanceById(params.getInstanceId()).getDisplayName());
 
             // 检查并释放 5900 端口
             try {
@@ -608,12 +606,6 @@ public class OciServiceImpl implements IOciService {
             // 读取公钥
             String pub = FileUtil.readUtf8String(publicKey);
 
-            // 已连接？避免重复启动
-            if (customCache.get(params.getInstanceId()) != null) {
-                log.info("VNC connection already running for instanceId: {}", params.getInstanceId());
-                return resUrl;
-            }
-
             // 创建 Console Connection 并生成 SSH 命令
             CompletableFuture<String> vncStrFuture = CompletableFuture.supplyAsync(() -> {
                 OciConsoleUtils build = OciConsoleUtils.builder()
@@ -636,12 +628,12 @@ public class OciServiceImpl implements IOciService {
             // 增强主 ssh 命令：禁用交互，不要尝试连接终端
             updated = StrUtil.replaceFirst(updated, "ssh ", "ssh -T -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ");
 
-            // ✅ 关键：加上 nohup 和 & 确保后台运行
+            // 加上 nohup 和 & 确保后台运行
             String finalCommand = "nohup " + updated + " > /dev/null 2>&1 &";
 
             log.info("Starting VNC SSH tunnel for instanceId {}: {}", params.getInstanceId(), finalCommand);
 
-            // ✅ 异步后台执行：使用 ProcessBuilder 不等待
+            // 异步后台执行：使用 ProcessBuilder 不等待
             try {
                 ProcessBuilder pb = new ProcessBuilder("sh", "-c", finalCommand);
                 pb.redirectErrorStream(true);
@@ -649,8 +641,8 @@ public class OciServiceImpl implements IOciService {
             } catch (Exception e) {
                 log.error("Failed to start VNC SSH tunnel", e);
             }
-            
-            return resUrl;
+
+            return resStr;
         } catch (Exception e) {
             log.error("开启 VNC 失败", e);
             throw new OciException(-1, "开启VNC失败", e);

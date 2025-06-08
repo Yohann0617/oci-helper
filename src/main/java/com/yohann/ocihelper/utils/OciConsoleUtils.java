@@ -95,46 +95,6 @@ public class OciConsoleUtils {
     }
 
     /**
-     * Saves the SSH key pair to files in the specified directory.
-     *
-     * @param keyPair       The SshKeyPair object to save.
-     * @param keyName       The base name for the key files (e.g., "my-key" will create "my-key" and "my-key.pub").
-     * @param saveDirectory The directory where the key files will be saved.
-     * @return A map containing the paths to the saved private and public key files.
-     * @throws IOException if an I/O error occurs during file writing.
-     */
-    public static Map<String, String> saveSshKeyPairToFiles(SshKeyPairDTO keyPair, String keyName, String saveDirectory) throws IOException {
-        Map<String, String> keyFilePaths = new HashMap<>();
-        File directory = new File(saveDirectory);
-        if (!directory.exists()) {
-            directory.mkdirs(); // Create directory if it doesn't exist
-        }
-
-        String privateKeyPath = saveDirectory + File.separator + keyName;
-        try (FileWriter writer = new FileWriter(privateKeyPath)) {
-            writer.write(keyPair.getPrivateKey());
-        }
-        keyFilePaths.put("privateKey", privateKeyPath);
-
-        String publicKeyPath = saveDirectory + File.separator + keyName + ".pub";
-        try (FileWriter writer = new FileWriter(publicKeyPath)) {
-            writer.write(keyPair.getPublicKeyOpenSSH());
-        }
-        keyFilePaths.put("publicKey", publicKeyPath);
-
-        // Set permissions for the private key file (read-only for owner)
-        File privateKeyFile = new File(privateKeyPath);
-        privateKeyFile.setReadable(false, false); // Not readable by others
-        privateKeyFile.setReadable(true, true);  // Readable by owner
-        privateKeyFile.setWritable(false, false); // Not writable by others
-        privateKeyFile.setWritable(true, true); // Writable by owner
-        privateKeyFile.setExecutable(false); // Not executable
-
-        log.info("SSH key pair saved to: Private Key={}, Public Key={}", privateKeyPath, publicKeyPath);
-        return keyFilePaths;
-    }
-
-    /**
      * Creates an OCI console connection for an instance, automatically generating an SSH key pair.
      *
      * @param instanceId  The OCID of the compute instance.
@@ -466,48 +426,6 @@ public class OciConsoleUtils {
         log.info("=================================");
         log.info("🎯 Oracle Console Connection should use: OpenSSH Public Key Format");
         log.info("🎯 SSH client connection should use: Private Key (PEM Format)");
-    }
-
-    /**
-     * Creates a console connection with an auto-generated key and saves the key to files.
-     *
-     * @param instanceId    The OCID of the compute instance.
-     * @param keyName       The base name for the key files. If null, a default name will be used.
-     * @param saveDirectory The directory to save the key files.
-     * @param displayName   A display name for the console connection.
-     * @return A map containing operation success status, connection details, and key file paths.
-     */
-    public Map<String, Object> createConsoleConnectionAndSaveKey(String instanceId, String keyName, String saveDirectory, String displayName) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("success", false);
-        try {
-            ConsoleConnectionResultDTO consoleConnectionResult = createConsoleConnectionWithAutoKey(instanceId);
-            if (consoleConnectionResult == null) {
-                result.put("message", "Failed to create console connection.");
-                return result;
-            }
-
-            if (consoleConnectionResult.isKeyGenerated() && consoleConnectionResult.getKeyPair() != null) {
-                String actualKeyName = (keyName != null && !keyName.isEmpty()) ? keyName : ("console-key-" + System.currentTimeMillis());
-                Map<String, String> keyFiles = saveSshKeyPairToFiles(consoleConnectionResult.getKeyPair(), actualKeyName, saveDirectory);
-                result.put("keyFiles", keyFiles);
-            }
-
-            result.put("success", true);
-            result.put("connectionId", consoleConnectionResult.getConnectionId());
-            result.put("connectionString", consoleConnectionResult.getConnectionString());
-            result.put("vncConnectionString", consoleConnectionResult.getVncConnectionString());
-            result.put("keyGenerated", consoleConnectionResult.isKeyGenerated());
-            if (consoleConnectionResult.getKeyPair() != null) {
-                result.put("publicKeyOpenSSH", consoleConnectionResult.getKeyPair().getPublicKeyOpenSSH());
-            }
-            log.info("Successfully created console connection and saved key. Connection ID: {}", consoleConnectionResult.getConnectionId());
-            return result;
-        } catch (Exception e) {
-            log.error("Failed to create console connection and save key: {}", e.getMessage(), e);
-            result.put("message", "Operation failed: " + e.getMessage());
-            return result;
-        }
     }
 
     /**
