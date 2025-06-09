@@ -176,7 +176,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 [![Stargazers over time](https://starchart.cc/Yohann0617/oci-helper.svg?variant=adaptive)](https://starchart.cc/Yohann0617/oci-helper)
 
-## 特别鸣谢
+## 🙏特别鸣谢
 [![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
 
 
