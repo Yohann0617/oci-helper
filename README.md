@@ -180,6 +180,6 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 [![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
 
 
-感谢 YxVM 对本项目的大力支持！ [高性价比服务器购买链接（含aff）](https://yxvm.com/aff.php?aff=829)
+感谢 YxVM 对本项目的大力支持！ [高性价比服务器购买链接](https://yxvm.com/aff.php?aff=829)
 
 感谢[NodeSupport](https://github.com/NodeSeekDev/NodeSupport)赞助了本项目
