@@ -93,9 +93,9 @@ networks:
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
             proxy_set_header Host $host;
-            send_timeout 3600;
-            proxy_read_timeout 3600;
-            proxy_send_timeout 3600;
+            send_timeout 10800;
+            proxy_read_timeout 10800;
+            proxy_send_timeout 10800;
         }
 
         location / {
@@ -108,9 +108,9 @@ networks:
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection 'upgrade';
-            send_timeout 3600;
-            proxy_read_timeout 3600;
-            proxy_send_timeout 3600;
+            send_timeout 10800;
+            proxy_read_timeout 10800;
+            proxy_send_timeout 10800;
         }
 ```
 
