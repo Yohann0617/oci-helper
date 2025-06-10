@@ -45,6 +45,8 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 ### 🌏Nginx反向代理
 
+> 如果配置了HTTPS，又想要 VNC 连接救砖，这一步是必须的
+
 <details>
     <summary> ☜ Read more 👨‍💻</summary>
 
