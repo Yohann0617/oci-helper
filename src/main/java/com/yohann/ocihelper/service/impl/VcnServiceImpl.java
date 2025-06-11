@@ -53,6 +53,7 @@ public class VcnServiceImpl implements IVcnService {
                     vcnInfo.setId(vcn.getId());
                     vcnInfo.setDisplayName(vcn.getDisplayName());
                     vcnInfo.setStatus(vcn.getLifecycleState().getValue());
+                    vcnInfo.setVisibility(fetcher.checkVcnIsPublic(vcn));
                     vcnInfo.setCreateTime(DateUtil.format(vcn.getTimeCreated(), CommonUtils.DATETIME_FMT_NORM));
                     return vcnInfo;
                 }).collect(Collectors.toList());
@@ -76,11 +77,10 @@ public class VcnServiceImpl implements IVcnService {
         params.getVcnIds().parallelStream().forEach(vcnId -> {
             String vcnName = null;
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-                vcnName = fetcher.getVcnById(vcnId).getDisplayName();
                 fetcher.deleteVcnById(vcnId);
             } catch (Exception e) {
-                log.error("删除VCN：[{}] 失败", vcnName, e);
-                throw new OciException(-1, "删除VCN：" + vcnName + " 失败");
+                log.error("删除VCN：失败", vcnName, e);
+                throw new OciException(-1, "删除 VCN 失败");
             }
         });
     }

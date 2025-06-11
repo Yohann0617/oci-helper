@@ -22,6 +22,7 @@ public class VcnPageRsp<T> extends Page<T> {
         private String id;
         private String displayName;
         private String status;
+        private Boolean visibility;
         private String createTime;
     }
 

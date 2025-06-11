@@ -137,7 +137,7 @@ public class OracleInstanceFetcher implements Closeable {
         try {
             for (AvailabilityDomain availableDomain : availabilityDomains) {
                 try {
-                    Vcn vcn;
+                    Vcn vcn = null;
                     InternetGateway internetGateway;
                     Subnet subnet = null;
                     NetworkSecurityGroup networkSecurityGroup = null;
@@ -168,30 +168,46 @@ public class OracleInstanceFetcher implements Closeable {
 //                            networkSecurityGroup = createNetworkSecurityGroup(virtualNetworkClient, compartmentId, vcn);
 //                            addNetworkSecurityGroupSecurityRules(virtualNetworkClient, networkSecurityGroup, networkCidrBlock);
                         } else {
-                            vcn = vcnList.get(0);
-                            List<Subnet> subnets = listSubnets(vcn.getId());
-                            if (subnets.isEmpty()) {
-                                subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
-                                        getCidr(virtualNetworkClient, compartmentId), vcn);
-                            } else {
-                                if (!listInstances().isEmpty()) {
-                                    subnet = subnets.get(0);
+                            for (Vcn vcnItem : vcnList) {
+                                vcn = vcnItem;
+
+                                List<InternetGateway> internetGatewayList = virtualNetworkClient.listInternetGateways(ListInternetGatewaysRequest.builder()
+                                        .vcnId(vcn.getId())
+                                        .compartmentId(compartmentId)
+                                        .build()).getItems();
+                                if (CollectionUtil.isEmpty(internetGatewayList)) {
+                                    log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 的 Internet 网关不存在，正在创建 Internet 网关......",
+                                            user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
+                                    internetGateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
+                                    addInternetGatewayToDefaultRouteTable(virtualNetworkClient, vcn, internetGateway);
+                                }
+
+                                List<Subnet> subnets = listSubnets(vcnItem.getId());
+                                if (CollectionUtil.isEmpty(subnets)) {
+                                    log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 的子网不存在，正在创建子网......",
+                                            user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
+                                    subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
+                                            getCidr(virtualNetworkClient, compartmentId), vcnItem);
+                                    break;
                                 } else {
-                                    for (Subnet subnetExist : subnets) {
-                                        if (null == subnetExist.getAvailabilityDomain()) {
-                                            subnet = subnetExist;
+                                    for (Subnet subnetItem : subnets) {
+                                        if (!subnetItem.getProhibitInternetIngress()) {
+                                            subnet = subnetItem;
                                             break;
                                         }
                                     }
-                                    if (null == subnet) {
+                                    if (subnet == null) {
+                                        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 不存在公有子网，正在删除私有子网并创建公有子网......",
+                                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
                                         subnets.forEach(this::deleteSubnet);
                                         subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
                                                 getCidr(virtualNetworkClient, compartmentId), vcn);
+                                        break;
                                     }
                                 }
                             }
-                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到VCN：{} 存在，默认使用该VCN创建实例......",
-                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
+                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 存在，默认使用该 VCN 的公有子网：{} 创建实例......",
+                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName(), subnet.getDisplayName());
                         }
 
                         String cloudInitScript = CommonUtils.getPwdShell(user.getRootPassword());
@@ -267,6 +283,21 @@ public class OracleInstanceFetcher implements Closeable {
 
     public SysUserDTO getUser() {
         return user;
+    }
+
+    public boolean checkVcnIsPublic(Vcn vcn) {
+        List<Subnet> subnets = listSubnets(vcn.getId());
+        if (CollectionUtil.isEmpty(subnets)) {
+            return true;
+        }
+        boolean isPublicSub = true;
+        for (Subnet subnetItem : subnets) {
+            if (subnetItem.getProhibitInternetIngress()) {
+                isPublicSub = false;
+                break;
+            }
+        }
+        return isPublicSub;
     }
 
     public List<com.oracle.bmc.identity.model.Region> listAllRegions() {
@@ -549,14 +580,14 @@ public class OracleInstanceFetcher implements Closeable {
     }
 
     public void deleteVcnById(String vcnId) {
-        deleteAllSubnets(vcnId);
-        deleteAllInternetGateways(vcnId);
         virtualNetworkClient.updateRouteTable(UpdateRouteTableRequest.builder()
                 .rtId(getVcnById(vcnId).getDefaultRouteTableId())
                 .updateRouteTableDetails(UpdateRouteTableDetails.builder()
                         .routeRules(Collections.emptyList())
                         .build())
                 .build());
+        deleteAllSubnets(vcnId);
+        deleteAllInternetGateways(vcnId);
         virtualNetworkClient.deleteVcn(DeleteVcnRequest.builder()
                 .vcnId(vcnId)
                 .build());

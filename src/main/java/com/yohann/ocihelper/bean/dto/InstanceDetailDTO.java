@@ -23,6 +23,7 @@ public class InstanceDetailDTO {
     private boolean isNoShape = false;
     private boolean isSuccess = false;
     private boolean isOut = false;
+    private boolean isNoPubVcn = false;
     private boolean isTooManyReq = false;
     private String publicIp;
     private String image;

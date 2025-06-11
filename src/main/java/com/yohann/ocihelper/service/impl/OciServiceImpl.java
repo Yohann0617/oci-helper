@@ -690,9 +690,20 @@ public class OciServiceImpl implements IOciService {
 
             List<InstanceDetailDTO> createInstanceList = instanceService.createInstance(fetcher).getCreateInstanceList();
             long noShapeCounts = createInstanceList.stream().filter(InstanceDetailDTO::isNoShape).count();
+            long noPubVcnCounts = createInstanceList.stream().filter(InstanceDetailDTO::isNoPubVcn).count();
             long successCounts = createInstanceList.stream().filter(InstanceDetailDTO::isSuccess).count();
             long outCounts = createInstanceList.stream().filter(InstanceDetailDTO::isOut).count();
             long leftCreateNum = sysUserDTO.getCreateNumbers() - successCounts;
+
+            if (noPubVcnCounts > 0) {
+                stopAndRemoveTask(sysUserDTO, createTaskService);
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因无有效公网 VCN 而终止任务......",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 无有效公网 VCN，且无法再创建 VCN，请删除无效的私网 VCN",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
+            }
 
             if (noShapeCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
