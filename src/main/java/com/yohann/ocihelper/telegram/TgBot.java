@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.telegram;
 
 import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
@@ -229,13 +230,18 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
         return "【流量统计】\n\n" + Optional.ofNullable(userService.list())
                 .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
                 .map(ociCfg -> {
-                    FetchInstancesRsp fetchInstancesRsp = trafficService.fetchInstances(ociCfg.getId(), ociCfg.getOciRegion());
+                    FetchInstancesRsp fetchInstancesRsp;
+                    try {
+                        fetchInstancesRsp = trafficService.fetchInstances(ociCfg.getId(), ociCfg.getOciRegion());
+                    } catch (Exception e) {
+                        return "";
+                    }
                     return String.format("\uD83D\uDD58 时间：%s\n🔑 配置名：【%s】\n🌏 主区域：【%s】\n\uD83D\uDDA5 实例数量：【%s】 台\n⬇ 本月入站流量总计：%s\n⬆ 本月出站流量总计：%s\n",
                             LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM), ociCfg.getUsername(),
                             ociCfg.getOciRegion(), fetchInstancesRsp.getInstanceCount(),
                             fetchInstancesRsp.getInboundTraffic(), fetchInstancesRsp.getOutboundTraffic()
                     );
-                }).collect(Collectors.joining("\n"));
+                }).filter(StrUtil::isNotBlank).collect(Collectors.joining("\n"));
     }
 
     private String getVersionInfo() {
