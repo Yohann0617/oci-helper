@@ -43,6 +43,8 @@ public class TrafficServiceImpl implements ITrafficService {
 
     @Override
     public GetTrafficDataRsp getData(GetTrafficDataParams params) {
+        checkTrafficQuery(params.getInQuery(), params.getOutQuery());
+        
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
         SysUserDTO.OciCfg ociCfg = sysUserDTO.getOciCfg();
         ociCfg.setRegion(params.getRegion());
@@ -64,6 +66,19 @@ public class TrafficServiceImpl implements ITrafficService {
         } catch (Exception e) {
             log.error("获取数据失败", e);
             throw new OciException(-1, "获取数据失败：" + e.getMessage());
+        }
+    }
+    private void checkTrafficQuery(String inQuery, String outQuery) {
+        if (inQuery == null || outQuery == null) {
+            throw new OciException(-1, "获取数据失败：请求参数为空");
+        }
+        boolean missingResourceId = !inQuery.contains("resourceId = \"ocid1") || !outQuery.contains("resourceId = \"ocid1");
+        if (missingResourceId) {
+            throw new OciException(-1, "获取数据失败：请先选择实例和VNIC");
+        }
+        boolean missingTimeRange = !inQuery.contains("[") || !outQuery.contains("[");
+        if (missingTimeRange) {
+            throw new OciException(-1, "获取数据失败：请先选择时间间隔");
         }
     }
 
