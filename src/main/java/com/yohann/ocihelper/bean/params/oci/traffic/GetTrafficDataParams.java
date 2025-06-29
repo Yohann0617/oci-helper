@@ -2,6 +2,8 @@ package com.yohann.ocihelper.bean.params.oci.traffic;
 
 import lombok.Data;
 
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.util.Date;
 
 /**
@@ -14,11 +16,18 @@ import java.util.Date;
 @Data
 public class GetTrafficDataParams {
 
+    @NotBlank(message = "配置ID不能为空")
     private String ociCfgId;
+    @NotNull(message = "开始时间不能为空")
     private Date beginTime;
+    @NotNull(message = "结束时间不能为空")
     private Date endTime;
+    @NotBlank(message = "区域不能为空")
     private String region;
+    @NotBlank(message = "inQuery不能为空")
     private String inQuery;
+    @NotBlank(message = "outQuery不能为空")
     private String outQuery;
+    @NotBlank(message = "namespace不能为空")
     private String namespace;
 }

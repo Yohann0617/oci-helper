@@ -5,6 +5,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.oracle.bmc.Region;
 import com.oracle.bmc.identity.model.Tenancy;
 import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
@@ -14,6 +15,7 @@ import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.EnableEnum;
+import com.yohann.ocihelper.enums.OciUnSupportRegionEnum;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.enums.SysCfgTypeEnum;
 import com.yohann.ocihelper.service.*;
@@ -35,6 +37,7 @@ import javax.annotation.Resource;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -92,6 +95,7 @@ public class OciTask implements ApplicationRunner {
         startInform();
         pushVersionUpdateMsg(kvService, sysService);
         dailyBroadcastTask();
+        supportOciUnknownRegionTask();
     }
 
     private void startTgBog() {
@@ -319,5 +323,19 @@ public class OciTask implements ApplicationRunner {
         }, new CronTrigger(null == dbc ? CacheConstant.TASK_CRON : dbc.getValue()));
 
         TASK_MAP.put(CacheConstant.DAILY_BROADCAST_TASK_ID, scheduled);
+    }
+
+    private void supportOciUnknownRegionTask() {
+        CompletableFuture.runAsync(() -> {
+            Arrays.stream(OciUnSupportRegionEnum.values()).parallel()
+                    .forEach(x -> {
+                        try {
+                            Region.fromRegionId(x.getRegionId());
+                        } catch (Exception exception) {
+                            Region.register(x.getRegionId(), x.getRealm(), x.getRegionCode());
+                            log.info("support new region: [{}] successfully", x.getRegionId());
+                        }
+                    });
+        });
     }
 }
