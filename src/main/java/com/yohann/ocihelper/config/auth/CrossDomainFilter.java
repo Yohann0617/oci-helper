@@ -1,19 +1,15 @@
 package com.yohann.ocihelper.config.auth;
 
+import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
-
-import javax.annotation.Resource;
+import org.springframework.web.servlet.config.annotation.*;
 
 /**
  * @author: Yohann
  * @date: 2024/3/30 15:28
  */
 @Configuration
-public class CrossDomainFilter extends WebMvcConfigurationSupport {
+public class CrossDomainFilter implements WebMvcConfigurer {
 
     @Resource
     private AuthInterceptor authInterceptor;
@@ -33,15 +29,11 @@ public class CrossDomainFilter extends WebMvcConfigurationSupport {
                 .allowCredentials(false)
                 .maxAge(3600)
                 .exposedHeaders("Upgrade", "Connection", "Content-Disposition");
-        super.addCorsMappings(registry);
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/**")
                 .addResourceLocations("classpath:/dist/");
-        registry.addResourceHandler("/webjars/**")
-                .addResourceLocations("classpath:/META-INF/resources/webjars/");
-        super.addResourceHandlers(registry);
     }
 }

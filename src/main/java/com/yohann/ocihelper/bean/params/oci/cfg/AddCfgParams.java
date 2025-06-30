@@ -3,8 +3,8 @@ package com.yohann.ocihelper.bean.params.oci.cfg;
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * <p>

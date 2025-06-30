@@ -8,15 +8,12 @@ import com.yohann.ocihelper.bean.response.cf.GetCfCfgSelRsp;
 import com.yohann.ocihelper.bean.response.cf.ListCfCfgPageRsp;
 import com.yohann.ocihelper.bean.response.cf.ListCfDnsRecordRsp;
 import com.yohann.ocihelper.service.ICfCfgService;
-import com.yohann.ocihelper.utils.CommonUtils;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.Resource;
-import javax.validation.Valid;
+import jakarta.annotation.Resource;
 
 /**
  * @ClassName CloudflareController

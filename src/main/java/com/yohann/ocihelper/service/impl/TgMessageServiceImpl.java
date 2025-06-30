@@ -11,7 +11,7 @@ import com.yohann.ocihelper.service.IOciKvService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 

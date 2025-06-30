@@ -37,6 +37,8 @@ import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.telegram.TgBot;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.MessageServiceFactory;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import net.lingala.zip4j.ZipFile;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,11 +49,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.annotation.Resource;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.time.Instant;
@@ -111,7 +110,7 @@ public class SysServiceImpl implements ISysService {
 
     @Override
     public String login(LoginParams params) {
-        String clientIp = ServletUtil.getClientIP(request);
+        String clientIp = CommonUtils.getClientIP(request);
         if (getEnableMfa()) {
             if (params.getMfaCode() == null) {
                 log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
@@ -275,7 +274,7 @@ public class SysServiceImpl implements ISysService {
 
             response.setCharacterEncoding(CharsetUtil.UTF_8);
             try (BufferedInputStream bufferedInputStream = FileUtil.getInputStream(zipFile.getFile())) {
-                ServletUtil.write(response, bufferedInputStream,
+                CommonUtils.writeResponse(response, bufferedInputStream,
                         "application/octet-stream",
                         zipFile.getFile().getName());
             } catch (Exception e) {

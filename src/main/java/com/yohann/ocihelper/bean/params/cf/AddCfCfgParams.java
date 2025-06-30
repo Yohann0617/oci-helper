@@ -2,7 +2,7 @@ package com.yohann.ocihelper.bean.params.cf;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * @ClassName AddCfCfgParams

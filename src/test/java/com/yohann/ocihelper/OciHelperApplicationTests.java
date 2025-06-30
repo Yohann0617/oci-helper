@@ -17,7 +17,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.web.socket.server.standard.ServerEndpointExporter;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.*;

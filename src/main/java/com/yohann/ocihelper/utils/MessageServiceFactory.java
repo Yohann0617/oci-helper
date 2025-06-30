@@ -6,7 +6,7 @@ import com.yohann.ocihelper.service.impl.DingMessageServiceImpl;
 import com.yohann.ocihelper.service.impl.TgMessageServiceImpl;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
  * <p>

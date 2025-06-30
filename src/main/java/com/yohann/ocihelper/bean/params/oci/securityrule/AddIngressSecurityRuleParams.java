@@ -3,7 +3,7 @@ package com.yohann.ocihelper.bean.params.oci.securityrule;
 import com.oracle.bmc.core.model.IcmpOptions;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * @ClassName AddIngressSecurityRuleParams

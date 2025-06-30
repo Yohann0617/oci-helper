@@ -3,6 +3,7 @@ package com.yohann.ocihelper.utils;
 import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.img.ImgUtil;
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.net.Ipv4Util;
 import cn.hutool.core.util.PageUtil;
 import cn.hutool.core.util.StrUtil;
@@ -15,6 +16,8 @@ import com.warrenstrange.googleauth.GoogleAuthenticator;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.exception.OciException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -22,6 +25,7 @@ import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.CompressionLevel;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.io.*;
 import java.net.*;
@@ -587,6 +591,34 @@ public class CommonUtils {
             throw new OciException(-1, "获取 oci-helper 项目信息失败");
         }
         return rst;
+    }
+
+    public static String getClientIP(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip.split(",")[0].trim();
+        }
+        ip = request.getHeader("Proxy-Client-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+        ip = request.getHeader("WL-Proxy-Client-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+        ip = request.getRemoteAddr();
+        return ip;
+    }
+
+    public static void writeResponse(HttpServletResponse response,
+                                 InputStream inputStream, String contentType, String fileName) throws IOException {
+
+        response.setContentType(contentType);
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+
+        try (OutputStream out = response.getOutputStream()) {
+            IoUtil.copy(inputStream, out);
+        }
     }
 
     public static String getPwdShell(String passwd) {

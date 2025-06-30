@@ -1,11 +1,17 @@
 package com.yohann.ocihelper.exception;
 
 import com.yohann.ocihelper.bean.ResponseData;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.io.IOException;
 
 /**
  * @author: Yohann
@@ -15,6 +21,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @ControllerAdvice
 @ResponseBody
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public void handleNoResourceFoundException(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // Forward to index.html
+        request.getRequestDispatcher("/index.html").forward(request, response);
+    }
 
     @ExceptionHandler
     public ResponseData<String> unknownException(Exception e) {

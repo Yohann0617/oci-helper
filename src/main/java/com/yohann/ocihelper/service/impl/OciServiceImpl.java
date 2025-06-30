@@ -52,7 +52,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 import com.yohann.ocihelper.mapper.OciUserMapper;
 import org.springframework.transaction.annotation.Transactional;

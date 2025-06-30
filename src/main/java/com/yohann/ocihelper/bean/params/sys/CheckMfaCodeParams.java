@@ -2,7 +2,7 @@ package com.yohann.ocihelper.bean.params.sys;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * @projectName: oci-helper

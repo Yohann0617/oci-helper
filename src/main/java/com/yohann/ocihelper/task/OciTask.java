@@ -26,16 +26,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import javax.annotation.Resource;
-import java.io.FileWriter;
-import java.io.IOException;
+import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
