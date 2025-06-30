@@ -20,7 +20,9 @@ import org.springframework.web.socket.server.standard.ServerEndpointExporter;
 import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.Executors;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
@@ -90,6 +92,16 @@ class OciHelperApplicationTests {
 
     @Test
     void test2() {
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i < 1000; i++) {
+                executor.submit(() -> {
+                    Thread.sleep(Duration.ofSeconds(1));
+                    System.out.println("任务完成");
+                    return "结果";
+                });
+            }
+        }
+
         System.out.println(CommonUtils.getLatestVersion());
     }
 
