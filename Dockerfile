@@ -28,4 +28,7 @@ COPY --from=builder /app/oci-helper.jar .
 
 EXPOSE 8818
 
-CMD exec java -jar oci-helper.jar | tee -a /var/log/oci-helper.log
+CMD exec java \
+    --add-opens java.base/java.net=ALL-UNNAMED \
+    --add-opens java.base/sun.net.www.protocol.https=ALL-UNNAMED \
+    -jar oci-helper.jar | tee -a /var/log/oci-helper.log
