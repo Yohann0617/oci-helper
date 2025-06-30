@@ -71,13 +71,6 @@
             <version>${oci-version}</version>
         </dependency>
 
-        <!-- 引入Druid依赖，阿里巴巴所提供的数据源 -->
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
-            <version>1.2.12</version>
-        </dependency>
-
         <!-- sqlite依赖包 -->
         <dependency>
             <groupId>org.xerial</groupId>
