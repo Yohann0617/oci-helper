@@ -516,7 +516,7 @@ public class OciServiceImpl implements IOciService {
             return null;
         }
 
-        String rst = "总配置数：%s ，失效配置数：%s 。\n 失效配置：【%s】";
+        String rst = "总配置数：%s ，失效配置数：%s ，有效配置数：%s。\n 失效配置：\n%s";
 
         List<String> failNames = ids.parallelStream().filter(id -> {
             SysUserDTO ociUser = getOciUser(id);
@@ -528,10 +528,10 @@ public class OciServiceImpl implements IOciService {
             return false;
         }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
 
-        sysService.sendMessage(String.format("【API测活结果】\n\n有效配置数：%s\n失效配置数：%s\n总配置数：%s\n失效配置：【%s】",
+        sysService.sendMessage(String.format("【API测活结果】\n\n有效配置数：%s\n失效配置数：%s\n总配置数：%s\n失效配置：\n%s",
                 ids.size() - failNames.size(), failNames.size(), ids.size(), String.join("\n", failNames)));
 
-        return String.format(rst, ids.size(), failNames.size(), String.join(" , ", failNames));
+        return String.format(rst, ids.size(), failNames.size(), ids.size() - failNames.size(), String.join(" , ", failNames));
     }
 
     @Override
