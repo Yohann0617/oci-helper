@@ -1,14 +1,14 @@
-name: V3 Docker Hub Image CI
+name: Docker Image CI
 
 on:
   push:
-    branches: [ "upgrade" ]
+    branches: [ "master" ]
     paths-ignore:
       - 'img/**'
       - '**/*.md'
       - 'LICENSE'
   pull_request:
-    branches: [ "upgrade" ]
+    branches: [ "master" ]
     paths-ignore:
       - 'img/**'
       - '**/*.md'
@@ -39,4 +39,4 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           file: ./Dockerfile
-          tags: yohannfan/oci-helper-v3:latest
+          tags: yohannfan/oci-helper:latest
