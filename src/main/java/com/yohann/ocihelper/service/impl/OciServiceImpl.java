@@ -770,6 +770,7 @@ public class OciServiceImpl implements IOciService {
             }
             CompletableFuture.runAsync(() -> updateCfDns(params, tuple2.getFirst()));
             sendChangeIpMsg(
+                    params.getOciCfgId(),
                     sysUserDTO.getUsername(),
                     sysUserDTO.getOciCfg().getRegion(),
                     tuple2.getSecond().getDisplayName(),
@@ -803,13 +804,15 @@ public class OciServiceImpl implements IOciService {
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
         } else {
             CompletableFuture.runAsync(() -> updateCfDns(params, publicIp));
-            sendChangeIpMsg(sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
+            sendChangeIpMsg(params.getOciCfgId(), sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
             stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + instanceId);
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
         }
     }
 
-    private void sendChangeIpMsg(String username, String region, String instanceName, String publicIp) {
+    private void sendChangeIpMsg(String ociCfgId, String username, String region, String instanceName, String publicIp) {
+        customCache.remove(CacheConstant.PREFIX_INSTANCE_PAGE + ociCfgId);
+
         log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
                 username, region, instanceName,
                 publicIp);
