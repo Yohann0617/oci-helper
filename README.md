@@ -56,6 +56,18 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 `/app/oci-helper/docker-compose.yaml`：
 ```yaml
 services:
+  watcher:
+    image: ghcr.io/yohann0617/oci-helper-watcher:main
+    container_name: oci-helper-watcher
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - /usr/local/bin/docker-compose:/usr/local/bin/docker-compose
+      - /app/oci-helper/docker-compose.yml:/app/oci-helper/docker-compose.yml
+      - /app/oci-helper/update_version_trigger.flag:/app/oci-helper/update_version_trigger.flag
+      - /app/oci-helper/oci-helper.db:/app/oci-helper/oci-helper.db
+
   oci-helper:
     image: ghcr.io/yohann0617/oci-helper:master
     container_name: oci-helper
@@ -66,6 +78,7 @@ services:
       - /app/oci-helper/application.yml:/app/oci-helper/application.yml
       - /app/oci-helper/oci-helper.db:/app/oci-helper/oci-helper.db
       - /app/oci-helper/keys:/app/oci-helper/keys
+      - /app/oci-helper/update_version_trigger.flag:/app/oci-helper/update_version_trigger.flag
     networks:
       - app-network
       
