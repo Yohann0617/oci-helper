@@ -257,6 +257,8 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             common += String.format("一键脚本：%s\n更新内容：\n%s",
                     "bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)",
                     CommonUtils.getLatestVersionBody());
+        } else {
+            common += "当前已是最新版本，无需更新~";
         }
         return common;
     }
