@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.telegram;
 
 import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.util.RuntimeUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -123,12 +124,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                     break;
                 case "version_info":
                     try {
-                        telegramClient.execute(EditMessageText.builder()
-                                .chatId(chat_id)
-                                .messageId(toIntExact(message_id))
-                                .text(getVersionInfo())
-                                .replyMarkup(new InlineKeyboardMarkup(getStartInlineKeyboardRowList()))
-                                .build());
+                        getVersionInfo(chat_id, message_id);
                     } catch (TelegramApiException e) {
                         log.error("TG Bot error", e);
                     }
@@ -153,6 +149,43 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                                 .build());
                     } catch (TelegramApiException e) {
                         log.error("TG Bot error", e);
+                    }
+                    break;
+                case "update_sys_version":
+                    List<String> command = List.of("/bin/sh", "-c", "echo trigger > /app/oci-helper/update_version_trigger.flag");
+                    Process process = RuntimeUtil.exec(command.toArray(new String[0]));
+
+                    int exitCode = 0;
+                    try {
+                        exitCode = process.waitFor();
+                    } catch (InterruptedException e) {
+                        log.error("TG Bot error", e);
+                    }
+
+                    if (exitCode == 0) {
+                        log.info("Start the version update task...");
+                        try {
+                            telegramClient.execute(DeleteMessage.builder()
+                                    .chatId(chat_id)
+                                    .messageId(toIntExact(message_id))
+                                    .build());
+                            telegramClient.execute(SendMessage.builder()
+                                    .chatId(chat_id)
+                                    .text("🔁 正在更新 oci-helper 最新版本，请稍后...")
+                                    .build());
+                        } catch (TelegramApiException e) {
+                            log.error("TG Bot error", e);
+                        }
+                    } else {
+                        log.error("version update task exec error,exitCode:{}", exitCode);
+                        try {
+                            telegramClient.execute(SendMessage.builder()
+                                    .chatId(chat_id)
+                                    .text("一键更新失败，请手动更新版本~")
+                                    .build());
+                        } catch (TelegramApiException e) {
+                            log.error("TG Bot error", e);
+                        }
                     }
                     break;
                 default:
@@ -244,7 +277,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                 }).filter(StrUtil::isNotBlank).collect(Collectors.joining("\n"));
     }
 
-    private String getVersionInfo() {
+    private void getVersionInfo(long chatId, long messageId) throws TelegramApiException {
         String content = "【版本信息】\n\n当前版本：%s\n最新版本：%s\n";
         IOciKvService kvService = SpringUtil.getBean(IOciKvService.class);
         String latest = CommonUtils.getLatestVersion();
@@ -257,10 +290,38 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             common += String.format("一键脚本：%s\n更新内容：\n%s",
                     "bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)",
                     CommonUtils.getLatestVersionBody());
+            telegramClient.execute(EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(toIntExact(messageId))
+                    .text(common)
+                    .replyMarkup(new InlineKeyboardMarkup(Arrays.asList(
+                            new InlineKeyboardRow(
+                                    InlineKeyboardButton
+                                            .builder()
+                                            .text("\uD83D\uDD03 点击更新至最新版本")
+                                            .callbackData("update_sys_version")
+                                            .build()
+                            ),
+                            new InlineKeyboardRow(
+                                    InlineKeyboardButton
+                                            .builder()
+                                            .text("❌ 关闭窗口")
+                                            .callbackData("cancel")
+                                            .build()
+                            )
+                    )))
+                    .build());
         } else {
             common += "当前已是最新版本，无需更新~";
+            telegramClient.execute(EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(toIntExact(messageId))
+                    .text(common)
+                    .replyMarkup(new InlineKeyboardMarkup(getStartInlineKeyboardRowList()))
+                    .build());
         }
-        return common;
+
+
     }
 
     private String checkAlive() {

@@ -4,12 +4,13 @@ import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.sys.*;
 import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
+import com.yohann.ocihelper.bean.response.sys.LoginRsp;
 
 public interface ISysService {
 
     void sendMessage(String message);
 
-    String login(LoginParams params);
+    LoginRsp login(LoginParams params);
 
     void updateSysCfg(UpdateSysCfgParams params);
 
@@ -28,4 +29,6 @@ public interface ISysService {
     SysUserDTO getOciUser(String ociCfgId, String region, String compartmentId);
 
     void checkMfaCode(String mfaCode);
+
+    void updateVersion();
 }

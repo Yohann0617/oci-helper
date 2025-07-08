@@ -4,6 +4,7 @@ import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.sys.*;
 import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
+import com.yohann.ocihelper.bean.response.sys.LoginRsp;
 import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import org.springframework.validation.BindingResult;
@@ -27,8 +28,14 @@ public class SysCfgController {
     private ISysService sysService;
 
     @PostMapping(path = "/login")
-    public ResponseData<String> addCfg(@Validated @RequestBody LoginParams params) {
+    public ResponseData<LoginRsp> addCfg(@Validated @RequestBody LoginParams params) {
         return ResponseData.successData(sysService.login(params), "登录成功");
+    }
+
+    @PostMapping(path = "/updateVersion")
+    public ResponseData<Void> updateVersion() {
+        sysService.updateVersion();
+        return ResponseData.successData("版本更新任务下发成功，请稍后刷新网页查看~");
     }
 
     @PostMapping(path = "/getEnableMfa")

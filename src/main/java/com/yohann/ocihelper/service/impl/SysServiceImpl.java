@@ -7,6 +7,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.CharsetUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.RuntimeUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.servlet.ServletUtil;
 import cn.hutool.extra.spring.SpringUtil;
@@ -26,6 +27,7 @@ import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.params.sys.*;
 import com.yohann.ocihelper.bean.response.sys.GetGlanceRsp;
 import com.yohann.ocihelper.bean.response.sys.GetSysCfgRsp;
+import com.yohann.ocihelper.bean.response.sys.LoginRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.EnableEnum;
 import com.yohann.ocihelper.enums.MessageTypeEnum;
@@ -51,6 +53,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 
 import jakarta.annotation.Resource;
+
 import java.io.*;
 import java.nio.charset.Charset;
 import java.time.Instant;
@@ -109,7 +112,7 @@ public class SysServiceImpl implements ISysService {
     }
 
     @Override
-    public String login(LoginParams params) {
+    public LoginRsp login(LoginParams params) {
         String clientIp = CommonUtils.getClientIP(request);
         if (getEnableMfa()) {
             if (params.getMfaCode() == null) {
@@ -132,7 +135,18 @@ public class SysServiceImpl implements ISysService {
         }
         Map<String, Object> payload = new HashMap<>(1);
         payload.put("account", CommonUtils.getMD5(account));
-        return CommonUtils.genToken(payload, password);
+        String token = CommonUtils.genToken(payload, password);
+
+        String latestVersion = CommonUtils.getLatestVersion();
+        String currentVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                .select(OciKv::getValue), String::valueOf);
+        LoginRsp rsp = new LoginRsp();
+        rsp.setToken(token);
+        rsp.setCurrentVersion(currentVersion);
+        rsp.setLatestVersion(latestVersion);
+        return rsp;
     }
 
     @Override
@@ -409,13 +423,19 @@ public class SysServiceImpl implements ISysService {
             return String.valueOf(uptimeMillis / (24 * 60 * 60 * 1000));
         });
 
-        CompletableFuture.allOf(tasksFuture, regionsFuture, daysFuture).join();
+        CompletableFuture<String> currentVersionFuture = CompletableFuture.supplyAsync(() -> kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                .select(OciKv::getValue), String::valueOf));
+
+        CompletableFuture.allOf(tasksFuture, regionsFuture, daysFuture,currentVersionFuture).join();
 
         try {
             rsp.setUsers(String.valueOf(ids.size()));
             rsp.setTasks(tasksFuture.get());
             rsp.setRegions(regionsFuture.get());
             rsp.setDays(daysFuture.get());
+            rsp.setCurrentVersion(currentVersionFuture.get());
         } catch (Exception e) {
             log.error("获取系统信息失败", e);
             throw new OciException(-1, "Error while fetching glance data");
@@ -461,6 +481,25 @@ public class SysServiceImpl implements ISysService {
                 .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
         if (!CommonUtils.verifyMfaCode(mfa.getValue(), Integer.parseInt(mfaCode))) {
             throw new OciException(-1, "无效的验证码");
+        }
+    }
+
+    @Override
+    public void updateVersion() {
+        List<String> command = List.of("/bin/sh", "-c", "echo trigger > /app/oci-helper/update_version_trigger.flag");
+        Process process = RuntimeUtil.exec(command.toArray(new String[0]));
+
+        int exitCode = 0;
+        try {
+            exitCode = process.waitFor();
+        } catch (InterruptedException e) {
+            log.error("TG Bot error", e);
+        }
+
+        if (exitCode == 0) {
+            log.info("Start the version update task...");
+        } else {
+            log.error("version update task exec error,exitCode:{}", exitCode);
         }
     }
 

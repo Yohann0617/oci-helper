@@ -17,4 +17,5 @@ public class GetGlanceRsp {
     private String tasks;
     private String regions;
     private String days;
+    private String currentVersion;
 }
