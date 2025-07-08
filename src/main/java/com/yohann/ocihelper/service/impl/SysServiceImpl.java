@@ -428,7 +428,7 @@ public class SysServiceImpl implements ISysService {
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf));
 
-        CompletableFuture.allOf(tasksFuture, regionsFuture, daysFuture,currentVersionFuture).join();
+        CompletableFuture.allOf(tasksFuture, regionsFuture, daysFuture, currentVersionFuture).join();
 
         try {
             rsp.setUsers(String.valueOf(ids.size()));
@@ -486,6 +486,14 @@ public class SysServiceImpl implements ISysService {
 
     @Override
     public void updateVersion() {
+        String latestVersion = CommonUtils.getLatestVersion();
+        String currentVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                .select(OciKv::getValue), String::valueOf);
+        if (latestVersion.equals(currentVersion)) {
+            throw new OciException(-1, "当前已是最新版本，请返回主页并刷新页面查看");
+        }
         List<String> command = List.of("/bin/sh", "-c", "echo trigger > /app/oci-helper/update_version_trigger.flag");
         Process process = RuntimeUtil.exec(command.toArray(new String[0]));
 
