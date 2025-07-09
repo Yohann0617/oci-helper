@@ -27,15 +27,25 @@
 
 ## 💻一键 docker-compose 部署或更新
 
-- 安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`，
-如需修改请更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
-- 如需查看完整日志，执行：`docker logs oci-helper  >>  /app/oci-helper/oci-helper.log`导出日志文件自行查看。
-
 ```bash
 bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)
 ```
-
 > 此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
+
+- 🔔 安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`。
+第一次部署需要修改默认账号密码，更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
+- 🗒 如需查看完整日志，执行：`docker logs oci-helper  >>  /app/oci-helper/oci-helper.log`导出日志文件自行查看。
+
+🎄 部署完成后，`/app/oci-helper`的目录结构如下：
+```bash
+root@yohann:/app/oci-helper# tree
+.
+├── keys                            # 是一个目录，存放所有的pem秘钥文件
+├── application.yml                 # 项目配置文件，如需更改网页账号密码在此处更改，并执行 docker restart oci-helper 重启容器
+├── docker-compose.yml              # docker-compose部署所需配置文件
+├── oci-helper.db                   # 项目数据库文件
+└── update_version_trigger.flag     # 注意是一个文件，不是目录，用于版本自动更新
+````
 
 ### 📃更新日志
 
