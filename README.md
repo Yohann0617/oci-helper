@@ -39,7 +39,7 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 
 ### 📃更新日志
 
-> 1. 2025年07月08日——新增一键升级功能，首次更新时**需要先删除**旧的`docker-compose.yml`文件，再执行一键脚本。如有将部署脚本下载到本地的用户也需要重新下载。
+> 1. 2025年07月08日——新增一键升级功能，首次更新时**需要先删除**旧的`docker-compose.yml`文件，再执行一键脚本。如有将部署脚本下载到本地的用户也需要重新下载。具体参考releases中v3.0.1版本要求
 > 2. 2025年07月04日——升级了部分依赖以及SDK，首次更新时**需要先删除**旧的`application.yml`文件，再执行一键脚本。
 > 3. 2025年06月04日——新增了支持 Cloud Shell 控制台功能，更新之前**需要先删除**旧的`docker-compose.yml`文件，再执行一键脚本。
 > 4. 2024年11月30日——数据库新增了一张表，TG、钉钉消息通知都改成了在web页面配置，如遇到配置异常，请删除`application.yml`文件，然后重新执行一键命令，修改自定义的账号密码，`docker restart oci-helper`重启容器即可。
