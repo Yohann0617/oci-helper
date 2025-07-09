@@ -562,17 +562,17 @@ public class SysServiceImpl implements ISysService {
     private void dailyBroadcastTask() {
         String message = "【每日播报】\n" +
                 "\n" +
-                "时间：\t%s\n" +
-                "总API配置数：\t%s\n" +
-                "失效API配置数：\t%s\n" +
-                "失效的API配置：\t%s\n" +
-                "正在执行的开机任务：\n" +
+                "\uD83D\uDD58 时间：\t%s\n" +
+                "\uD83D\uDD11 总API配置数：\t%s\n" +
+                "❌ 失效API配置数：\t%s\n" +
+                "⚠\uFE0F 失效的API配置：\t\n- %s\n" +
+                "\uD83D\uDECE 正在执行的开机任务：\n" +
                 "%s\n";
         List<String> ids = userService.listObjs(new LambdaQueryWrapper<OciUser>()
                 .isNotNull(OciUser::getId)
                 .select(OciUser::getId), String::valueOf);
 
-        CompletableFuture<List<?>> fails = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<List<String>> fails = CompletableFuture.supplyAsync(() -> {
             if (ids.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -608,7 +608,7 @@ public class SysServiceImpl implements ISysService {
                 LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM),
                 CollectionUtil.isEmpty(ids) ? 0 : ids.size(),
                 fails.join().size(),
-                fails.join(),
+                String.join("\n- ", fails.join()),
                 task.join()
         ));
     }

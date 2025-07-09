@@ -343,7 +343,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             }
             return false;
         }).map(id -> sysService.getOciUser(id).getUsername()).collect(Collectors.toList());
-        return String.format("【API测活结果】\n\n有效配置数：%s\n失效配置数：%s\n总配置数：%s\n失效配置：【%s】",
+        return String.format("【API测活结果】\n\n✅ 有效配置数：%s\n❌ 失效配置数：%s\n\uD83D\uDD11 总配置数：%s\n⚠\uFE0F 失效配置：\n%s",
                 ids.size() - failNames.size(), failNames.size(), ids.size(), String.join("\n", failNames));
     }
 
@@ -353,8 +353,8 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
 
         String message = "【任务详情】\n" +
                 "\n" +
-                "时间：\t%s\n" +
-                "正在执行的开机任务：\n" +
+                "\uD83D\uDD58 时间：\t%s\n" +
+                "\uD83D\uDECE 正在执行的开机任务：\n" +
                 "%s\n";
 
         CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {

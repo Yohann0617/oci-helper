@@ -463,6 +463,7 @@ public class OciServiceImpl implements IOciService {
                     sysUserDTO.getOciCfg().getRegion(),
                     instanceInfo.getName(), instanceInfo.getShape(),
                     verificationCode);
+            log.info(message);
             sysService.sendMessage(message);
         } catch (Exception e) {
             throw new OciException(-1, "发送验证码失败");
@@ -528,7 +529,7 @@ public class OciServiceImpl implements IOciService {
             return false;
         }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
 
-        sysService.sendMessage(String.format("【API测活结果】\n\n有效配置数：%s\n失效配置数：%s\n总配置数：%s\n失效配置：\n%s",
+        sysService.sendMessage(String.format("【API测活结果】\n\n✅ 有效配置数：%s\n❌ 失效配置数：%s\n\uD83D\uDD11 总配置数：%s\n⚠\uFE0F 失效配置：\n%s",
                 ids.size() - failNames.size(), failNames.size(), ids.size(), String.join("\n", failNames)));
 
         return String.format(rst, ids.size(), failNames.size(), ids.size() - failNames.size(), String.join(" , ", failNames));
