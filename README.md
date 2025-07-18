@@ -172,7 +172,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 ## 🔍页面展示
 
-<details>
+<details open>
     <summary> ☜ 点击查看 👨‍💻</summary>
 
 ![image.png](./img/0-login.png)
