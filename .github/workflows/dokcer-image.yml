@@ -2,13 +2,13 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "alpine" ]
     paths-ignore:
       - 'img/**'
       - '**/*.md'
       - 'LICENSE'
   pull_request:
-    branches: [ "master" ]
+    branches: [ "alpine" ]
     paths-ignore:
       - 'img/**'
       - '**/*.md'
