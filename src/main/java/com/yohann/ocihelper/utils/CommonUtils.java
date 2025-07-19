@@ -104,7 +104,7 @@ public class CommonUtils {
                     "实例： %s\n" +
                     "Shape： %s\n" +
                     "验证码： %s\n" +
-                    "⭐注意：终止实例后，数据无法恢复，请谨慎操作！！！";
+                    "⭐注意：验证码有效期为5分钟，终止实例后，数据无法恢复，请谨慎操作！！！";
 
     public static <T> List<T> getPage(List<T> dataList, int page, int pageSize) {
         // 获取起始和结束索引

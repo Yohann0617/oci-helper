@@ -171,7 +171,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                                     .build());
                             telegramClient.execute(SendMessage.builder()
                                     .chatId(chat_id)
-                                    .text("🔁 正在更新 oci-helper 最新版本，请稍后...")
+                                    .text("\uD83D\uDD04 正在更新 oci-helper 最新版本，请稍后...")
                                     .build());
                         } catch (TelegramApiException e) {
                             log.error("TG Bot error", e);
@@ -298,7 +298,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                             new InlineKeyboardRow(
                                     InlineKeyboardButton
                                             .builder()
-                                            .text("\uD83D\uDD03 点击更新至最新版本")
+                                            .text("\uD83D\uDD04 点击更新至最新版本")
                                             .callbackData("update_sys_version")
                                             .build()
                             ),

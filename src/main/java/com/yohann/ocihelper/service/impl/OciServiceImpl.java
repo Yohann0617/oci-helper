@@ -13,8 +13,14 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.oracle.bmc.core.model.Instance;
-import com.oracle.bmc.core.model.Vnic;
+import com.oracle.bmc.core.BlockstorageClient;
+import com.oracle.bmc.core.ComputeClient;
+import com.oracle.bmc.core.model.*;
+import com.oracle.bmc.core.requests.*;
+import com.oracle.bmc.core.responses.AttachBootVolumeResponse;
+import com.oracle.bmc.core.responses.CreateBootVolumeBackupResponse;
+import com.oracle.bmc.core.responses.CreateBootVolumeResponse;
+import com.oracle.bmc.identity.model.AvailabilityDomain;
 import com.oracle.bmc.identity.model.Tenancy;
 import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.yohann.ocihelper.bean.Tuple2;
@@ -39,6 +45,7 @@ import com.yohann.ocihelper.bean.response.oci.task.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.oci.cfg.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.oci.cfg.OciUserListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
+import com.yohann.ocihelper.enums.ArchitectureEnum;
 import com.yohann.ocihelper.enums.InstanceActionEnum;
 import com.yohann.ocihelper.enums.OciCfgEnum;
 import com.yohann.ocihelper.exception.OciException;
@@ -426,7 +433,7 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public void terminateInstance(TerminateInstanceParams params) {
-        String code = (String) TEMP_MAP.get(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId());
+        String code = (String) customCache.get(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId());
         if (!params.getCaptcha().equals(code)) {
             throw new OciException(-1, "无效的验证码");
         }
@@ -447,14 +454,14 @@ public class OciServiceImpl implements IOciService {
                 throw new OciException(-1, "终止实例失败");
             }
         });
-        TEMP_MAP.remove(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId());
+        customCache.remove(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId());
     }
 
     @Override
     public void sendCaptcha(SendCaptchaParams params) {
         SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
         String verificationCode = RandomUtil.randomString(6);
-        TEMP_MAP.put(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId(), verificationCode);
+        customCache.put(CommonUtils.TERMINATE_INSTANCE_PREFIX + params.getInstanceId(), verificationCode, 5 * 60 * 1000);
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             OciCfgDetailsRsp.InstanceInfo instanceInfo = fetcher.getInstanceInfo(params.getInstanceId());
             String message = String.format(CommonUtils.TERMINATE_INSTANCE_CODE_MESSAGE_TEMPLATE,
@@ -592,7 +599,7 @@ public class OciServiceImpl implements IOciService {
                         new InputStreamReader(process.getInputStream()))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        System.out.println("[ssh-keygen] " + line);
+                        log.info("[ssh-keygen] " + line);
                     }
                 }
 
@@ -648,6 +655,200 @@ public class OciServiceImpl implements IOciService {
             log.error("开启 VNC 失败", e);
             throw new OciException(-1, "开启VNC失败", e);
         }
+    }
+
+    @Override
+    public void autoRescue(AutoRescueParams params) {
+        CompletableFuture.runAsync(() -> {
+            SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+            try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
+                String instanceId = params.getInstanceId();
+                ComputeClient computeClient = fetcher.getComputeClient();
+                BlockstorageClient blockstorageClient = fetcher.getBlockstorageClient();
+                BootVolume bootVolumeByInstanceId = fetcher.getBootVolumeByInstanceId(instanceId);
+                // 检查能否创建AMD实例
+                List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains(fetcher.getIdentityClient(), fetcher.getCompartmentId());
+                List<String> shapeList = availabilityDomains.parallelStream().map(availabilityDomain ->
+                                computeClient.listShapes(ListShapesRequest.builder()
+                                        .availabilityDomain(availabilityDomain.getName())
+                                        .compartmentId(fetcher.getCompartmentId())
+                                        .build()).getItems())
+                        .flatMap(Collection::stream)
+                        .map(Shape::getShape)
+                        .distinct()
+                        .collect(Collectors.toList());
+                ArchitectureEnum type = ArchitectureEnum.getType(ArchitectureEnum.AMD.getType());
+                if (shapeList.isEmpty() || !shapeList.contains(type.getShapeDetail())) {
+                    log.error("用户：[{}] ，区域：[{}] 开机失败，该区域可能无法创建AMD实例",
+                            sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion());
+                    throw new OciException(-1, "当前区域无法创建AMD实例");
+                }
+
+                log.warn("用户：[{}]，区域：[{}]，实例：[{}] 开始执行自动救援/缩小硬盘任务...",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), params.getName());
+
+                // 先关机
+                log.warn("（1/9）⌛ 正在关机");
+                computeClient.instanceAction(InstanceActionRequest.builder()
+                        .instanceId(instanceId)
+                        .action(InstanceActionEnum.ACTION_STOP.getAction())
+                        .build());
+                log.info("（1/9）✅ 关机成功");
+
+                while (!fetcher.getInstanceById(instanceId).getLifecycleState().getValue().equals(Instance.LifecycleState.Stopped.getValue())) {
+                    Thread.sleep(1000);
+                }
+
+                // 备份原引导卷
+                log.warn("（2/9）⌛ 正在备份原引导卷");
+                CreateBootVolumeBackupResponse bootVolumeBackup = blockstorageClient.createBootVolumeBackup(CreateBootVolumeBackupRequest.builder()
+                        .createBootVolumeBackupDetails(CreateBootVolumeBackupDetails.builder()
+                                .type(CreateBootVolumeBackupDetails.Type.Full)
+                                .bootVolumeId(bootVolumeByInstanceId.getId())
+                                .displayName("Old-BootVolume-Backup")
+                                .build())
+                        .build());
+                BootVolumeBackup oldBootVolumeBackup = bootVolumeBackup.getBootVolumeBackup();
+                log.info("（2/9）✅ 备份原引导卷成功");
+
+                Thread.sleep(3000);
+
+                // 分离原引导卷
+                log.warn("（3/9）⌛ 正在分离原引导卷");
+                computeClient.detachBootVolume(DetachBootVolumeRequest.builder()
+                        .bootVolumeAttachmentId(instanceId)
+                        .build());
+                log.info("（3/9）✅ 分离原引导卷成功");
+
+                while (!blockstorageClient.getBootVolumeBackup(GetBootVolumeBackupRequest.builder()
+                                .bootVolumeBackupId(oldBootVolumeBackup.getId())
+                                .build()).getBootVolumeBackup().getLifecycleState().getValue()
+                        .equals(BootVolumeBackup.LifecycleState.Available.getValue())) {
+                    Thread.sleep(1000);
+                }
+
+                // 删除原引导卷
+                log.warn("（4/9）⌛ 正在删除原引导卷");
+                blockstorageClient.deleteBootVolume(DeleteBootVolumeRequest.builder()
+                        .bootVolumeId(bootVolumeByInstanceId.getId())
+                        .build());
+                log.info("（4/9）✅ 删除原引导卷成功");
+
+                while (!blockstorageClient.getBootVolume(GetBootVolumeRequest.builder()
+                        .bootVolumeId(bootVolumeByInstanceId.getId())
+                        .build()).getBootVolume().getLifecycleState().getValue().equals(BootVolume.LifecycleState.Terminated.getValue())) {
+                    Thread.sleep(1000);
+                }
+
+                // 创建47GB的AMD机器
+                log.warn("（5/9）⌛ 正在创建并初始化AMD机器，大概需要5分钟，请耐心等待");
+                String newAmdSshPwd = "ocihelper2024";
+                SysUserDTO newAmd = SysUserDTO.builder()
+                        .ociCfg(SysUserDTO.OciCfg.builder()
+                                .userId(sysUserDTO.getOciCfg().getUserId())
+                                .tenantId(sysUserDTO.getOciCfg().getTenantId())
+                                .region(sysUserDTO.getOciCfg().getRegion())
+                                .fingerprint(sysUserDTO.getOciCfg().getFingerprint())
+                                .privateKeyPath(sysUserDTO.getOciCfg().getPrivateKeyPath())
+                                .build())
+                        .username(sysUserDTO.getUsername())
+                        .ocpus(1.0F)
+                        .memory(1.0F)
+                        .architecture(ArchitectureEnum.AMD.getType())
+                        .createNumbers(1)
+                        .operationSystem("Ubuntu")
+                        .rootPassword(newAmdSshPwd)
+                        .build();
+                fetcher.setUser(newAmd);
+                InstanceDetailDTO instanceData = fetcher.createInstanceData();
+                if (!instanceData.isSuccess()) {
+                    log.error("用户：[{}] ，区域：[{}] 创建AMD实例失败", sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion());
+                    throw new OciException(-1, "创建AMD实例失败");
+                }
+                Instance newAmdInstance = instanceData.getInstance();
+                // 等待新实例初始化完成
+                Thread.sleep(3 * 60 * 1000);
+                log.info("（5/9）✅ AMD机器创建并初始化成功");
+
+                // 克隆新建实例引导卷
+                log.warn("（6/9）⌛ 正在克隆新建实例引导卷");
+                BootVolume newAmdInstanceBootVolume = fetcher.getBootVolumeByInstanceId(newAmdInstance.getId());
+                CreateBootVolumeResponse cloneBootVolume = blockstorageClient.createBootVolume(CreateBootVolumeRequest.builder()
+                        .createBootVolumeDetails(CreateBootVolumeDetails.builder()
+                                .compartmentId(fetcher.getCompartmentId())
+                                .availabilityDomain(bootVolumeByInstanceId.getAvailabilityDomain())
+                                .sourceDetails(BootVolumeSourceFromBootVolumeDetails.builder()
+                                        .id(newAmdInstanceBootVolume.getId())
+                                        .build())
+                                .displayName("Cloned-Boot-Volume")
+                                .build())
+                        .build());
+                BootVolume newAmdInstanceCloneBootVolume = cloneBootVolume.getBootVolume();
+                log.info("（6/9）✅ 新建实例引导卷克隆成功");
+
+                while (!blockstorageClient.getBootVolume(GetBootVolumeRequest.builder()
+                                .bootVolumeId(newAmdInstanceCloneBootVolume.getId())
+                                .build()).getBootVolume().getLifecycleState().getValue()
+                        .equals(BootVolume.LifecycleState.Available.getValue())) {
+                    Thread.sleep(1000);
+                }
+
+                // 将新建实例的克隆引导卷附加到需要救砖的实例
+                log.warn("（7/9）⌛ 正在将新建实例的克隆引导卷附加到需要救砖的实例");
+                AttachBootVolumeResponse attachedBootVolume = computeClient.attachBootVolume(AttachBootVolumeRequest.builder()
+                        .attachBootVolumeDetails(AttachBootVolumeDetails.builder()
+                                .displayName("New-Boot-Volume")
+                                .bootVolumeId(newAmdInstanceCloneBootVolume.getId())
+                                .instanceId(instanceId)
+                                .build())
+                        .build());
+                log.info("（7/9）✅ 新建实例的克隆引导卷附加到需要救砖的实例成功");
+                log.info(JSONUtil.toJsonStr(attachedBootVolume.getBootVolumeAttachment()));
+
+                while (!fetcher.getBootVolumeById(attachedBootVolume.getBootVolumeAttachment().getBootVolumeId())
+                        .getLifecycleState().getValue()
+                        .equals(BootVolume.LifecycleState.Available.getValue())) {
+                    Thread.sleep(1000);
+                }
+
+                log.warn("（8/9）⌛ 正在删除新建的实例、引导卷");
+                fetcher.terminateInstance(newAmdInstance.getId(), false, false);
+                log.info("（8/9）✅ 删除新建的实例、引导卷成功");
+
+                if (!params.getKeepBackupVolume()) {
+                    log.warn("（8/9）⌛ 正在删除原引导卷的备份卷");
+                    blockstorageClient.deleteBootVolumeBackup(DeleteBootVolumeBackupRequest.builder()
+                            .bootVolumeBackupId(oldBootVolumeBackup.getId())
+                            .build());
+                    log.info("（8/9）✅ 删除原引导卷的备份卷成功");
+                }
+
+                Thread.sleep(3000);
+
+                log.warn("（9/9）⌛ 实例救援成功，正在启动实例...");
+                while (!fetcher.getInstanceById(instanceId).getLifecycleState().getValue().equals(Instance.LifecycleState.Running.getValue())) {
+                    try {
+                        computeClient.instanceAction(InstanceActionRequest.builder()
+                                .instanceId(instanceId)
+                                .action(InstanceActionEnum.ACTION_START.getAction())
+                                .buildWithoutInvocationCallback());
+                    } catch (Exception e) {
+
+                    }
+                    Thread.sleep(1000);
+                }
+                Vnic vnic = fetcher.getVnicByInstanceId(instanceId);
+                String publicIp = vnic.getPublicIp();
+                log.info("（9/9）🎉 实例启动成功 🎉，公网IP：{}，SSH端口：22，SSH账号：root，SSH密码：{}", publicIp, newAmdSshPwd);
+                sysService.sendMessage(String.format("【自动救援/缩小硬盘任务】\n\n恭喜！实例自动救援/缩小硬盘成功🎉\n" +
+                                "用户：\t%s\n区域：\t%s\n实例：\t%s\n公网IP：\t%s\nSSH端口：\t22\nSSH账号：\troot\nSSH密码：\t%s\n",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), params.getName(),
+                        publicIp, newAmdSshPwd));
+            } catch (Exception e) {
+                log.error("自动救援/缩小硬盘失败", e);
+                throw new OciException(-1, "自动救援/缩小硬盘失败，具体原因请查看日志");
+            }
+        });
     }
 
     public SysUserDTO getOciUser(String ociCfgId) {

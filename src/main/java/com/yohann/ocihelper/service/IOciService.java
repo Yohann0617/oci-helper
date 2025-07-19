@@ -71,4 +71,6 @@ public interface IOciService {
     void updateCfgName(UpdateCfgNameParams params);
 
     String startVnc(StartVncParams params);
+
+    void autoRescue(AutoRescueParams params);
 }

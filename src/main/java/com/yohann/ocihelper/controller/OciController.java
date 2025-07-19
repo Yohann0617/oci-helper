@@ -177,4 +177,10 @@ public class OciController {
     public ResponseData<String> startVnc(@Validated @RequestBody StartVncParams params) {
         return ResponseData.successData(ociService.startVnc(params));
     }
+
+    @PostMapping(path = "/autoRescue")
+    public ResponseData<Void> autoRescue(@Validated @RequestBody AutoRescueParams params) {
+        ociService.autoRescue(params);
+        return ResponseData.successData();
+    }
 }
