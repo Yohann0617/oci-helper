@@ -5,21 +5,19 @@ COPY . .
 RUN mvn clean package -DskipTests \
     && cp target/oci-helper-*.jar /app/oci-helper.jar
 
-#FROM eclipse-temurin:21-jre-alpine
-#
-#ENV LANG=zh_CN.UTF-8 \
-#    LC_ALL=zh_CN.UTF-8 \
-#    TZ=Asia/Shanghai \
-#    OCI_HELPER_VERSION=3.0.3
-#
-#RUN apk add --no-cache openssh lsof curl tzdata && \
-#    cp /usr/share/zoneinfo/$TZ /etc/localtime && \
-#    echo $TZ > /etc/timezone && \
-#    mkdir -p /root/.ssh && \
-#    echo -e "Host *\n  HostKeyAlgorithms +ssh-rsa\n  PubkeyAcceptedKeyTypes +ssh-rsa" > /root/.ssh/config && \
-#    chmod 700 /root/.ssh && chmod 600 /root/.ssh/config
+FROM eclipse-temurin:21-jre-alpine
 
-FROM ghcr.io/yohann0617/oci-helper:alpine
+ENV LANG=zh_CN.UTF-8 \
+    LC_ALL=zh_CN.UTF-8 \
+    TZ=Asia/Shanghai \
+    OCI_HELPER_VERSION=3.0.3
+
+RUN apk add --no-cache openssh lsof curl tzdata && \
+    cp /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone && \
+    mkdir -p /root/.ssh && \
+    echo -e "Host *\n  HostKeyAlgorithms +ssh-rsa\n  PubkeyAcceptedKeyTypes +ssh-rsa" > /root/.ssh/config && \
+    chmod 700 /root/.ssh && chmod 600 /root/.ssh/config
 
 WORKDIR /app/oci-helper
 COPY --from=builder /app/oci-helper.jar .
