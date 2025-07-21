@@ -7,6 +7,8 @@ import com.oracle.bmc.core.ComputeClient;
 import com.oracle.bmc.core.model.*;
 import com.oracle.bmc.core.requests.*;
 import com.oracle.bmc.core.responses.*;
+import com.oracle.bmc.identity.IdentityClient;
+import com.oracle.bmc.identity.model.AvailabilityDomain;
 import com.yohann.ocihelper.bean.dto.ConsoleConnectionResultDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
@@ -32,6 +34,7 @@ import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
@@ -69,154 +72,20 @@ class OciHelperApplicationTests {
         System.out.println(sysUserDTO);
 
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
-            String instanceId = "ocid1.instance.oc1.sa-saopaulo-1.antxeljrnc5vuiqcoj22nt52eyehxnhe4dowp543bggqteaeqoklv27jqxua";
+            IdentityClient identityClient = fetcher.getIdentityClient();
+            String compartmentId = fetcher.getCompartmentId();
             ComputeClient computeClient = fetcher.getComputeClient();
-            BlockstorageClient blockstorageClient = fetcher.getBlockstorageClient();
-
-            BootVolume bootVolumeByInstanceId = fetcher.getBootVolumeByInstanceId(instanceId);
-
-            // 先关机
-            System.out.println("=====================（1/9）⌛ 正在关机=====================");
-            computeClient.instanceAction(InstanceActionRequest.builder()
-                    .instanceId(instanceId)
-                    .action(InstanceActionEnum.ACTION_STOP.getAction())
-                    .build());
-            System.out.println("=====================（1/9）⌛ 关机成功=====================");
-
-            while (!fetcher.getInstanceById(instanceId).getLifecycleState().getValue().equals(Instance.LifecycleState.Stopped.getValue())) {
-                Thread.sleep(1000);
-            }
-
-            // 备份原引导卷
-            System.out.println("=====================（2/9）⌛ 正在备份原引导卷=====================");
-            CreateBootVolumeBackupResponse bootVolumeBackup = blockstorageClient.createBootVolumeBackup(CreateBootVolumeBackupRequest.builder()
-                    .createBootVolumeBackupDetails(CreateBootVolumeBackupDetails.builder()
-                            .type(CreateBootVolumeBackupDetails.Type.Full)
-                            .bootVolumeId(bootVolumeByInstanceId.getId())
-                            .displayName("Old-BootVolume-Backup")
-                            .build())
-                    .build());
-            BootVolumeBackup oldBootVolumeBackup = bootVolumeBackup.getBootVolumeBackup();
-            System.out.println("=====================（2/9）⌛ 备份原引导卷成功=====================");
-
-            Thread.sleep(3000);
-
-            // 分离原引导卷
-            System.out.println("=====================（3/9）⌛ 正在分离原引导卷=====================");
-            computeClient.detachBootVolume(DetachBootVolumeRequest.builder()
-                    .bootVolumeAttachmentId(instanceId)
-                    .build());
-            System.out.println("=====================（3/9）⌛ 分离原引导卷成功=====================");
-
-            while (!blockstorageClient.getBootVolumeBackup(GetBootVolumeBackupRequest.builder()
-                            .bootVolumeBackupId(oldBootVolumeBackup.getId())
-                            .build()).getBootVolumeBackup().getLifecycleState().getValue()
-                    .equals(BootVolumeBackup.LifecycleState.Available.getValue())) {
-                Thread.sleep(1000);
-            }
-
-            // 删除原引导卷
-            System.out.println("=====================（4/9）⌛ 正在删除原引导卷=====================");
-            blockstorageClient.deleteBootVolume(DeleteBootVolumeRequest.builder()
-                    .bootVolumeId(bootVolumeByInstanceId.getId())
-                    .build());
-            System.out.println("=====================（4/9）⌛ 删除原引导卷成功=====================");
-
-            while (!blockstorageClient.getBootVolume(GetBootVolumeRequest.builder()
-                    .bootVolumeId(bootVolumeByInstanceId.getId())
-                    .build()).getBootVolume().getLifecycleState().getValue().equals(BootVolume.LifecycleState.Terminated.getValue())) {
-                Thread.sleep(1000);
-            }
-
-            // 创建50GB的AMD机器
-            System.out.println("=====================（5/9）⌛ 正在创建AMD机器=====================");
-            SysUserDTO newAmd = SysUserDTO.builder()
-                    .ociCfg(SysUserDTO.OciCfg.builder()
-                            .userId(ociUser.getOciUserId())
-                            .tenantId(ociUser.getOciTenantId())
-                            .region(ociUser.getOciRegion())
-                            .fingerprint(ociUser.getOciFingerprint())
-                            .privateKeyPath(ociUser.getOciKeyPath())
-                            .build())
-                    .username(ociUser.getUsername())
-                    .ocpus(1.0F)
-                    .memory(1.0F)
-                    .architecture("AMD")
-                    .createNumbers(1)
-                    .operationSystem("Ubuntu")
-                    .rootPassword("ocihelper2024")
-                    .build();
-            fetcher.setUser(newAmd);
-            InstanceDetailDTO instanceData = fetcher.createInstanceData();
-            if (instanceData.isNoShape()) {
-                throw new OciException(-1, "当前区域无法创建AMD实例");
-            }
-            Instance newAmdInstance = instanceData.getInstance();
-            System.out.println("=====================（5/9）⌛ AMD机器创建成功=====================");
-
-            // 克隆新建实例引导卷
-            System.out.println("=====================（6/9）⌛ 正在克隆新建实例引导卷=====================");
-            BootVolume newAmdInstanceBootVolume = fetcher.getBootVolumeByInstanceId(newAmdInstance.getId());
-            CreateBootVolumeResponse cloneBootVolume = blockstorageClient.createBootVolume(CreateBootVolumeRequest.builder()
-                    .createBootVolumeDetails(CreateBootVolumeDetails.builder()
-                            .compartmentId(fetcher.getCompartmentId())
-                            .availabilityDomain(bootVolumeByInstanceId.getAvailabilityDomain())
-                            .sourceDetails(BootVolumeSourceFromBootVolumeDetails.builder()
-                                    .id(newAmdInstanceBootVolume.getId())
-                                    .build())
-                            .displayName("Cloned-Boot-Volume")
-                            .build())
-                    .build());
-            BootVolume newAmdInstanceCloneBootVolume = cloneBootVolume.getBootVolume();
-            System.out.println("=====================（6/9）⌛ 新建实例引导卷克隆成功=====================");
-
-            while (!blockstorageClient.getBootVolume(GetBootVolumeRequest.builder()
-                            .bootVolumeId(newAmdInstanceCloneBootVolume.getId())
-                            .build()).getBootVolume().getLifecycleState().getValue()
-                    .equals(BootVolume.LifecycleState.Available.getValue())) {
-                Thread.sleep(1000);
-            }
-
-            // 将新建实例的克隆引导卷附加到需要救砖的实例
-            System.out.println("=====================（7/9）⌛ 正在将新建实例的克隆引导卷附加到需要救砖的实例=====================");
-            AttachBootVolumeResponse attachedBootVolume = computeClient.attachBootVolume(AttachBootVolumeRequest.builder()
-                    .attachBootVolumeDetails(AttachBootVolumeDetails.builder()
-                            .displayName("New-Boot-Volume")
-                            .bootVolumeId(newAmdInstanceCloneBootVolume.getId())
-                            .instanceId(instanceId)
-                            .build())
-                    .build());
-            System.out.println("=====================（7/9）⌛ 新建实例的克隆引导卷附加到需要救砖的实例成功=====================");
-            System.out.println(JSONUtil.toJsonStr(attachedBootVolume.getBootVolumeAttachment()));
-
-            while (!fetcher.getBootVolumeById(attachedBootVolume.getBootVolumeAttachment().getBootVolumeId())
-                    .getLifecycleState().getValue()
-                    .equals(BootVolume.LifecycleState.Available.getValue())) {
-                Thread.sleep(1000);
-            }
-
-            System.out.println("=====================（8/9）⌛ 正在删除新建的实例、引导卷、备份卷=====================");
-            fetcher.terminateInstance(newAmdInstance.getId(), false, false);
-            blockstorageClient.deleteBootVolumeBackup(DeleteBootVolumeBackupRequest.builder()
-                    .bootVolumeBackupId(oldBootVolumeBackup.getId())
-                    .build());
-            System.out.println("=====================（8/9）⌛ 删除新建的实例、引导卷、备份卷成功=====================");
-
-            Thread.sleep(3000);
-
-            System.out.println("=====================（9/9）⌛ 实例救援成功，正在启动实例...=====================");
-            while (!fetcher.getInstanceById(instanceId).getLifecycleState().getValue().equals(Instance.LifecycleState.Running.getValue())) {
-                try {
-                    computeClient.instanceAction(InstanceActionRequest.builder()
-                            .instanceId(instanceId)
-                            .action(InstanceActionEnum.ACTION_START.getAction())
-                            .buildWithoutInvocationCallback());
-                } catch (Exception e) {
-
-                }
-                Thread.sleep(1000);
-            }
-            System.out.println("=====================（9/9）🎉 实例启动成功 🎉=====================");
+            List<AvailabilityDomain> availabilityDomains = fetcher.getAvailabilityDomains(identityClient, compartmentId);
+            List<String> shapeList = availabilityDomains.parallelStream().map(availabilityDomain ->
+                            computeClient.listShapes(ListShapesRequest.builder()
+                                    .availabilityDomain(availabilityDomain.getName())
+                                    .compartmentId(compartmentId)
+                                    .build()).getItems())
+                    .flatMap(Collection::stream)
+                    .map(Shape::getShape)
+                    .distinct()
+                    .collect(Collectors.toList());
+            shapeList.forEach(System.out::println);
         } catch (Exception e) {
             e.printStackTrace();
         }

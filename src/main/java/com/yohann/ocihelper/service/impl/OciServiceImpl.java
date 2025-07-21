@@ -679,8 +679,8 @@ public class OciServiceImpl implements IOciService {
                         .collect(Collectors.toList());
                 ArchitectureEnum type = ArchitectureEnum.getType(ArchitectureEnum.AMD.getType());
                 if (shapeList.isEmpty() || !shapeList.contains(type.getShapeDetail())) {
-                    log.error("用户：[{}] ，区域：[{}] 开机失败，该区域可能无法创建AMD实例",
-                            sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion());
+                    log.error("用户：[{}] ，区域：[{}] 开机失败，该区域可能无法创建AMD实例，用户可开机的机型：{}",
+                            sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), shapeList);
                     throw new OciException(-1, "当前区域无法创建AMD实例");
                 }
 
@@ -899,7 +899,7 @@ public class OciServiceImpl implements IOciService {
 
             if (noPubVcnCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因无有效公网 VCN 而终止任务......",
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因无有效公网 VCN 而终止任务...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
                 sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 无有效公网 VCN，且无法再创建 VCN，请删除无效的私网 VCN",
@@ -909,7 +909,7 @@ public class OciServiceImpl implements IOciService {
 
             if (noShapeCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因不支持 CPU 架构：[{}] 而终止任务......",
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因不支持 CPU 架构：[{}] 而终止任务...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), sysUserDTO.getArchitecture());
                 sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因不支持 CPU 架构：[%s] 而终止任务",
@@ -919,7 +919,7 @@ public class OciServiceImpl implements IOciService {
 
             if (sysUserDTO.getCreateNumbers() == outCounts) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因超额而终止任务......",
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因超额而终止任务...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
                 sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因超额而终止任务",
@@ -929,7 +929,7 @@ public class OciServiceImpl implements IOciService {
 
             if (sysUserDTO.getCreateNumbers() == successCounts || leftCreateNum == 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务结束......",
+                log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务结束...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
             }

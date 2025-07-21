@@ -78,7 +78,7 @@ public class InstanceServiceImpl implements IInstanceService {
                 CommonUtils.CREATE_COUNTS_PREFIX + fetcher.getUser().getTaskId(),
                 (key, value) -> value == null ? 1L : Long.parseLong(String.valueOf(value)) + 1
         );
-        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] ，开始执行第 [{}] 次创建实例操作......",
+        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] ，开始执行第 [{}] 次创建实例操作...",
                 fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(),
                 fetcher.getUser().getArchitecture(), fetcher.getUser().getCreateNumbers(), currentCount);
 

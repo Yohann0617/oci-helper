@@ -129,8 +129,8 @@ public class OracleInstanceFetcher implements Closeable {
         ArchitectureEnum type = ArchitectureEnum.getType(user.getArchitecture());
         if (shapeList.isEmpty() || !shapeList.contains(type.getShapeDetail())) {
             instanceDetailDTO.setNoShape(true);
-            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机失败，该区域可能不支持 CPU 架构：{}",
-                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getArchitecture());
+            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机失败，该区域可能不支持 CPU 架构：{}，用户可开机的机型：{}",
+                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getArchitecture(), shapeList);
             return instanceDetailDTO;
         }
 
@@ -155,7 +155,7 @@ public class OracleInstanceFetcher implements Closeable {
                         }
 
                         if (vcnList.isEmpty()) {
-                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 检测到VCN不存在，正在创建VCN......",
+                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 检测到VCN不存在，正在创建VCN...",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                             String networkCidrBlock = getCidr(virtualNetworkClient, compartmentId);
                             vcn = createVcn(virtualNetworkClient, compartmentId, networkCidrBlock);
@@ -176,7 +176,7 @@ public class OracleInstanceFetcher implements Closeable {
                                         .compartmentId(compartmentId)
                                         .build()).getItems();
                                 if (CollectionUtil.isEmpty(internetGatewayList)) {
-                                    log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 的 Internet 网关不存在，正在创建 Internet 网关......",
+                                    log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 的 Internet 网关不存在，正在创建 Internet 网关...",
                                             user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
                                     internetGateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
                                     addInternetGatewayToDefaultRouteTable(virtualNetworkClient, vcn, internetGateway);
@@ -184,7 +184,7 @@ public class OracleInstanceFetcher implements Closeable {
 
                                 List<Subnet> subnets = listSubnets(vcnItem.getId());
                                 if (CollectionUtil.isEmpty(subnets)) {
-                                    log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 的子网不存在，正在创建子网......",
+                                    log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 的子网不存在，正在创建子网...",
                                             user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
                                     subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
                                             getCidr(virtualNetworkClient, compartmentId), vcnItem);
@@ -197,7 +197,7 @@ public class OracleInstanceFetcher implements Closeable {
                                         }
                                     }
                                     if (subnet == null) {
-                                        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 不存在公有子网，正在删除私有子网并创建公有子网......",
+                                        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 不存在公有子网，正在删除私有子网并创建公有子网...",
                                                 user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
                                         subnets.forEach(this::deleteSubnet);
                                         subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
@@ -206,7 +206,7 @@ public class OracleInstanceFetcher implements Closeable {
                                     }
                                 }
                             }
-                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 存在，默认使用该 VCN 的公有子网：{} 创建实例......",
+                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 存在，默认使用该 VCN 的公有子网：{} 创建实例...",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName(), subnet.getDisplayName());
                         }
 
@@ -219,7 +219,7 @@ public class OracleInstanceFetcher implements Closeable {
                         instance = createInstance(computeClient.newWaiters(workRequestClient), launchInstanceDetails);
                         printInstance(computeClient, virtualNetworkClient, instance, instanceDetailDTO);
 
-                        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机成功，正在为实例预配......",
+                        log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机成功，正在为实例预配...",
                                 user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                         instanceDetailDTO.setSuccess(true);
                         instanceDetailDTO.setImage(image.getId());
@@ -240,10 +240,10 @@ public class OracleInstanceFetcher implements Closeable {
                                         error.getMessage().contains(ErrorEnum.CAPACITY_HOST.getErrorType()))) {
                             size--;
                             if (size > 0) {
-                                log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 容量不足，换可用区域继续执行......",
+                                log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 容量不足，换可用区域继续执行...",
                                         user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                             } else {
-                                log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 容量不足，[{}]秒后将重试......",
+                                log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 容量不足，[{}]秒后将重试...",
                                         user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
                             }
                         } else if (error.getStatusCode() == 400 && error.getMessage().contains(ErrorEnum.LIMIT_EXCEEDED.getErrorType())) {
@@ -253,7 +253,7 @@ public class OracleInstanceFetcher implements Closeable {
                             return instanceDetailDTO;
                         } else if (error.getStatusCode() == 429 || error.getMessage().contains(ErrorEnum.TOO_MANY_REQUESTS.getErrorType())) {
                             instanceDetailDTO.setTooManyReq(true);
-                            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机请求频繁，[{}]秒后将重试......",
+                            log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机请求频繁，[{}]秒后将重试...",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
                             return instanceDetailDTO;
                         } else {
@@ -1300,7 +1300,7 @@ public class OracleInstanceFetcher implements Closeable {
             publicIp = reservedPublicIp.getIpAddress();
             return publicIp;
         } catch (Exception e) {
-            log.error("【更换公共IP】用户：[{}] ，区域：[{}] 更换IP任务异常，稍后将重试......", user.getUsername(), user.getOciCfg().getRegion());
+            log.error("【更换公共IP】用户：[{}] ，区域：[{}] 更换IP任务异常，稍后将重试...", user.getUsername(), user.getOciCfg().getRegion());
         } finally {
             releaseUnusedPublicIps();
         }
