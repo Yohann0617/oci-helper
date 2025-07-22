@@ -7,19 +7,20 @@ COPY . .
 RUN mvn clean package -DskipTests \
     && cp target/oci-helper-*.jar /app/oci-helper.jar
 
-FROM bellsoft/liberica-openjre-alpine:21
+FROM eclipse-temurin:21-jre-jammy
 
 ENV LANG=zh_CN.UTF-8 \
     LC_ALL=zh_CN.UTF-8 \
     TZ=Asia/Shanghai \
-    OCI_HELPER_VERSION=3.0.4
+    OCI_HELPER_VERSION=3.0.5
 
-RUN apk add --no-cache openssh lsof curl tzdata libudev-zero && \
-    cp /usr/share/zoneinfo/$TZ /etc/localtime && \
-    echo $TZ > /etc/timezone && \
+RUN apt update && apt install -y openssh-client lsof curl && \
     mkdir -p /root/.ssh && \
-    echo -e "Host *\n  HostKeyAlgorithms +ssh-rsa\n  PubkeyAcceptedKeyTypes +ssh-rsa" > /root/.ssh/config && \
-    chmod 700 /root/.ssh && chmod 600 /root/.ssh/config
+    echo "Host *\n  HostKeyAlgorithms +ssh-rsa\n  PubkeyAcceptedKeyTypes +ssh-rsa" > /root/.ssh/config && \
+    chmod 700 /root/.ssh && chmod 600 /root/.ssh/config && \
+    locale-gen zh_CN.UTF-8 && \
+    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
 
 WORKDIR /app/oci-helper
 
