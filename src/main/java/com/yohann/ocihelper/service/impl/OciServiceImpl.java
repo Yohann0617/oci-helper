@@ -110,8 +110,9 @@ public class OciServiceImpl implements IOciService {
     public final static Map<String, Object> TEMP_MAP = new ConcurrentHashMap<>();
     public final static Map<String, ScheduledFuture<?>> TASK_MAP = new ConcurrentHashMap<>();
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
-            Runtime.getRuntime().availableProcessors() * 2,
+            Math.min(4, Runtime.getRuntime().availableProcessors()),
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
+    public final static ExecutorService VIRTUAL_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
 
     @Override
     public Page<OciUserListRsp> userPage(GetOciUserListParams params) {
@@ -866,12 +867,12 @@ public class OciServiceImpl implements IOciService {
     }
 
     public static void addTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {
-        ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleWithFixedDelay(task, initialDelay, period, timeUnit);
+        ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleWithFixedDelay(() -> VIRTUAL_EXECUTOR.execute(task), initialDelay, period, timeUnit);
         TASK_MAP.put(taskId, future);
     }
 
     public static void addAtFixedRateTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {
-        ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleAtFixedRate(task, initialDelay, period, timeUnit);
+        ScheduledFuture<?> future = CREATE_INSTANCE_POOL.scheduleAtFixedRate(() -> VIRTUAL_EXECUTOR.execute(task), initialDelay, period, timeUnit);
         TASK_MAP.put(taskId, future);
     }
 
