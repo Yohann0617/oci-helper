@@ -1,5 +1,6 @@
 package com.yohann.ocihelper;
 
+import com.yohann.ocihelper.utils.DelegatingVirtualTaskScheduler;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -22,9 +23,10 @@ public class OciHelperApplication {
     @Bean
     public TaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(5); // 线程池大小，可调整
+        scheduler.setPoolSize(2); // 平台线程数（仅调度）
+        scheduler.setThreadNamePrefix("spring-scheduler-");
         scheduler.initialize();
-        return scheduler;
+        return new DelegatingVirtualTaskScheduler(scheduler);
     }
 
 }
