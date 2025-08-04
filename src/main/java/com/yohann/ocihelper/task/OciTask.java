@@ -96,7 +96,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void startTgBog() {
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             OciKv tgToken = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_BOT_TOKEN.getCode()));
             OciKv tgChatId = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_CHAT_ID.getCode()));
 
@@ -123,7 +123,7 @@ public class OciTask implements ApplicationRunner {
     private void updateUserInDb() {
         sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_name", "VARCHAR(64) NULL");
         sqLiteHelper.addColumnIfNotExists("oci_create_task", "oci_region", "VARCHAR(64) NULL");
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             List<OciUser> ociUsers = userService.list(new LambdaQueryWrapper<OciUser>()
                     .isNull(OciUser::getTenantName)
                     .or().eq(OciUser::getTenantName, ""));
@@ -144,7 +144,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void cleanAndRestartTask() {
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             Optional.ofNullable(createTaskService.list())
                     .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList)
                     .forEach(task -> {
@@ -180,7 +180,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void initGenMfaPng() {
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             Optional.ofNullable(kvService.getOne(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()))).ifPresent(mfa -> {
                 String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, "oci-helper");
@@ -190,7 +190,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void saveVersion() {
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             String latestVersion = CommonUtils.getLatestVersion();
             OciKv oldVersion = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
@@ -323,7 +323,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void supportOciUnknownRegionTask() {
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             Arrays.stream(OciUnSupportRegionEnum.values()).parallel()
                     .forEach(x -> {
                         try {

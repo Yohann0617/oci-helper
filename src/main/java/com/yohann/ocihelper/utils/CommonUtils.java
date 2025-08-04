@@ -614,7 +614,7 @@ public class CommonUtils {
                                  InputStream inputStream, String contentType, String fileName) throws IOException {
 
         response.setContentType(contentType);
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + fileName);
 
         try (OutputStream out = response.getOutputStream()) {
             IoUtil.copy(inputStream, out);

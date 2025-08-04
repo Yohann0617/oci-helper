@@ -57,3 +57,20 @@ create table if not exists `cf_cfg`
     create_time datetime default (datetime('now', 'localtime')) not null,
     primary key ("id")
 );
+
+--IP数据表
+create table if not exists `ip_data`
+(
+    id          varchar(64)                                     not null,
+    ip          varchar(255)                                    not null,
+    country     varchar(255)                                    not null,
+    area        varchar(120)                                    not null,
+    city        varchar(120)                                    not null,
+    org         varchar(120)                                    not null,
+    asn         varchar(64)                                     not null,
+    type        varchar(64)                                     not null,
+    lat         REAL,
+    lng         REAL,
+    create_time datetime default (datetime('now', 'localtime')) not null,
+    primary key ("id")
+);

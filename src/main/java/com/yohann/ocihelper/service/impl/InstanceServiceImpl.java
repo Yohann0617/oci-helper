@@ -51,8 +51,7 @@ public class InstanceServiceImpl implements IInstanceService {
                     "磁盘大小（GB）： %s\n" +
                     "Shape： %s\n" +
                     "公网IP： %s\n" +
-                    "root密码： %s\n\n" +
-                    "⭐注意： 如果没有开机任务请及时清理API";
+                    "root密码： %s";
 
     @Override
     public List<SysUserDTO.CloudInstance> listRunningInstances(SysUserDTO sysUserDTO) {

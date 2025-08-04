@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.yohann.ocihelper.service.impl.OciServiceImpl.VIRTUAL_EXECUTOR;
+
 /**
  * <p>
  * BootVolumeServiceImpl
@@ -93,7 +95,7 @@ public class BootVolumeServiceImpl implements IBootVolumeService {
     @Override
     public void terminateBootVolume(TerminateBootVolumeParams params) {
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             params.getBootVolumeIds().parallelStream().forEach(id -> {
                 String bvName = null;
                 try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {

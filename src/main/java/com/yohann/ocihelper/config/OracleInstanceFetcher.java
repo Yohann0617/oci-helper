@@ -206,7 +206,7 @@ public class OracleInstanceFetcher implements Closeable {
                                     }
                                 }
                             }
-                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，检测到 VCN：{} 存在，默认使用该 VCN 的公有子网：{} 创建实例...",
+                            log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，默认使用 VCN：{} 的公有子网：{} 创建实例...",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName(), subnet.getDisplayName());
                         }
 

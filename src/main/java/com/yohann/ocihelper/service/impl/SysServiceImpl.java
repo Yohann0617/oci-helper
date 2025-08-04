@@ -107,8 +107,8 @@ public class SysServiceImpl implements ISysService {
 
     @Override
     public void sendMessage(String message) {
-        CompletableFuture.runAsync(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message));
-        CompletableFuture.runAsync(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message));
+        VIRTUAL_EXECUTOR.execute(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message));
+        VIRTUAL_EXECUTOR.execute(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message));
     }
 
     @Override
@@ -623,7 +623,7 @@ public class SysServiceImpl implements ISysService {
                 }
             }
         }
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             if (StrUtil.isNotBlank(botToken) && StrUtil.isNotBlank(chatId)) {
                 if (null != botsApplication && botsApplication.isRunning()) {
                     try {

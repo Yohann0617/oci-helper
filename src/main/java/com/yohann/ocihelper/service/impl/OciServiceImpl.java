@@ -113,6 +113,7 @@ public class OciServiceImpl implements IOciService {
             Math.min(4, Runtime.getRuntime().availableProcessors()),
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
     public final static ExecutorService VIRTUAL_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
+    public final static Set<String> RUNNING_TASKS = ConcurrentHashMap.newKeySet();
 
     @Override
     public Page<OciUserListRsp> userPage(GetOciUserListParams params) {
@@ -441,7 +442,7 @@ public class OciServiceImpl implements IOciService {
 
         stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + params.getInstanceId());
         SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
                 fetcher.terminateInstance(params.getInstanceId(), params.getPreserveBootVolume().equals(1), params.getPreserveBootVolume().equals(1));
                 String message = String.format(CommonUtils.TERMINATE_INSTANCE_MESSAGE_TEMPLATE,
@@ -660,7 +661,7 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public void autoRescue(AutoRescueParams params) {
-        CompletableFuture.runAsync(() -> {
+        VIRTUAL_EXECUTOR.execute(() -> {
             SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
                 String instanceId = params.getInstanceId();
@@ -880,14 +881,21 @@ public class OciServiceImpl implements IOciService {
         ScheduledFuture<?> future = TASK_MAP.get(taskId);
         if (null != future) {
             future.cancel(false);
-            TASK_MAP.remove(taskId);
         }
+        TASK_MAP.remove(taskId);
     }
 
     public static void execCreate(
             SysUserDTO sysUserDTO, ISysService sysService,
             IInstanceService instanceService,
             IOciCreateTaskService createTaskService) {
+
+        String taskId = CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId();
+        // 检查是否已经有同一个任务在运行
+        if (!RUNNING_TASKS.add(taskId)) {
+//            log.warn("【开机任务】任务 [{}] 已在运行中，跳过本轮执行", taskId);
+            return;
+        }
 
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
 
@@ -910,10 +918,10 @@ public class OciServiceImpl implements IOciService {
 
             if (noShapeCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因不支持 CPU 架构：[{}] 而终止任务...",
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因不支持 CPU 架构：[{}] 或配额不足而终止任务...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), sysUserDTO.getArchitecture());
-                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因不支持 CPU 架构：[%s] 而终止任务",
+                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因不支持 CPU 架构：[%s] 或配额不足而终止任务",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), sysUserDTO.getArchitecture()));
             }
@@ -950,6 +958,9 @@ public class OciServiceImpl implements IOciService {
 //                            "发生了异常但并未停止枪机任务，可能是网络响应超时等原因，具体情况自行查看日志",
 //                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
 //                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
+        } finally {
+            // 确保任务执行完毕后清除运行标志
+            RUNNING_TASKS.remove(taskId);
         }
     }
 
@@ -957,6 +968,7 @@ public class OciServiceImpl implements IOciService {
         TEMP_MAP.remove(CommonUtils.CREATE_COUNTS_PREFIX + sysUserDTO.getTaskId());
         stopTask(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
         createTaskService.remove(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getId, sysUserDTO.getTaskId()));
+        RUNNING_TASKS.remove(CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId());
     }
 
     public void execChange(ChangeIpParams params,
@@ -971,7 +983,7 @@ public class OciServiceImpl implements IOciService {
             if (tuple2.getFirst() == null || tuple2.getSecond() == null) {
                 return;
             }
-            CompletableFuture.runAsync(() -> updateCfDns(params, tuple2.getFirst()));
+            VIRTUAL_EXECUTOR.execute(() -> updateCfDns(params, tuple2.getFirst()));
             sendChangeIpMsg(
                     params.getOciCfgId(),
                     sysUserDTO.getUsername(),
@@ -1006,7 +1018,7 @@ public class OciServiceImpl implements IOciService {
                     publicIp, randomIntInterval);
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
         } else {
-            CompletableFuture.runAsync(() -> updateCfDns(params, publicIp));
+            VIRTUAL_EXECUTOR.execute(() -> updateCfDns(params, publicIp));
             sendChangeIpMsg(params.getOciCfgId(), sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
             stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + instanceId);
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
