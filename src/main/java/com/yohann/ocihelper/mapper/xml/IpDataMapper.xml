@@ -4,4 +4,37 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.yohann.ocihelper.mapper.IpDataMapper">
 
+    <select id="pageIpData" resultType="com.yohann.ocihelper.bean.response.ipdata.IpDataPageRsp">
+        select *
+        from ip_data
+        <where>
+            <if test="keyword != null and keyword != ''">
+                and (ip like '%' || #{keyword} || '%' or
+                country like '%' || #{keyword} || '%' or
+                area like '%' || #{keyword} || '%' or
+                city like '%' || #{keyword} || '%' or
+                org like '%' || #{keyword} || '%' or
+                asn like '%' || #{keyword} || '%' or
+                CAST(lat AS TEXT) like '%' || #{keyword} || '%' or
+                CAST(lng AS TEXT) like '%' || #{keyword} || '%' )
+            </if>
+        </where>
+        order by ip limit #{offset}, #{size}
+    </select>
+    <select id="pageIpDataTotal" resultType="java.lang.Long">
+        select count(1)
+        from ip_data
+        <where>
+            <if test="keyword != null and keyword != ''">
+                and (ip like '%' || #{keyword} || '%' or
+                country like '%' || #{keyword} || '%' or
+                area like '%' || #{keyword} || '%' or
+                city like '%' || #{keyword} || '%' or
+                org like '%' || #{keyword} || '%' or
+                asn like '%' || #{keyword} || '%' or
+                CAST(lat AS TEXT) like '%' || #{keyword} || '%' or
+                CAST(lng AS TEXT) like '%' || #{keyword} || '%' )
+            </if>
+        </where>
+    </select>
 </mapper>

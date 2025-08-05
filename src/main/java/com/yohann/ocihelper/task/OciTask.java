@@ -99,7 +99,9 @@ public class OciTask implements ApplicationRunner {
         VIRTUAL_EXECUTOR.execute(() -> {
             OciKv tgToken = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_BOT_TOKEN.getCode()));
             OciKv tgChatId = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_CHAT_ID.getCode()));
-
+            if (null == tgToken || null == tgChatId) {
+                return;
+            }
             if (StrUtil.isNotBlank(tgToken.getValue()) && StrUtil.isNotBlank(tgChatId.getValue())) {
                 botsApplication = new TelegramBotsLongPollingApplication();
                 try {

@@ -15,4 +15,8 @@ public class BasicPageParams {
     private String keyword;
     private int currentPage;
     private int pageSize;
+
+    public long getOffset() {
+        return (long) (currentPage - 1) * pageSize;
+    }
 }

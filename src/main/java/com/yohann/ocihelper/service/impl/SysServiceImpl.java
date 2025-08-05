@@ -261,6 +261,9 @@ public class SysServiceImpl implements ISysService {
 
     @Override
     public void backup(BackupParams params) {
+        if (params.isEnableEnc() && StrUtil.isBlank(params.getPassword())) {
+            throw new OciException(-1, "密码不能为空");
+        }
         File tempDir = null;
         File dataFile = null;
         File outEncZip = null;
