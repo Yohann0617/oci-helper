@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -169,9 +170,11 @@ public class InstanceServiceImpl implements IInstanceService {
             if (null == vcns || vcns.isEmpty()) {
                 throw new OciException(-1, "当前用户未创建VCN，无法放行安全列表");
             }
-            fetcher.releaseSecurityRule(vcns.get(0), 0);
-            log.info("用户：[{}] ，区域：[{}] ，放行安全列表所有端口及协议成功",
-                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion());
+            vcns.parallelStream().forEach(x -> {
+                fetcher.releaseSecurityRule(x, 0);
+                log.info("用户：[{}] ，区域：[{}] ，放行 vcn： [{}] 安全列表所有端口及协议成功",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), x.getDisplayName());
+            });
         } catch (Exception e) {
             log.error("用户：[{}] ，区域：[{}] ，放行安全列表所有端口及协议，原因：{}",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),

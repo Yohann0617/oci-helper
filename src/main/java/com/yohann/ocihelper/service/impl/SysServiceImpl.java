@@ -21,6 +21,7 @@ import java.util.*;
 
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.IpData;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
@@ -61,6 +62,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -91,6 +93,9 @@ public class SysServiceImpl implements ISysService {
     private IOciUserService userService;
     @Resource
     private IOciKvService kvService;
+    @Resource
+    @Lazy
+    private IIpDataService ipDataService;
     @Resource
     private IOciCreateTaskService createTaskService;
     @Resource
@@ -384,24 +389,27 @@ public class SysServiceImpl implements ISysService {
                 .isNotNull(OciUser::getId)
                 .select(OciUser::getId), String::valueOf);
 
-//        CompletableFuture<String> usersFuture = CompletableFuture.supplyAsync(() -> {
-//
-//            if (CollectionUtil.isEmpty(ids)) {
-//                return "0/0";
-//            }
-//
-//            List<String> failNames = ids.parallelStream().filter(id -> {
-//                SysUserDTO ociUser = getOciUser(id);
-//                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
-//                    fetcher.getAvailabilityDomains();
-//                } catch (Exception e) {
-//                    return true;
-//                }
-//                return false;
-//            }).map(id -> getOciUser(id).getUsername()).collect(Collectors.toList());
-//
-//            return failNames.size() + "/" + ids.size();
-//        });
+        CompletableFuture<List<GetGlanceRsp.MapData>> mapDataFuture = CompletableFuture.supplyAsync(() -> Optional.ofNullable(ipDataService.list())
+                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).parallelStream()
+                .filter(ip -> ip.getLat() != null && ip.getLng() != null)
+                .collect(Collectors.groupingBy(
+                        ip -> new AbstractMap.SimpleEntry<>(ip.getLat(), ip.getLng()),
+                        Collectors.toList()
+                ))
+                .entrySet().parallelStream()
+                .map(entry -> {
+                    GetGlanceRsp.MapData mapData = new GetGlanceRsp.MapData();
+                    mapData.setCountry(entry.getValue().get(0).getCountry());
+                    mapData.setArea(entry.getValue().get(0).getArea());
+                    mapData.setOrg(entry.getValue().stream().map(IpData::getOrg).distinct().collect(Collectors.joining(",")));
+                    mapData.setAsn(entry.getValue().stream().map(IpData::getAsn).distinct().collect(Collectors.joining(",")));
+                    mapData.setLat(entry.getKey().getKey());
+                    mapData.setLng(entry.getKey().getValue());
+                    mapData.setCount(entry.getValue().size());
+                    mapData.setCity(entry.getValue().get(0).getCity());
+                    return mapData;
+                })
+                .collect(Collectors.toList()));
 
         CompletableFuture<String> tasksFuture = CompletableFuture.supplyAsync(() -> {
             List<String> userIds = createTaskService.listObjs(new LambdaQueryWrapper<OciCreateTask>()
@@ -431,9 +439,10 @@ public class SysServiceImpl implements ISysService {
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf));
 
-        CompletableFuture.allOf(tasksFuture, regionsFuture, daysFuture, currentVersionFuture).join();
+        CompletableFuture.allOf(mapDataFuture, tasksFuture, regionsFuture, daysFuture, currentVersionFuture).join();
 
         try {
+            rsp.setCities(mapDataFuture.get());
             rsp.setUsers(String.valueOf(ids.size()));
             rsp.setTasks(tasksFuture.get());
             rsp.setRegions(regionsFuture.get());

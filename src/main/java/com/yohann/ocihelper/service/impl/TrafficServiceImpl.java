@@ -55,10 +55,10 @@ public class TrafficServiceImpl implements ITrafficService {
             GetTrafficDataRsp rsp = new GetTrafficDataRsp();
             rsp.setTime(inTrafficData.stream().map(ValueLabelDTO::getLabel).collect(Collectors.toList()));
             rsp.setInbound(inTrafficData.stream()
-                    .map(x -> CommonUtils.formatBytes(Long.parseLong(x.getValue()), "MB"))
+                    .map(x -> CommonUtils.formatBytes(Long.parseLong(x.getValue()), "GB"))
                     .collect(Collectors.toList()));
             rsp.setOutbound(outTrafficData.stream()
-                    .map(x -> CommonUtils.formatBytes(Long.parseLong(x.getValue()), "MB"))
+                    .map(x -> CommonUtils.formatBytes(Long.parseLong(x.getValue()), "GB"))
                     .collect(Collectors.toList()));
             return rsp;
         } catch (Exception e) {

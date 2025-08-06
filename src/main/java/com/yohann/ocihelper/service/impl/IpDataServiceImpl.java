@@ -67,6 +67,11 @@ public class IpDataServiceImpl extends ServiceImpl<IpDataMapper, IpData> impleme
         ipData.setAsn(json.getStr("asn"));
         ipData.setLat(Double.valueOf(json.getStr("latitude")));
         ipData.setLng(Double.valueOf(json.getStr("longitude")));
+        List<IpData> ipDataList = this.list(new LambdaQueryWrapper<IpData>()
+                .eq(IpData::getIp, json.getStr("ip")));
+        if (CollectionUtil.isNotEmpty(ipDataList)) {
+            this.remove(new LambdaQueryWrapper<IpData>().eq(IpData::getIp, json.getStr("ip")));
+        }
         this.save(ipData);
     }
 

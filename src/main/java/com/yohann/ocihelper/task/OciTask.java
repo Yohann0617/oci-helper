@@ -4,12 +4,16 @@ import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oracle.bmc.Region;
 import com.oracle.bmc.identity.model.Tenancy;
 import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.IpData;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.entity.OciUser;
@@ -26,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
@@ -66,6 +71,8 @@ public class OciTask implements ApplicationRunner {
     @Resource
     private ISysService sysService;
     @Resource
+    private IIpDataService ipDataService;
+    @Resource
     private IOciCreateTaskService createTaskService;
     @Resource
     private TaskScheduler taskScheduler;
@@ -93,6 +100,7 @@ public class OciTask implements ApplicationRunner {
         pushVersionUpdateMsg(kvService, sysService);
         dailyBroadcastTask();
         supportOciUnknownRegionTask();
+        initMapData();
     }
 
     private void startTgBog() {
@@ -335,6 +343,30 @@ public class OciTask implements ApplicationRunner {
                             log.info("support new region: [{}] successfully", x.getRegionId());
                         }
                     });
+        });
+    }
+
+    private void initMapData() {
+        VIRTUAL_EXECUTOR.execute(() -> {
+            String jsonStr = HttpUtil.get(String.format("https://ipapi.co/json"));
+            JSONObject json = JSONUtil.parseObj(jsonStr);
+            IpData ipData = new IpData();
+            ipData.setId(IdUtil.getSnowflakeNextIdStr());
+            ipData.setIp(json.getStr("ip"));
+            ipData.setCountry(json.getStr("country"));
+            ipData.setArea(json.getStr("region"));
+            ipData.setCity(json.getStr("city"));
+            ipData.setOrg(json.getStr("org"));
+            ipData.setAsn(json.getStr("asn"));
+            ipData.setLat(Double.valueOf(json.getStr("latitude")));
+            ipData.setLng(Double.valueOf(json.getStr("longitude")));
+            List<IpData> ipDataList = ipDataService.list(new LambdaQueryWrapper<IpData>()
+                    .eq(IpData::getIp, json.getStr("ip")));
+            if (CollectionUtil.isNotEmpty(ipDataList)) {
+                ipDataService.remove(new LambdaQueryWrapper<IpData>().eq(IpData::getIp, json.getStr("ip")));
+            }
+            ipDataService.save(ipData);
+            log.info("新增地图IP数据：{} 成功", ipData.getIp());
         });
     }
 }
