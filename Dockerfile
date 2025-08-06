@@ -25,7 +25,7 @@ RUN apt update && \
 
 FROM base-with-tools
 
-ENV OCI_HELPER_VERSION=3.0.5
+ENV OCI_HELPER_VERSION=3.0.7
 
 WORKDIR /app/oci-helper
 
