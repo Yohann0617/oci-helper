@@ -1,6 +1,6 @@
 # oci-helper 🐢
 
-> 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手（Y探长），目前实现的功能有：批量添加多个租户配置、更改实例配置以及引导卷配置、附加ipv6、一键自动救援/缩小硬盘（默认47GB）、一键自动更新、安全列表、实时流量查询（分钟级别）、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、Cloud Shell、断点续抢、备份恢复、日志实时查看、消息通知、MFA登录验证、更新 Cloudflare DNS 记录、TG 机器人操作等功能。
+> 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手（Y探长），目前实现的功能有：批量添加多个租户配置、更改实例配置以及引导卷配置、附加ipv6、一键自动救援/缩小硬盘（默认47GB）、一键自动更新、安全列表、实时流量查询（分钟级别）、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、Cloud Shell、断点续抢、备份恢复、日志实时查看、消息通知、MFA登录验证、更新 Cloudflare DNS 记录、TG 机器人操作、IP信息查询、全球服务器地图等功能。
 
 ## 🔔注意事项及免责声明
 
@@ -24,6 +24,7 @@
 10. 支持分页查询、添加、更新、删除 **Cloudflare** 多个域名的 DNS 记录。⭐
 11. 支持 **Telegram 机器人**简单操作，服务成功部署后向机器人发送`/start`选择操作。
 12. 支持类似于甲骨文云 **Cloud Shell** 控制台功能，方便使用 netboot 救砖。⭐⭐
+13. 支持IP信息查询（部署成功后访问 http://ip:8818/ip-info ）以及首页显示全球服务器地图（可精确到街道的店铺），点亮全球。
 
 ## 💻一键 docker-compose 部署或更新
 
@@ -209,3 +210,4 @@ Thanks to ZMTO for its strong support for this project! High cost-effective serv
 感谢 YxVM 对本项目的大力支持！ [高性价比服务器购买链接](https://yxvm.com/aff.php?aff=829)
 
 感谢 [NodeSupport](https://github.com/NodeSeekDev/NodeSupport) 赞助了本项目
+
