@@ -1,14 +1,18 @@
 package com.yohann.ocihelper;
 
 import com.yohann.ocihelper.utils.DelegatingVirtualTaskScheduler;
+import jakarta.annotation.Resource;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.boot.web.embedded.tomcat.TomcatProtocolHandlerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
+import java.util.concurrent.ExecutorService;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
@@ -20,13 +24,21 @@ public class OciHelperApplication {
         SpringApplication.run(OciHelperApplication.class, args);
     }
 
+    @Resource
+    private ExecutorService virtualExecutor;
+
     @Bean
     public TaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(2); // 平台线程数（仅调度）
+        scheduler.setPoolSize(2);
         scheduler.setThreadNamePrefix("spring-scheduler-");
         scheduler.initialize();
-        return new DelegatingVirtualTaskScheduler(scheduler);
+        return new DelegatingVirtualTaskScheduler(scheduler, virtualExecutor);
+    }
+
+    @Bean
+    public TomcatProtocolHandlerCustomizer<?> protocolHandlerVirtualThreadExecutorCustomizer() {
+        return protocolHandler -> protocolHandler.setExecutor(virtualExecutor);
     }
 
 }

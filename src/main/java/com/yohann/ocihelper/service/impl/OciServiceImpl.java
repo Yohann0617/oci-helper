@@ -6,9 +6,6 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.thread.ThreadFactoryBuilder;
 import cn.hutool.core.util.*;
-import cn.hutool.http.HttpResponse;
-import cn.hutool.http.HttpUtil;
-import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -73,6 +70,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+import static com.yohann.ocihelper.config.VirtualThreadConfig.VIRTUAL_EXECUTOR;
+
 /**
  * <p>
  * OciServiceImpl
@@ -103,6 +102,8 @@ public class OciServiceImpl implements IOciService {
     private OciUserMapper userMapper;
     @Resource
     private OciCreateTaskMapper createTaskMapper;
+    @Resource
+    private ExecutorService virtualExecutor;
 
     @Value("${oci-cfg.key-dir-path}")
     private String keyDirPath;
@@ -112,7 +113,6 @@ public class OciServiceImpl implements IOciService {
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
             Math.min(4, Runtime.getRuntime().availableProcessors()),
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
-    public final static ExecutorService VIRTUAL_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
     public final static Set<String> RUNNING_TASKS = ConcurrentHashMap.newKeySet();
 
     @Override
@@ -442,7 +442,7 @@ public class OciServiceImpl implements IOciService {
 
         stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + params.getInstanceId());
         SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
                 fetcher.terminateInstance(params.getInstanceId(), params.getPreserveBootVolume().equals(1), params.getPreserveBootVolume().equals(1));
                 String message = String.format(CommonUtils.TERMINATE_INSTANCE_MESSAGE_TEMPLATE,
@@ -623,7 +623,7 @@ public class OciServiceImpl implements IOciService {
                         .build();
                 String connectId = build.createConsoleConnection(params.getInstanceId(), pub);
                 return build.waitForConnectionAndGetDetails(connectId, "vnc");
-            });
+            }, virtualExecutor);
 
             String vncConnectionString = vncStrFuture.get();
 
@@ -661,7 +661,7 @@ public class OciServiceImpl implements IOciService {
 
     @Override
     public void autoRescue(AutoRescueParams params) {
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
                 String instanceId = params.getInstanceId();
@@ -698,6 +698,10 @@ public class OciServiceImpl implements IOciService {
                 log.info("（1/9）✅ 关机成功");
 
                 while (!fetcher.getInstanceById(instanceId).getLifecycleState().getValue().equals(Instance.LifecycleState.Stopped.getValue())) {
+                    Thread.sleep(1000);
+                }
+
+                while (!fetcher.getBootVolumeByInstanceId(instanceId).getLifecycleState().getValue().equals(BootVolume.LifecycleState.Available.getValue())) {
                     Thread.sleep(1000);
                 }
 
@@ -983,7 +987,7 @@ public class OciServiceImpl implements IOciService {
             if (tuple2.getFirst() == null || tuple2.getSecond() == null) {
                 return;
             }
-            VIRTUAL_EXECUTOR.execute(() -> updateCfDns(params, tuple2.getFirst()));
+            virtualExecutor.execute(() -> updateCfDns(params, tuple2.getFirst()));
             sendChangeIpMsg(
                     params.getOciCfgId(),
                     sysUserDTO.getUsername(),
@@ -1018,7 +1022,7 @@ public class OciServiceImpl implements IOciService {
                     publicIp, randomIntInterval);
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
         } else {
-            VIRTUAL_EXECUTOR.execute(() -> updateCfDns(params, publicIp));
+            virtualExecutor.execute(() -> updateCfDns(params, publicIp));
             sendChangeIpMsg(params.getOciCfgId(), sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, publicIp);
             stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + instanceId);
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);

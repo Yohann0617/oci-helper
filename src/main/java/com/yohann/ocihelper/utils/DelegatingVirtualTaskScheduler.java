@@ -20,10 +20,11 @@ import java.util.concurrent.ScheduledFuture;
 public class DelegatingVirtualTaskScheduler implements TaskScheduler {
 
     private final TaskScheduler delegate;
-    private final ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService virtualExecutor;
 
-    public DelegatingVirtualTaskScheduler(TaskScheduler delegate) {
+    public DelegatingVirtualTaskScheduler(TaskScheduler delegate, ExecutorService virtualExecutor) {
         this.delegate = delegate;
+        this.virtualExecutor = virtualExecutor;
     }
 
     @Override

@@ -25,10 +25,9 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.Resource;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-import static com.yohann.ocihelper.service.impl.OciServiceImpl.VIRTUAL_EXECUTOR;
 
 /**
  * <p>
@@ -46,6 +45,8 @@ public class BootVolumeServiceImpl implements IBootVolumeService {
     private ISysService sysService;
     @Resource
     private CustomExpiryGuavaCache<String, Object> customCache;
+    @Resource
+    private ExecutorService virtualExecutor;
 
     @Override
     public Page<BootVolumeListPage.BootVolumeInfo> bootVolumeListPage(BootVolumePageParams params) {
@@ -95,7 +96,7 @@ public class BootVolumeServiceImpl implements IBootVolumeService {
     @Override
     public void terminateBootVolume(TerminateBootVolumeParams params) {
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             params.getBootVolumeIds().parallelStream().forEach(id -> {
                 String bvName = null;
                 try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {

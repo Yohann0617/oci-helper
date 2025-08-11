@@ -33,8 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-
-import static com.yohann.ocihelper.service.impl.OciServiceImpl.VIRTUAL_EXECUTOR;
+import java.util.concurrent.ExecutorService;
 
 /**
  * @author Yohann_Fan
@@ -51,6 +50,8 @@ public class IpDataServiceImpl extends ServiceImpl<IpDataMapper, IpData> impleme
     private ISysService sysService;
     @Resource
     private IOciUserService ociUserService;
+    @Resource
+    private ExecutorService virtualExecutor;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -77,7 +78,7 @@ public class IpDataServiceImpl extends ServiceImpl<IpDataMapper, IpData> impleme
 
     @Override
     public void loadOciIpData() {
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             log.info("【同步IP数据任务】开始同步已有的oci配置的最新IP数据...");
             this.remove(new LambdaQueryWrapper<IpData>().eq(IpData::getType, IpDataTypeEnum.IP_DATA_ORACLE.getCode()));
             log.info("【同步IP数据任务】清除已有的oci配置的旧IP数据成功");

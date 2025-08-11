@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.yohann.ocihelper.config.VirtualThreadConfig.VIRTUAL_EXECUTOR;
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
 import static java.lang.Math.toIntExact;
 
@@ -370,7 +371,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                         x.getOcpus().longValue(), x.getMemory().longValue(), x.getDisk(), x.getCreateNumbers(),
                         CommonUtils.getTimeDifference(x.getCreateTime()), counts == null ? "0" : counts);
             }).collect(Collectors.joining("\n"));
-        });
+        }, VIRTUAL_EXECUTOR);
 
         CompletableFuture.allOf(task).join();
 

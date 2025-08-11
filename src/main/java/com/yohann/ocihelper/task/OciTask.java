@@ -30,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
@@ -44,6 +43,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -78,6 +78,8 @@ public class OciTask implements ApplicationRunner {
     private TaskScheduler taskScheduler;
     @Resource
     private SQLiteHelper sqLiteHelper;
+    @Resource
+    private ExecutorService virtualExecutor;
 
     private static volatile boolean isPushedLatestVersion = false;
     public static volatile TelegramBotsLongPollingApplication botsApplication;
@@ -104,7 +106,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void startTgBog() {
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             OciKv tgToken = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_BOT_TOKEN.getCode()));
             OciKv tgChatId = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_CHAT_ID.getCode()));
             if (null == tgToken || null == tgChatId) {
@@ -133,7 +135,7 @@ public class OciTask implements ApplicationRunner {
     private void updateUserInDb() {
         sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_name", "VARCHAR(64) NULL");
         sqLiteHelper.addColumnIfNotExists("oci_create_task", "oci_region", "VARCHAR(64) NULL");
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             List<OciUser> ociUsers = userService.list(new LambdaQueryWrapper<OciUser>()
                     .isNull(OciUser::getTenantName)
                     .or().eq(OciUser::getTenantName, ""));
@@ -154,7 +156,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void cleanAndRestartTask() {
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             Optional.ofNullable(createTaskService.list())
                     .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList)
                     .forEach(task -> {
@@ -190,7 +192,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void initGenMfaPng() {
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             Optional.ofNullable(kvService.getOne(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()))).ifPresent(mfa -> {
                 String qrCodeURL = CommonUtils.generateQRCodeURL(mfa.getValue(), account, "oci-helper");
@@ -200,7 +202,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void saveVersion() {
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             String latestVersion = CommonUtils.getLatestVersion();
             OciKv oldVersion = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
@@ -301,7 +303,7 @@ public class OciTask implements ApplicationRunner {
                     }
                     return false;
                 }).map(id -> sysService.getOciUser(id).getUsername()).collect(Collectors.toList());
-            });
+            }, virtualExecutor);
 
             CompletableFuture<String> task = CompletableFuture.supplyAsync(() -> {
                 List<OciCreateTask> ociCreateTaskList = createTaskService.list();
@@ -316,7 +318,7 @@ public class OciTask implements ApplicationRunner {
                             x.getOcpus().longValue(), x.getMemory().longValue(), x.getDisk(), x.getCreateNumbers(),
                             CommonUtils.getTimeDifference(x.getCreateTime()), counts == null ? "0" : counts);
                 }).collect(Collectors.joining("\n"));
-            });
+            }, virtualExecutor);
 
             CompletableFuture.allOf(fails, task).join();
 
@@ -333,7 +335,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void supportOciUnknownRegionTask() {
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             Arrays.stream(OciUnSupportRegionEnum.values()).parallel()
                     .forEach(x -> {
                         try {
@@ -347,7 +349,7 @@ public class OciTask implements ApplicationRunner {
     }
 
     private void initMapData() {
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             String jsonStr = HttpUtil.get(String.format("https://ipapi.co/json"));
             JSONObject json = JSONUtil.parseObj(jsonStr);
             IpData ipData = new IpData();

@@ -9,7 +9,6 @@ import cn.hutool.core.util.CharsetUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RuntimeUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.extra.servlet.ServletUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.hutool.json.JSONUtil;
 import cn.hutool.system.SystemUtil;
@@ -61,10 +60,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.*;
@@ -109,11 +105,13 @@ public class SysServiceImpl implements ISysService {
     private OciKvMapper kvMapper;
     @Resource
     private TaskScheduler taskScheduler;
+    @Resource
+    private ExecutorService virtualExecutor;
 
     @Override
     public void sendMessage(String message) {
-        VIRTUAL_EXECUTOR.execute(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message));
-        VIRTUAL_EXECUTOR.execute(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message));
+        virtualExecutor.execute(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_DING_DING).sendMessage(message));
+        virtualExecutor.execute(() -> messageServiceFactory.getMessageService(MessageTypeEnum.MSG_TYPE_TELEGRAM).sendMessage(message));
     }
 
     @Override
@@ -409,14 +407,14 @@ public class SysServiceImpl implements ISysService {
                     mapData.setCity(entry.getValue().get(0).getCity());
                     return mapData;
                 })
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList()), virtualExecutor);
 
         CompletableFuture<String> tasksFuture = CompletableFuture.supplyAsync(() -> {
             List<String> userIds = createTaskService.listObjs(new LambdaQueryWrapper<OciCreateTask>()
                     .isNotNull(OciCreateTask::getId)
                     .select(OciCreateTask::getUserId), String::valueOf);
             return String.valueOf(userIds.size());
-        });
+        }, virtualExecutor);
 
         CompletableFuture<String> regionsFuture = CompletableFuture.supplyAsync(() -> {
             if (CollectionUtil.isEmpty(ids)) {
@@ -427,17 +425,17 @@ public class SysServiceImpl implements ISysService {
                             .isNotNull(OciUser::getId)
                             .select(OciUser::getOciRegion), String::valueOf)
                     .stream().distinct().count());
-        });
+        },virtualExecutor);
 
         CompletableFuture<String> daysFuture = CompletableFuture.supplyAsync(() -> {
             long uptimeMillis = SystemUtil.getRuntimeMXBean().getUptime();
             return String.valueOf(uptimeMillis / (24 * 60 * 60 * 1000));
-        });
+        },virtualExecutor);
 
         CompletableFuture<String> currentVersionFuture = CompletableFuture.supplyAsync(() -> kvService.getObj(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
-                .select(OciKv::getValue), String::valueOf));
+                .select(OciKv::getValue), String::valueOf),virtualExecutor);
 
         CompletableFuture.allOf(mapDataFuture, tasksFuture, regionsFuture, daysFuture, currentVersionFuture).join();
 
@@ -635,7 +633,7 @@ public class SysServiceImpl implements ISysService {
                 }
             }
         }
-        VIRTUAL_EXECUTOR.execute(() -> {
+        virtualExecutor.execute(() -> {
             if (StrUtil.isNotBlank(botToken) && StrUtil.isNotBlank(chatId)) {
                 if (null != botsApplication && botsApplication.isRunning()) {
                     try {
