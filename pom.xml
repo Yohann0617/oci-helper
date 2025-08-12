@@ -11,7 +11,7 @@
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <oci-version>3.70.0</oci-version>
+        <oci-version>3.70.1</oci-version>
         <spring-boot.version>3.2.2</spring-boot.version>
     </properties>
     <dependencies>
@@ -68,6 +68,11 @@
         <dependency>
             <groupId>com.oracle.oci.sdk</groupId>
             <artifactId>oci-java-sdk-common-httpclient-jersey3</artifactId>
+            <version>${oci-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.oci.sdk</groupId>
+            <artifactId>oci-java-sdk-networkloadbalancer</artifactId>
             <version>${oci-version}</version>
         </dependency>
 

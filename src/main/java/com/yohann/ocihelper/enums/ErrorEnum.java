@@ -14,6 +14,7 @@ import lombok.Getter;
 public enum ErrorEnum {
 
     LIMIT_EXCEEDED(400, "limit", "无法创建实例，配额已经超过免费额度"),
+    NOT_AUTHENTICATED(401, "NotAuthenticated", "账号已无权或已被封禁"),
     TOO_MANY_REQUESTS(429, "TooManyRequests", "请求频繁"),
     CAPACITY(500, "Out of capacity", "Out of capacity"),
     CAPACITY_HOST(500, "Out of host capacity", "Out of host capacity"),

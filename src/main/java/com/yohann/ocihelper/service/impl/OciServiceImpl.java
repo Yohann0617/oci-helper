@@ -20,6 +20,7 @@ import com.oracle.bmc.core.responses.CreateBootVolumeResponse;
 import com.oracle.bmc.identity.model.AvailabilityDomain;
 import com.oracle.bmc.identity.model.Tenancy;
 import com.oracle.bmc.identity.requests.GetTenancyRequest;
+import com.oracle.bmc.model.BmcException;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
@@ -43,6 +44,7 @@ import com.yohann.ocihelper.bean.response.oci.cfg.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.oci.cfg.OciUserListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.ArchitectureEnum;
+import com.yohann.ocihelper.enums.ErrorEnum;
 import com.yohann.ocihelper.enums.InstanceActionEnum;
 import com.yohann.ocihelper.enums.OciCfgEnum;
 import com.yohann.ocihelper.exception.OciException;
@@ -908,7 +910,18 @@ public class OciServiceImpl implements IOciService {
             long noPubVcnCounts = createInstanceList.stream().filter(InstanceDetailDTO::isNoPubVcn).count();
             long successCounts = createInstanceList.stream().filter(InstanceDetailDTO::isSuccess).count();
             long outCounts = createInstanceList.stream().filter(InstanceDetailDTO::isOut).count();
+            long dieCounts = createInstanceList.stream().filter(InstanceDetailDTO::isDie).count();
             long leftCreateNum = sysUserDTO.getCreateNumbers() - successCounts;
+
+            if (dieCounts > 0) {
+                stopAndRemoveTask(sysUserDTO, createTaskService);
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B，请自行登录官方控制台检查。",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B，请自行登录官方控制台检查。",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
+            }
 
             if (noPubVcnCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
@@ -954,14 +967,27 @@ public class OciServiceImpl implements IOciService {
                 sysUserDTO.setCreateNumbers((int) leftCreateNum);
             }
         } catch (Exception e) {
-            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 发生了异常：{}",
-                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
-                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), e.getLocalizedMessage());
+            if (e instanceof BmcException) {
+                BmcException error = (BmcException) e;
+                if (error.getStatusCode() == 401 || error.getMessage().contains(ErrorEnum.NOT_AUTHENTICATED.getErrorType())) {
+                    stopAndRemoveTask(sysUserDTO, createTaskService);
+                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B，请自行登录官方控制台检查。",
+                            sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                            sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+                    sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B，请自行登录官方控制台检查。",
+                            sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                            sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
+                }
+            } else {
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 发生了异常：{}",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), e.getLocalizedMessage());
 //            stopAndRemoveTask(sysUserDTO, createTaskService);
 //            sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] " +
 //                            "发生了异常但并未停止枪机任务，可能是网络响应超时等原因，具体情况自行查看日志",
 //                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
 //                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
+            }
         } finally {
             // 确保任务执行完毕后清除运行标志
             RUNNING_TASKS.remove(taskId);

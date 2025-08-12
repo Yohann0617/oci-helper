@@ -26,6 +26,7 @@ public class InstanceDetailDTO {
     private boolean isOut = false;
     private boolean isNoPubVcn = false;
     private boolean isTooManyReq = false;
+    private boolean isDie = false;
     private String publicIp;
     private String image;
     private String shape;

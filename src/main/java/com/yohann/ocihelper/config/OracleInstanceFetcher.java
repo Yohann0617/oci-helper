@@ -18,6 +18,7 @@ import com.oracle.bmc.identity.requests.*;
 import com.oracle.bmc.identity.responses.*;
 import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.monitoring.MonitoringClient;
+import com.oracle.bmc.networkloadbalancer.NetworkLoadBalancerClient;
 import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
@@ -59,6 +60,7 @@ public class OracleInstanceFetcher implements Closeable {
     private final VirtualNetworkClient virtualNetworkClient;
     private final BlockstorageClient blockstorageClient;
     private final MonitoringClient monitoringClient;
+    private final NetworkLoadBalancerClient networkLoadBalancerClient;
     private SysUserDTO user;
     private String compartmentId;
 
@@ -72,6 +74,7 @@ public class OracleInstanceFetcher implements Closeable {
         virtualNetworkClient.close();
         blockstorageClient.close();
         monitoringClient.close();
+        networkLoadBalancerClient.close();
     }
 
     public OracleInstanceFetcher(SysUserDTO user) {
@@ -103,6 +106,7 @@ public class OracleInstanceFetcher implements Closeable {
         workRequestClient = WorkRequestClient.builder().build(provider);
         virtualNetworkClient = VirtualNetworkClient.builder().build(provider);
         monitoringClient = MonitoringClient.builder().build(provider);
+        networkLoadBalancerClient = NetworkLoadBalancerClient.builder().build(provider);
         compartmentId = StrUtil.isBlank(ociCfg.getCompartmentId()) ? findRootCompartment(identityClient, provider.getTenantId()) : ociCfg.getCompartmentId();
     }
 
@@ -255,6 +259,11 @@ public class OracleInstanceFetcher implements Closeable {
                             instanceDetailDTO.setTooManyReq(true);
                             log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机请求频繁，[{}]秒后将重试...",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getInterval());
+                            return instanceDetailDTO;
+                        } else if (error.getStatusCode() == 401 || error.getMessage().contains(ErrorEnum.NOT_AUTHENTICATED.getErrorType())) {
+                            instanceDetailDTO.setDie(true);
+                            log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B。",
+                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                             return instanceDetailDTO;
                         } else {
 //                            instanceDetailDTO.setOut(true);
@@ -812,7 +821,7 @@ public class OracleInstanceFetcher implements Closeable {
         return response.getItems();
     }
 
-    private NetworkSecurityGroup createNetworkSecurityGroup(
+    public NetworkSecurityGroup createNetworkSecurityGroup(
             VirtualNetworkClient virtualNetworkClient, String compartmentId, Vcn vcn)
             throws Exception {
         String networkSecurityGroupName = System.currentTimeMillis() + "-nsg";
@@ -866,7 +875,7 @@ public class OracleInstanceFetcher implements Closeable {
         return networkSecurityGroup;
     }
 
-    private void deleteNetworkSecurityGroup(
+    public void deleteNetworkSecurityGroup(
             VirtualNetworkClient virtualNetworkClient, NetworkSecurityGroup networkSecurityGroup)
             throws Exception {
         DeleteNetworkSecurityGroupRequest deleteNetworkSecurityGroupRequest =
@@ -906,7 +915,7 @@ public class OracleInstanceFetcher implements Closeable {
         return response.getItems();
     }
 
-    private void addNetworkSecurityGroupSecurityRules(
+    public void addNetworkSecurityGroupSecurityRules(
             VirtualNetworkClient virtualNetworkClient,
             NetworkSecurityGroup networkSecurityGroup,
             String networkCidrBlock) {
@@ -967,7 +976,7 @@ public class OracleInstanceFetcher implements Closeable {
 
     }
 
-    private void clearNetworkSecurityGroupSecurityRules(
+    public void clearNetworkSecurityGroupSecurityRules(
             VirtualNetworkClient virtualNetworkClient, NetworkSecurityGroup networkSecurityGroup) {
         ListNetworkSecurityGroupSecurityRulesRequest listNetworkSecurityGroupSecurityRulesRequest =
                 ListNetworkSecurityGroupSecurityRulesRequest.builder()
