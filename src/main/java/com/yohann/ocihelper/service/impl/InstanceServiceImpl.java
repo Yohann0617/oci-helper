@@ -43,7 +43,7 @@ public class InstanceServiceImpl implements IInstanceService {
     private ISysService sysService;
 
     private static final String LEGACY_MESSAGE_TEMPLATE =
-            "【开机任务】 🎉 用户：[%s] 开机成功 🎉\n\n" +
+            "【开机任务】 \n\n🎉 用户：[%s] 开机成功 🎉\n" +
                     "时间： %s\n" +
                     "Region： %s\n" +
                     "CPU类型： %s\n" +

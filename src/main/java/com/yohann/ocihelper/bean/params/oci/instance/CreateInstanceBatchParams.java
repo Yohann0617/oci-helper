@@ -28,8 +28,8 @@ public class CreateInstanceBatchParams {
         private String ocpus;
         @NotBlank(message = "内存不能为空")
         private String memory;
-        @NotBlank(message = "磁盘空间不能为空")
-        private String disk;
+        @NotNull(message = "磁盘空间不能为空")
+        private Integer disk;
         @NotBlank(message = "系统架构不能为空")
         private String architecture;
         @NotNull(message = "时间间隔不能为空")

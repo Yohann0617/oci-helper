@@ -24,7 +24,8 @@
             </if>
             <if test="keyword != null and keyword != ''">
                 and ou.username like '%' || #{keyword} || '%' or
-                ou.oci_region like '%' || #{keyword} || '%'
+                ou.oci_region like '%' || #{keyword} || '%' or
+                oct.architecture like '%' || #{keyword} || '%'
             </if>
         </where>
         order by ou.username, oct.create_time DESC limit #{offset}, #{size}
@@ -39,7 +40,8 @@
             </if>
             <if test="keyword != null and keyword != ''">
                 and ou.username like '%' || #{keyword} || '%' or
-                ou.oci_region like '%' || #{keyword} || '%'
+                ou.oci_region like '%' || #{keyword} || '%' or
+                oct.architecture like '%' || #{keyword} || '%'
             </if>
         </where>
     </select>

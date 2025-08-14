@@ -176,7 +176,7 @@ public class OciTask implements ApplicationRunner {
                                     .username(ociUser.getUsername())
                                     .ocpus(task.getOcpus())
                                     .memory(task.getMemory())
-                                    .disk(Long.valueOf(task.getDisk()))
+                                    .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
                                     .architecture(task.getArchitecture())
                                     .interval(Long.valueOf(task.getInterval()))
                                     .createNumbers(task.getCreateNumbers())

@@ -3,8 +3,7 @@ package com.yohann.ocihelper.enums;
 import com.oracle.bmc.core.model.Shape;
 import lombok.Getter;
 
-import static com.oracle.bmc.core.model.Shape.BillingType.AlwaysFree;
-import static com.oracle.bmc.core.model.Shape.BillingType.LimitedFree;
+import static com.oracle.bmc.core.model.Shape.BillingType.*;
 
 /**
  * <p>
@@ -22,6 +21,7 @@ public enum ArchitectureEnum {
      */
     AMD("AMD", "VM.Standard.E2.1.Micro", AlwaysFree),
     ARM("ARM", "VM.Standard.A1.Flex", LimitedFree),
+    AMD_E5("AMD_E5", "VM.Standard.E5.Flex", Paid),
 
     ;
 
@@ -35,13 +35,13 @@ public enum ArchitectureEnum {
     private String shapeDetail;
     private Shape.BillingType billingType;
 
-    public static ArchitectureEnum getType(String type) {
+    public static String getType(String type) {
         ArchitectureEnum[] values = ArchitectureEnum.values();
         for (ArchitectureEnum value : values) {
             if (value.getType().equals(type)) {
-                return value;
+                return value.getShapeDetail();
             }
         }
-        return ARM;
+        return type;
     }
 }

@@ -196,7 +196,7 @@ public class OciServiceImpl implements IOciService {
                 .userId(params.getUserId())
                 .ocpus(Float.parseFloat(params.getOcpus()))
                 .memory(Float.parseFloat(params.getMemory()))
-                .disk(Integer.valueOf(params.getDisk()))
+                .disk(params.getDisk())
                 .architecture(params.getArchitecture())
                 .interval(params.getInterval())
                 .createNumbers(params.getCreateNumbers())
@@ -217,7 +217,7 @@ public class OciServiceImpl implements IOciService {
                 .username(ociUser.getUsername())
                 .ocpus(Float.parseFloat(params.getOcpus()))
                 .memory(Float.parseFloat(params.getMemory()))
-                .disk(Long.valueOf(params.getDisk()))
+                .disk(params.getDisk().equals(50) ? null : Long.valueOf(params.getDisk()))
                 .architecture(params.getArchitecture())
                 .interval(Long.valueOf(params.getInterval()))
                 .createNumbers(params.getCreateNumbers())
@@ -681,8 +681,8 @@ public class OciServiceImpl implements IOciService {
                         .map(Shape::getShape)
                         .distinct()
                         .collect(Collectors.toList());
-                ArchitectureEnum type = ArchitectureEnum.getType(ArchitectureEnum.AMD.getType());
-                if (shapeList.isEmpty() || !shapeList.contains(type.getShapeDetail())) {
+                String type = ArchitectureEnum.getType(ArchitectureEnum.AMD.getType());
+                if (shapeList.isEmpty() || !shapeList.contains(type)) {
                     log.error("用户：[{}] ，区域：[{}] 开机失败，该区域可能无法创建AMD实例，用户可开机的机型：{}",
                             sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), shapeList);
                     throw new OciException(-1, "当前区域无法创建AMD实例");

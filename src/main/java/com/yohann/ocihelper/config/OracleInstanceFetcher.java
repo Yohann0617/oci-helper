@@ -130,8 +130,8 @@ public class OracleInstanceFetcher implements Closeable {
                 .map(Shape::getShape)
                 .distinct()
                 .collect(Collectors.toList());
-        ArchitectureEnum type = ArchitectureEnum.getType(user.getArchitecture());
-        if (shapeList.isEmpty() || !shapeList.contains(type.getShapeDetail())) {
+        String type = ArchitectureEnum.getType(user.getArchitecture());
+        if (shapeList.isEmpty() || !shapeList.contains(type)) {
             instanceDetailDTO.setNoShape(true);
             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机失败，该区域可能不支持 CPU 架构：{}，用户可开机的机型：{}",
                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getArchitecture(), shapeList);
@@ -230,7 +230,7 @@ public class OracleInstanceFetcher implements Closeable {
                         instanceDetailDTO.setRegion(user.getOciCfg().getRegion());
                         instanceDetailDTO.setOcpus(user.getOcpus());
                         instanceDetailDTO.setMemory(user.getMemory());
-                        instanceDetailDTO.setDisk(user.getDisk());
+                        instanceDetailDTO.setDisk(user.getDisk() == null ? 50L : user.getDisk());
                         instanceDetailDTO.setRootPassword(user.getRootPassword());
                         instanceDetailDTO.setShape(shape.getShape());
                         instanceDetailDTO.setInstance(instance);
@@ -481,10 +481,10 @@ public class OracleInstanceFetcher implements Closeable {
                 .filter(shape -> shape.getShape().startsWith("VM"))
                 .collect(Collectors.toList());
         List<Shape> shapesNewList = new ArrayList<>();
-        ArchitectureEnum type = ArchitectureEnum.getType(user.getArchitecture());
+        String type = ArchitectureEnum.getType(user.getArchitecture());
         if (!vmShapes.isEmpty()) {
             for (Shape vmShape : vmShapes) {
-                if (type.getShapeDetail().equals(vmShape.getShape())) {
+                if (type.equals(vmShape.getShape())) {
                     shapesNewList.add(vmShape);
                 }
             }

@@ -70,7 +70,7 @@ public class CommonUtils {
     public static final DateTimeFormatter DATETIME_FMT_NORM = DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN);
 
     public static final String BEGIN_CREATE_MESSAGE_TEMPLATE =
-            "【开机任务】 用户：[%s] 开始执行开机任务\n\n" +
+            "【开机任务】\n\n用户：[%s] 开始执行开机任务\n" +
                     "时间： %s\n" +
                     "Region： %s\n" +
                     "CPU类型： %s\n" +
@@ -80,25 +80,25 @@ public class CommonUtils {
                     "数量： %s\n" +
                     "root密码： %s";
     public static final String BEGIN_CHANGE_IP_MESSAGE_TEMPLATE =
-            "【更换IP任务】 用户：[%s] 开始执行更换公网IP任务\n\n" +
+            "【更换IP任务】\n\n用户：[%s] 开始执行更换公网IP任务\n" +
                     "时间： %s\n" +
                     "区域： %s\n" +
                     "实例： %s\n" +
                     "当前公网IP： %s";
     public static final String CHANGE_IP_MESSAGE_TEMPLATE =
-            "【更换IP任务】 🎉 用户：[%s] 更换公共IP成功 🎉\n\n" +
+            "【更换IP任务】\n\n🎉 用户：[%s] 更换公共IP成功 🎉\n" +
                     "时间： %s\n" +
                     "区域： %s\n" +
                     "实例： %s\n" +
                     "新的公网IP： %s";
     public static final String TERMINATE_INSTANCE_MESSAGE_TEMPLATE =
-            "【终止实例任务】 用户：[%s] 正在执行终止实例任务 \n\n" +
+            "【终止实例任务】\n\n用户：[%s] 正在执行终止实例任务\n" +
                     "时间： %s\n" +
                     "区域： %s\n" +
                     "请耐心等待，稍后自行刷新详情查看";
 
     public static final String TERMINATE_INSTANCE_CODE_MESSAGE_TEMPLATE =
-            "【验证码】 用户：[%s] 正在执行终止实例任务 \n\n" +
+            "【验证码】\n\n用户：[%s] 正在执行终止实例任务\n" +
                     "时间： %s\n" +
                     "区域： %s\n" +
                     "实例： %s\n" +

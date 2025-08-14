@@ -22,7 +22,7 @@ public class SysUserDTO {
     private String username;
     private float ocpus = 1F;
     private float memory = 6F;
-    private Long disk = 50L;
+    private Long disk;
     private String architecture = "ARM";
     private Long interval = 60L;
     private volatile int createNumbers = 0;
