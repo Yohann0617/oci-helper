@@ -1792,7 +1792,7 @@ public class OracleInstanceFetcher implements Closeable {
         blockstorageClient.updateBootVolume(UpdateBootVolumeRequest.builder()
                 .bootVolumeId(bootVolumeId)
                 .updateBootVolumeDetails(UpdateBootVolumeDetails.builder()
-                        .sizeInGBs(size)
+                        .sizeInGBs(size == 50L ? null : size)
                         .vpusPerGB(vpusPer)
                         .build())
                 .build());
