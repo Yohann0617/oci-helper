@@ -92,6 +92,10 @@ public class IpDataServiceImpl extends ServiceImpl<IpDataMapper, IpData> impleme
                         log.warn("oci配置：[{}]，区域：[{}] 已失效，跳过本次IP数据同步", ociUser.getUsername(), ociUser.getOciCfg().getRegion());
                         continue;
                     }
+                    List<SysUserDTO.CloudInstance> cloudInstances = instanceService.listRunningInstances(ociUser);
+                    if (CollectionUtil.isEmpty(cloudInstances)) {
+                        continue;
+                    }
                     for (SysUserDTO.CloudInstance y : instanceService.listRunningInstances(ociUser)) {
                         if (CollectionUtil.isEmpty(y.getPublicIp())) {
                             return;

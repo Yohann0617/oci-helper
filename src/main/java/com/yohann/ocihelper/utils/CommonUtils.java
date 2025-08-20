@@ -474,6 +474,41 @@ public class CommonUtils {
         return prefixLength >= 0 && prefixLength <= 32;
     }
 
+    /**
+     * 判断一个 IPv4 地址是否为私有地址
+     * @param ip IPv4 地址（如 "192.168.1.10"）
+     * @return true 如果是私有地址，否则 false
+     */
+    public static boolean isPrivateIp(String ip) {
+        try {
+            InetAddress inet = InetAddress.getByName(ip);
+            if (!(inet instanceof java.net.Inet4Address)) {
+                return false; // 只判断 IPv4
+            }
+
+            byte[] addr = inet.getAddress();
+            int firstOctet = addr[0] & 0xFF;
+            int secondOctet = addr[1] & 0xFF;
+
+            // 10.0.0.0/8
+            if (firstOctet == 10) {
+                return true;
+            }
+            // 172.16.0.0/12
+            if (firstOctet == 172 && (secondOctet >= 16 && secondOctet <= 31)) {
+                return true;
+            }
+            // 192.168.0.0/16
+            if (firstOctet == 192 && secondOctet == 168) {
+                return true;
+            }
+
+            return false;
+        } catch (UnknownHostException e) {
+            return false;
+        }
+    }
+
     public static <T> Page<T> buildPage(List<T> entities, long size, long current, long total) {
         Page<T> page = new Page<>();
         page.setRecords(entities);
