@@ -96,9 +96,9 @@ public class IpDataServiceImpl extends ServiceImpl<IpDataMapper, IpData> impleme
                     if (CollectionUtil.isEmpty(cloudInstances)) {
                         continue;
                     }
-                    for (SysUserDTO.CloudInstance y : instanceService.listRunningInstances(ociUser)) {
+                    for (SysUserDTO.CloudInstance y : cloudInstances) {
                         if (CollectionUtil.isEmpty(y.getPublicIp())) {
-                            return;
+                            continue;
                         }
                         for (String z : y.getPublicIp()) {
                             try {
