@@ -2,6 +2,7 @@ package com.yohann.ocihelper.service.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DatePattern;
+import cn.hutool.core.util.StrUtil;
 import com.oracle.bmc.core.VirtualNetworkClient;
 import com.oracle.bmc.core.model.*;
 import com.oracle.bmc.core.requests.*;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -273,8 +275,8 @@ public class InstanceServiceImpl implements IInstanceService {
     public void oneClick500M(CreateNetworkLoadBalancerParams params) {
         virtualExecutor.execute(() -> {
             SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
-            AtomicReference<String> publicIp = null;
-            AtomicReference<String> instanceName = null;
+            String publicIp = null;
+            String instanceName = null;
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
                 String compartmentId = fetcher.getCompartmentId();
                 VirtualNetworkClient virtualNetworkClient = fetcher.getVirtualNetworkClient();
@@ -282,9 +284,9 @@ public class InstanceServiceImpl implements IInstanceService {
                 // 校验是否为AMD、是否已有实例vnic绑定nat路由表
                 String instanceId = params.getInstanceId();
                 Instance instance = fetcher.getInstanceById(instanceId);
-                instanceName.set(instance.getDisplayName());
+                instanceName = instance.getDisplayName();
                 if (!instance.getShape().contains(ArchitectureEnum.AMD.getShapeDetail())) {
-                    log.error("实例 Shape: {} 不支持一键开启500MB", instance.getShape());
+                    log.error("【一键开启500MB任务】实例 Shape: {} 不支持一键开启500MB", instance.getShape());
                     throw new OciException(-1, "该实例不支持一键开启500MB");
                 }
 
@@ -304,7 +306,7 @@ public class InstanceServiceImpl implements IInstanceService {
                         .build()).getItems();
                 if (CollectionUtil.isNotEmpty(natGatewayList)) {
                     natGateway = natGatewayList.getFirst();
-                    log.info("获取到已存在的NAT网关：" + natGateway.getDisplayName());
+                    log.info("【一键开启500MB任务】获取到已存在的NAT网关：" + natGateway.getDisplayName());
                 } else {
                     natGateway = virtualNetworkClient.createNatGateway(CreateNatGatewayRequest.builder()
                             .createNatGatewayDetails(CreateNatGatewayDetails.builder()
@@ -319,7 +321,7 @@ public class InstanceServiceImpl implements IInstanceService {
                             .build()).getNatGateway().getLifecycleState().getValue().equals(NatGateway.LifecycleState.Available.getValue())) {
                         Thread.sleep(1000);
                     }
-                    log.info("NAT网关创建成功：" + natGateway.getDisplayName());
+                    log.info("【一键开启500MB任务】NAT网关创建成功：" + natGateway.getDisplayName());
                 }
 
                 // 路由表
@@ -352,14 +354,15 @@ public class InstanceServiceImpl implements IInstanceService {
                     for (Instance x : fetcher.listInstances()) {
                         if (x.getShape().contains(ArchitectureEnum.AMD.getShapeDetail())) {
                             Vnic xvnic = fetcher.getVnicByInstanceId(x.getId());
-                            if (xvnic.getRouteTableId().equals(routeTable.getId())) {
+                            if (StrUtil.isNotBlank(xvnic.getRouteTableId()) && xvnic.getRouteTableId().equals(routeTable.getId())
+                                    && !x.getId().equals(instanceId)) {
                                 throw new OciException(-1, "已有其他免费AMD实例绑定NAT路由表");
                             }
                         }
                     }
                 }
 
-                log.warn("用户：[{}]，区域：[{}]，实例：[{}] 开始执行一键开启500MB任务...", sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName());
+                log.warn("【一键开启500MB任务】用户：[{}]，区域：[{}]，实例：[{}] 开始执行一键开启500MB任务...", sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName());
 
                 // 选择一个子网
                 Subnet subnet = virtualNetworkClient.listSubnets(ListSubnetsRequest.builder()
@@ -375,14 +378,14 @@ public class InstanceServiceImpl implements IInstanceService {
                         .build()).getNetworkLoadBalancerCollection().getItems();
                 if (CollectionUtil.isNotEmpty(networkLoadBalancerSummaries)) {
                     networkLoadBalancerSummaries.forEach(x -> {
-                        log.info("正在删除网络负载平衡器：" + x.getDisplayName());
+                        log.info("【一键开启500MB任务】正在删除网络负载平衡器：" + x.getDisplayName());
                         networkLoadBalancerClient.deleteNetworkLoadBalancer(DeleteNetworkLoadBalancerRequest.builder()
                                 .networkLoadBalancerId(x.getId())
                                 .build());
                     });
                 }
 
-                log.info("开始创建网络负载平衡器...");
+                log.info("【一键开启500MB任务】开始创建网络负载平衡器...");
 
                 NetworkLoadBalancer networkLoadBalancer = null;
                 boolean isNormal = false;
@@ -428,9 +431,9 @@ public class InstanceServiceImpl implements IInstanceService {
                         isNormal = true;
                     } catch (Exception e) {
                         retryCount++;
-                        log.warn("第 " + retryCount + " 次创建失败，重试中...");
+                        log.warn("【一键开启500MB任务】第 " + retryCount + " 次创建网络负载平衡器失败，重试中...");
                         if (retryCount >= MAX_RETRY) {
-                            log.error("创建失败次数超过 " + MAX_RETRY + " 次，终止任务。");
+                            log.error("【一键开启500MB任务】创建网络负载平衡器失败次数超过 " + MAX_RETRY + " 次，终止任务。");
                             throw new OciException(-1, "创建网络负载平衡器重试失败次数超过限制", e);
                         }
                         Thread.sleep(30000);
@@ -443,15 +446,15 @@ public class InstanceServiceImpl implements IInstanceService {
                     Thread.sleep(1000);
                 }
 
-                log.info("网络负载平衡器创建成功");
-                networkLoadBalancerClient.getNetworkLoadBalancer(GetNetworkLoadBalancerRequest.builder()
+                log.info("【一键开启500MB任务】网络负载平衡器创建成功");
+                for (IpAddress x : networkLoadBalancerClient.getNetworkLoadBalancer(GetNetworkLoadBalancerRequest.builder()
                         .networkLoadBalancerId(networkLoadBalancer.getId())
-                        .build()).getNetworkLoadBalancer().getIpAddresses().forEach(x -> {
+                        .build()).getNetworkLoadBalancer().getIpAddresses()) {
                     if (!CommonUtils.isPrivateIp(x.getIpAddress())) {
-                        publicIp.set(x.getIpAddress());
-                        log.info("公网IP：" + x.getIpAddress());
+                        publicIp = x.getIpAddress();
+                        log.info("【一键开启500MB任务】网络负载平衡器公网IP：" + x.getIpAddress());
                     }
-                });
+                }
 
                 // NAT路由表
                 if (routeTable != null) {
@@ -465,7 +468,7 @@ public class InstanceServiceImpl implements IInstanceService {
                                             .build()))
                                     .build())
                             .build());
-                    log.info("获取到已存在的NAT路由表：" + routeTable.getDisplayName());
+                    log.info("【一键开启500MB任务】获取到已存在的NAT路由表：" + routeTable.getDisplayName());
                 } else {
                     routeTable = virtualNetworkClient.createRouteTable(CreateRouteTableRequest.builder()
                             .createRouteTableDetails(CreateRouteTableDetails.builder()
@@ -486,7 +489,7 @@ public class InstanceServiceImpl implements IInstanceService {
                         Thread.sleep(1000);
                     }
 
-                    log.info("NAT路由表创建成功：" + routeTable.getDisplayName());
+                    log.info("【一键开启500MB任务】NAT路由表创建成功：" + routeTable.getDisplayName());
                 }
 
                 // 实例vnic绑定路由表，跳过源/目的地检查
@@ -501,14 +504,14 @@ public class InstanceServiceImpl implements IInstanceService {
                 // 放行所有端口
                 fetcher.releaseSecurityRule(vcn, 0);
 
-                log.info("实例vnic绑定路由表成功，实例：【{}】已成功开启500MB🎉，公网IP：{}", instance.getDisplayName(), publicIp.get());
-                sysService.sendMessage(String.format("用户：[%s]，区域：[%s]，实例：[%s] 已成功开启500MB🎉，公网IP：%s",
-                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName.get(), publicIp.get()));
+                log.info("【一键开启500MB任务】实例vnic绑定路由表成功，实例：【{}】已成功开启500MB🎉，公网IP：{}", instance.getDisplayName(), publicIp);
+                sysService.sendMessage(String.format("【一键开启500MB任务】用户：[%s]，区域：[%s]，实例：[%s] 已成功开启500MB🎉，公网IP：%s",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName(), publicIp));
             } catch (Exception e) {
-                log.error("用户：[{}]，区域：[{}]，实例：[{}] 开启500MB失败❌",
-                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName.get(), e);
-                sysService.sendMessage(String.format("用户：[%s]，区域：[%s]，实例：[%s] 开启500MB失败❌，错误：%s",
-                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName.get(), e.getLocalizedMessage()));
+                log.error("【一键开启500MB任务】用户：[{}]，区域：[{}]，实例：[{}] 开启500MB失败❌",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, e);
+                sysService.sendMessage(String.format("【一键开启500MB任务】用户：[%s]，区域：[%s]，实例：[%s] 开启500MB失败❌，错误：%s",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, e.getLocalizedMessage()));
             }
         });
     }

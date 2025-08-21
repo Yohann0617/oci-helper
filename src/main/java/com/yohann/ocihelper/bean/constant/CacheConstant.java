@@ -16,6 +16,7 @@ public class CacheConstant {
     public static final String DAILY_BROADCAST_TASK_ID = "daily_broadcast_task";
     public static final String PREFIX_BOOT_VOLUME_PAGE = "bootVolume_page_";
     public static final String PREFIX_INSTANCE_PAGE = "instance_page_";
+    public static final String PREFIX_NETWORK_LOAD_BALANCER = "network_load_balancer_";
     public static final String PREFIX_VCN_PAGE = "vcn_page_";
     public static final String PREFIX_TENANT_INFO = "tenant_info_";
     public static final String PREFIX_CF_DNS_RECORDS = "cf_dns_records_";

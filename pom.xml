@@ -4,14 +4,14 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.yohann</groupId>
     <artifactId>oci-helper</artifactId>
-    <version>3.0.8</version>
+    <version>3.0.9</version>
     <name>oci-helper</name>
     <description>oci helper</description>
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <oci-version>3.70.1</oci-version>
+        <oci-version>3.72.0</oci-version>
         <spring-boot.version>3.2.2</spring-boot.version>
     </properties>
     <dependencies>
