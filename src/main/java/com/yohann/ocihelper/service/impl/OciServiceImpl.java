@@ -21,6 +21,11 @@ import com.oracle.bmc.identity.model.AvailabilityDomain;
 import com.oracle.bmc.identity.model.Tenancy;
 import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.oracle.bmc.model.BmcException;
+import com.oracle.bmc.networkloadbalancer.NetworkLoadBalancerClient;
+import com.oracle.bmc.networkloadbalancer.model.IpAddress;
+import com.oracle.bmc.networkloadbalancer.model.LifecycleState;
+import com.oracle.bmc.networkloadbalancer.model.NetworkLoadBalancerSummary;
+import com.oracle.bmc.networkloadbalancer.requests.ListNetworkLoadBalancersRequest;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
@@ -267,6 +272,35 @@ public class OciServiceImpl implements IOciService {
             }
         } else {
             rsp.setInstanceList(instanceInfos);
+        }
+
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
+            NetworkLoadBalancerClient networkLoadBalancerClient = fetcher.getNetworkLoadBalancerClient();
+            List<NetworkLoadBalancerSummary> networkLoadBalancerSummaries = networkLoadBalancerClient.listNetworkLoadBalancers(ListNetworkLoadBalancersRequest.builder()
+                    .compartmentId(fetcher.getCompartmentId())
+                    .lifecycleState(LifecycleState.Active)
+                    .build()).getNetworkLoadBalancerCollection().getItems();
+            rsp.setNlbList(Optional.ofNullable(networkLoadBalancerSummaries)
+                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
+                    .map(x -> {
+                        try {
+                            OciCfgDetailsRsp.NetLoadBalancer netLoadBalancer = new OciCfgDetailsRsp.NetLoadBalancer();
+                            netLoadBalancer.setName(x.getDisplayName());
+                            netLoadBalancer.setStatus(x.getLifecycleState().getValue());
+                            for (IpAddress ipAddress : x.getIpAddresses()) {
+                                if (!CommonUtils.isPrivateIp(ipAddress.getIpAddress())) {
+                                    netLoadBalancer.setPublicIp(ipAddress.getIpAddress());
+                                    break;
+                                }
+                            }
+                            return netLoadBalancer;
+                        } catch (Exception e) {
+                            log.error("获取网络负载平衡器列表失败", e);
+                        }
+                        return null;
+                    }).filter(Objects::nonNull).collect(Collectors.toList()));
+        } catch (Exception e) {
+            log.error("获取网络负载平衡器列表失败", e);
         }
 
         customCache.put(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId(), rsp.getInstanceList(), 10 * 60 * 1000);

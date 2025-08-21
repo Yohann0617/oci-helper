@@ -26,6 +26,7 @@ public class OciCfgDetailsRsp {
     private String region;
     private List<InstanceInfo> instanceList;
     private List<CfCfg> cfCfgList;
+    private List<NetLoadBalancer> nlbList;
 
     @Data
     @Builder
@@ -61,5 +62,12 @@ public class OciCfgDetailsRsp {
     public static class CfCfg {
         private String cfCfgId;
         private String domain;
+    }
+
+    @Data
+    public static class NetLoadBalancer {
+        private String name;
+        private String status;
+        private String publicIp;
     }
 }

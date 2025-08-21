@@ -1,15 +1,25 @@
 package com.yohann.ocihelper.service.impl;
 
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DatePattern;
+import com.oracle.bmc.core.VirtualNetworkClient;
 import com.oracle.bmc.core.model.*;
-import com.oracle.bmc.core.requests.GetVnicRequest;
+import com.oracle.bmc.core.requests.*;
 import com.oracle.bmc.model.BmcException;
+import com.oracle.bmc.networkloadbalancer.NetworkLoadBalancerClient;
+import com.oracle.bmc.networkloadbalancer.model.*;
+import com.oracle.bmc.networkloadbalancer.requests.CreateNetworkLoadBalancerRequest;
+import com.oracle.bmc.networkloadbalancer.requests.DeleteNetworkLoadBalancerRequest;
+import com.oracle.bmc.networkloadbalancer.requests.GetNetworkLoadBalancerRequest;
+import com.oracle.bmc.networkloadbalancer.requests.ListNetworkLoadBalancersRequest;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.params.oci.instance.CreateNetworkLoadBalancerParams;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
+import com.yohann.ocihelper.enums.ArchitectureEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.service.ISysService;
@@ -22,7 +32,11 @@ import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.TEMP_MAP;
@@ -41,6 +55,8 @@ public class InstanceServiceImpl implements IInstanceService {
 
     @Resource
     private ISysService sysService;
+    @Resource
+    private ExecutorService virtualExecutor;
 
     private static final String LEGACY_MESSAGE_TEMPLATE =
             "【开机任务】 \n\n🎉 用户：[%s] 开机成功 🎉\n" +
@@ -251,6 +267,250 @@ public class InstanceServiceImpl implements IInstanceService {
                     bootVolumeName, e.getLocalizedMessage(), e);
             throw new OciException(-1, "修改引导卷配置失败");
         }
+    }
+
+    @Override
+    public void oneClick500M(CreateNetworkLoadBalancerParams params) {
+        virtualExecutor.execute(() -> {
+            SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
+            AtomicReference<String> publicIp = null;
+            AtomicReference<String> instanceName = null;
+            try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO);) {
+                String compartmentId = fetcher.getCompartmentId();
+                VirtualNetworkClient virtualNetworkClient = fetcher.getVirtualNetworkClient();
+
+                // 校验是否为AMD、是否已有实例vnic绑定nat路由表
+                String instanceId = params.getInstanceId();
+                Instance instance = fetcher.getInstanceById(instanceId);
+                instanceName.set(instance.getDisplayName());
+                if (!instance.getShape().contains(ArchitectureEnum.AMD.getShapeDetail())) {
+                    log.error("实例 Shape: {} 不支持一键开启500MB", instance.getShape());
+                    throw new OciException(-1, "该实例不支持一键开启500MB");
+                }
+
+                Vcn vcn = fetcher.getVcnByInstanceId(instanceId);
+                Vnic vnic = fetcher.getVnicByInstanceId(instanceId);
+                String instanceVnicId = vnic.getId();
+                String instancePriIp = virtualNetworkClient.listPrivateIps(ListPrivateIpsRequest.builder()
+                        .vnicId(vnic.getId())
+                        .build()).getItems().getFirst().getIpAddress();
+
+                // NAT网关
+                NatGateway natGateway;
+                List<NatGateway> natGatewayList = virtualNetworkClient.listNatGateways(ListNatGatewaysRequest.builder()
+                        .compartmentId(compartmentId)
+                        .lifecycleState(NatGateway.LifecycleState.Available)
+                        .vcnId(vcn.getId())
+                        .build()).getItems();
+                if (CollectionUtil.isNotEmpty(natGatewayList)) {
+                    natGateway = natGatewayList.getFirst();
+                    log.info("获取到已存在的NAT网关：" + natGateway.getDisplayName());
+                } else {
+                    natGateway = virtualNetworkClient.createNatGateway(CreateNatGatewayRequest.builder()
+                            .createNatGatewayDetails(CreateNatGatewayDetails.builder()
+                                    .vcnId(vcn.getId())
+                                    .compartmentId(compartmentId)
+                                    .displayName("nat-gateway")
+                                    .build())
+                            .build()).getNatGateway();
+
+                    while (!virtualNetworkClient.getNatGateway(GetNatGatewayRequest.builder()
+                            .natGatewayId(natGateway.getId())
+                            .build()).getNatGateway().getLifecycleState().getValue().equals(NatGateway.LifecycleState.Available.getValue())) {
+                        Thread.sleep(1000);
+                    }
+                    log.info("NAT网关创建成功：" + natGateway.getDisplayName());
+                }
+
+                // 路由表
+                RouteTable routeTable = null;
+                List<RouteTable> routeTableList = virtualNetworkClient.listRouteTables(ListRouteTablesRequest.builder()
+                        .vcnId(vcn.getId())
+                        .compartmentId(compartmentId)
+                        .lifecycleState(RouteTable.LifecycleState.Available)
+                        .build()).getItems();
+                try {
+                    if (CollectionUtil.isNotEmpty(routeTableList)) {
+                        for (RouteTable table : routeTableList) {
+                            for (RouteRule routeRule : table.getRouteRules()) {
+                                if (routeRule.getNetworkEntityId().equals(natGateway.getId()) && routeRule.getCidrBlock().equals("0.0.0.0/0")
+                                        && routeRule.getDestinationType().getValue().equals(RouteRule.DestinationType.CidrBlock.getValue())) {
+                                    routeTable = table;
+                                    break;
+                                }
+                            }
+                            if (routeTable != null) {
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+
+                }
+
+                if (routeTable != null) {
+                    for (Instance x : fetcher.listInstances()) {
+                        if (x.getShape().contains(ArchitectureEnum.AMD.getShapeDetail())) {
+                            Vnic xvnic = fetcher.getVnicByInstanceId(x.getId());
+                            if (xvnic.getRouteTableId().equals(routeTable.getId())) {
+                                throw new OciException(-1, "已有其他免费AMD实例绑定NAT路由表");
+                            }
+                        }
+                    }
+                }
+
+                log.warn("用户：[{}]，区域：[{}]，实例：[{}] 开始执行一键开启500MB任务...", sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName());
+
+                // 选择一个子网
+                Subnet subnet = virtualNetworkClient.listSubnets(ListSubnetsRequest.builder()
+                        .compartmentId(compartmentId)
+                        .vcnId(vcn.getId())
+                        .build()).getItems().getFirst();
+
+                // 网络负载平衡器
+                NetworkLoadBalancerClient networkLoadBalancerClient = fetcher.getNetworkLoadBalancerClient();
+                List<NetworkLoadBalancerSummary> networkLoadBalancerSummaries = networkLoadBalancerClient.listNetworkLoadBalancers(ListNetworkLoadBalancersRequest.builder()
+                        .compartmentId(compartmentId)
+                        .lifecycleState(LifecycleState.Active)
+                        .build()).getNetworkLoadBalancerCollection().getItems();
+                if (CollectionUtil.isNotEmpty(networkLoadBalancerSummaries)) {
+                    networkLoadBalancerSummaries.forEach(x -> {
+                        log.info("正在删除网络负载平衡器：" + x.getDisplayName());
+                        networkLoadBalancerClient.deleteNetworkLoadBalancer(DeleteNetworkLoadBalancerRequest.builder()
+                                .networkLoadBalancerId(x.getId())
+                                .build());
+                    });
+                }
+
+                log.info("开始创建网络负载平衡器...");
+
+                NetworkLoadBalancer networkLoadBalancer = null;
+                boolean isNormal = false;
+                int retryCount = 0;
+                final int MAX_RETRY = 10;
+
+                while (!isNormal) {
+                    try {
+                        networkLoadBalancer = networkLoadBalancerClient.createNetworkLoadBalancer(CreateNetworkLoadBalancerRequest.builder()
+                                .createNetworkLoadBalancerDetails(CreateNetworkLoadBalancerDetails.builder()
+                                        .displayName("nlb-" + LocalDateTime.now().format(CommonUtils.DATETIME_FMT_PURE))
+                                        .compartmentId(compartmentId)
+                                        .isPrivate(false)
+                                        .subnetId(subnet.getId())
+                                        .listeners(Map.of(
+                                                "listener1", ListenerDetails.builder()
+                                                        .name("listener1")
+                                                        .defaultBackendSetName("backend1")
+                                                        .protocol(ListenerProtocols.TcpAndUdp)
+                                                        .port(0)
+                                                        .build()
+                                        ))
+                                        .backendSets(Map.of(
+                                                "backend1", BackendSetDetails.builder()
+                                                        .isPreserveSource(true)
+                                                        .isFailOpen(true)
+                                                        .policy(NetworkLoadBalancingPolicy.TwoTuple)
+                                                        .healthChecker(HealthChecker.builder()
+                                                                .protocol(HealthCheckProtocols.Tcp)
+                                                                .port(params.getSshPort())
+                                                                .build())
+                                                        .backends(Collections.singletonList(Backend.builder()
+                                                                .targetId(instanceId)
+                                                                .ipAddress(instancePriIp)
+                                                                .port(0)
+                                                                .weight(1)
+                                                                .build()))
+                                                        .build()
+                                        ))
+                                        .build())
+                                .build()).getNetworkLoadBalancer();
+
+                        isNormal = true;
+                    } catch (Exception e) {
+                        retryCount++;
+                        log.warn("第 " + retryCount + " 次创建失败，重试中...");
+                        if (retryCount >= MAX_RETRY) {
+                            log.error("创建失败次数超过 " + MAX_RETRY + " 次，终止任务。");
+                            throw new OciException(-1, "创建网络负载平衡器重试失败次数超过限制", e);
+                        }
+                        Thread.sleep(30000);
+                    }
+                }
+
+                while (!networkLoadBalancerClient.getNetworkLoadBalancer(GetNetworkLoadBalancerRequest.builder()
+                        .networkLoadBalancerId(networkLoadBalancer.getId())
+                        .build()).getNetworkLoadBalancer().getLifecycleState().getValue().equals(LifecycleState.Active.getValue())) {
+                    Thread.sleep(1000);
+                }
+
+                log.info("网络负载平衡器创建成功");
+                networkLoadBalancerClient.getNetworkLoadBalancer(GetNetworkLoadBalancerRequest.builder()
+                        .networkLoadBalancerId(networkLoadBalancer.getId())
+                        .build()).getNetworkLoadBalancer().getIpAddresses().forEach(x -> {
+                    if (!CommonUtils.isPrivateIp(x.getIpAddress())) {
+                        publicIp.set(x.getIpAddress());
+                        log.info("公网IP：" + x.getIpAddress());
+                    }
+                });
+
+                // NAT路由表
+                if (routeTable != null) {
+                    virtualNetworkClient.updateRouteTable(UpdateRouteTableRequest.builder()
+                            .rtId(routeTable.getId())
+                            .updateRouteTableDetails(UpdateRouteTableDetails.builder()
+                                    .routeRules(Collections.singletonList(RouteRule.builder()
+                                            .cidrBlock("0.0.0.0/0")
+                                            .networkEntityId(natGateway.getId())
+                                            .destinationType(RouteRule.DestinationType.CidrBlock)
+                                            .build()))
+                                    .build())
+                            .build());
+                    log.info("获取到已存在的NAT路由表：" + routeTable.getDisplayName());
+                } else {
+                    routeTable = virtualNetworkClient.createRouteTable(CreateRouteTableRequest.builder()
+                            .createRouteTableDetails(CreateRouteTableDetails.builder()
+                                    .compartmentId(compartmentId)
+                                    .vcnId(vcn.getId())
+                                    .displayName("nat-route")
+                                    .routeRules(Collections.singletonList(RouteRule.builder()
+                                            .cidrBlock("0.0.0.0/0")
+                                            .networkEntityId(natGateway.getId())
+                                            .destinationType(RouteRule.DestinationType.CidrBlock)
+                                            .build()))
+                                    .build())
+                            .build()).getRouteTable();
+
+                    while (!virtualNetworkClient.getRouteTable(GetRouteTableRequest.builder()
+                            .rtId(routeTable.getId())
+                            .build()).getRouteTable().getLifecycleState().getValue().equals(RouteTable.LifecycleState.Available.getValue())) {
+                        Thread.sleep(1000);
+                    }
+
+                    log.info("NAT路由表创建成功：" + routeTable.getDisplayName());
+                }
+
+                // 实例vnic绑定路由表，跳过源/目的地检查
+                virtualNetworkClient.updateVnic(UpdateVnicRequest.builder()
+                        .vnicId(instanceVnicId)
+                        .updateVnicDetails(UpdateVnicDetails.builder()
+                                .skipSourceDestCheck(true)
+                                .routeTableId(routeTable.getId())
+                                .build())
+                        .build());
+
+                // 放行所有端口
+                fetcher.releaseSecurityRule(vcn, 0);
+
+                log.info("实例vnic绑定路由表成功，实例：【{}】已成功开启500MB🎉，公网IP：{}", instance.getDisplayName(), publicIp.get());
+                sysService.sendMessage(String.format("用户：[%s]，区域：[%s]，实例：[%s] 已成功开启500MB🎉，公网IP：%s",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName.get(), publicIp.get()));
+            } catch (Exception e) {
+                log.error("用户：[{}]，区域：[{}]，实例：[{}] 开启500MB失败❌",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName.get(), e);
+                sysService.sendMessage(String.format("用户：[%s]，区域：[%s]，实例：[%s] 开启500MB失败❌，错误：%s",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName.get(), e.getLocalizedMessage()));
+            }
+        });
     }
 
 }

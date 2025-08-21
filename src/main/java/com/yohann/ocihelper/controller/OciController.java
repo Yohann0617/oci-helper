@@ -14,6 +14,7 @@ import com.yohann.ocihelper.bean.params.oci.volume.UpdateBootVolumeCfgParams;
 import com.yohann.ocihelper.bean.response.oci.task.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.oci.cfg.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.oci.cfg.OciUserListRsp;
+import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.service.IOciService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import org.springframework.validation.BindingResult;
@@ -39,6 +40,8 @@ public class OciController {
 
     @Resource
     private IOciService ociService;
+    @Resource
+    private IInstanceService instanceService;
 
     @PostMapping(path = "/userPage")
     public ResponseData<Page<OciUserListRsp>> userPage(@Validated @RequestBody GetOciUserListParams params) {
@@ -182,5 +185,11 @@ public class OciController {
     public ResponseData<Void> autoRescue(@Validated @RequestBody AutoRescueParams params) {
         ociService.autoRescue(params);
         return ResponseData.successData();
+    }
+
+    @PostMapping(path = "/oneClick500M")
+    public ResponseData<Void> oneClick500M(@Validated @RequestBody CreateNetworkLoadBalancerParams params) {
+        instanceService.oneClick500M(params);
+        return ResponseData.successData("一键开启500MB任务下发成功");
     }
 }

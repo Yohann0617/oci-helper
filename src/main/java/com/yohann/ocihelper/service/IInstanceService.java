@@ -5,6 +5,7 @@ import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.params.oci.instance.CreateNetworkLoadBalancerParams;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 
 import java.util.List;
@@ -98,4 +99,10 @@ public interface IInstanceService {
      * @param vpusPer    引导卷vpu [10,120]
      */
     void updateBootVolumeCfg(SysUserDTO sysUserDTO, String instanceId, long size, long vpusPer);
+
+    /**
+     * 一键开启500M
+     * @param params 参数
+     */
+    void oneClick500M(CreateNetworkLoadBalancerParams params);
 }
