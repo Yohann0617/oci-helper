@@ -245,7 +245,6 @@ public class OciServiceImpl implements IOciService {
 
         sysService.sendMessage(beginCreateMsg);
     }
-
     @Override
     public OciCfgDetailsRsp details(GetOciCfgDetailsParams params) {
         if (params.isCleanReLaunchDetails()) {
@@ -271,7 +270,6 @@ public class OciServiceImpl implements IOciService {
                 log.error("获取实例信息失败", e);
                 throw new OciException(-1, "获取实例信息失败");
             }
-            customCache.put(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId(), rsp.getInstanceList(), 10 * 60 * 1000);
         } else {
             rsp.setInstanceList(instanceInfos);
         }
@@ -305,14 +303,15 @@ public class OciServiceImpl implements IOciService {
                             return null;
                         }).filter(Objects::nonNull).collect(Collectors.toList());
                 rsp.setNlbList(nlbList);
-
-                customCache.put(CacheConstant.PREFIX_NETWORK_LOAD_BALANCER + params.getCfgId(), rsp.getNlbList(), 10 * 60 * 1000);
             } catch (Exception e) {
                 log.error("获取网络负载平衡器列表失败", e);
             }
         } else {
             rsp.setNlbList(netLoadBalancers);
         }
+
+        customCache.put(CacheConstant.PREFIX_INSTANCE_PAGE + params.getCfgId(), rsp.getInstanceList(), 10 * 60 * 1000);
+        customCache.put(CacheConstant.PREFIX_NETWORK_LOAD_BALANCER + params.getCfgId(), rsp.getNlbList(), 10 * 60 * 1000);
 
         rsp.setCfCfgList(Optional.ofNullable(cfCfgService.list())
                 .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
