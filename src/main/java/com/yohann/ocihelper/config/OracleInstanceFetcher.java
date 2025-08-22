@@ -477,9 +477,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .compartmentId(compartmentId)
                 .build());
         List<Shape> shapes = listShapesResponse.getItems();
-        List<Shape> vmShapes = CollectionUtil.isEmpty(shapes) ? Collections.emptyList() : shapes.stream()
-                .filter(shape -> shape.getShape().startsWith("VM"))
-                .collect(Collectors.toList());
+        List<Shape> vmShapes = CollectionUtil.isEmpty(shapes) ? Collections.emptyList() : shapes;
         List<Shape> shapesNewList = new ArrayList<>();
         String type = ArchitectureEnum.getType(user.getArchitecture());
         if (CollectionUtil.isNotEmpty(vmShapes)) {
