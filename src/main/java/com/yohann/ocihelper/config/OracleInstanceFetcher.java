@@ -131,7 +131,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .distinct()
                 .collect(Collectors.toList());
         String type = ArchitectureEnum.getType(user.getArchitecture());
-        if (shapeList.isEmpty() || !shapeList.contains(type)) {
+        if (CollectionUtil.isEmpty(shapeList) || !shapeList.contains(type)) {
             instanceDetailDTO.setNoShape(true);
             log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 开机失败，该区域可能不支持 CPU 架构：{}，用户可开机的机型：{}",
                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), user.getArchitecture(), shapeList);
@@ -158,7 +158,7 @@ public class OracleInstanceFetcher implements Closeable {
                             continue;
                         }
 
-                        if (vcnList.isEmpty()) {
+                        if (CollectionUtil.isEmpty(vcnList)) {
                             log.info("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] 检测到VCN不存在，正在创建VCN...",
                                     user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture());
                             String networkCidrBlock = getCidr(virtualNetworkClient, compartmentId);
@@ -313,7 +313,7 @@ public class OracleInstanceFetcher implements Closeable {
     public List<com.oracle.bmc.identity.model.Region> listAllRegions() {
         ListRegionsResponse listRegionsResponse = identityClient.listRegions(ListRegionsRequest.builder().build());
         List<com.oracle.bmc.identity.model.Region> regions = listRegionsResponse.getItems();
-        return regions.isEmpty() ? Collections.emptyList() : regions;
+        return CollectionUtil.isEmpty(regions) ? Collections.emptyList() : regions;
     }
 
     public List<RegionSubscription> listRegionSubscriptions() {
@@ -322,7 +322,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .tenancyId(compartmentId)
                         .build());
         List<RegionSubscription> subscriptionList = response.getItems();
-        return subscriptionList.isEmpty() ? Collections.emptyList() : subscriptionList;
+        return CollectionUtil.isEmpty(subscriptionList) ? Collections.emptyList() : subscriptionList;
     }
 
     public void deleteAllMfa() {
@@ -331,7 +331,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .userId(user.getOciCfg().getUserId())
                         .build());
         List<MfaTotpDeviceSummary> listMfaTotpDevicesResponseItems = listMfaTotpDevicesResponse.getItems();
-        if (!listMfaTotpDevicesResponseItems.isEmpty()) {
+        if (CollectionUtil.isNotEmpty(listMfaTotpDevicesResponseItems)) {
             listMfaTotpDevicesResponseItems.parallelStream().forEach(item -> {
                 identityClient.deleteMfaTotpDevice(DeleteMfaTotpDeviceRequest.builder()
                         .mfaTotpDeviceId(item.getId())
@@ -346,7 +346,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .userId(user.getOciCfg().getUserId())
                 .build());
         List<ApiKey> items = listApiKeysResponse.getItems();
-        if (!items.isEmpty()) {
+        if (CollectionUtil.isNotEmpty(items)) {
             items.parallelStream().forEach(item -> {
                 identityClient.deleteApiKey(DeleteApiKeyRequest.builder()
                         .userId(user.getOciCfg().getUserId())
@@ -447,7 +447,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .compartmentId(compartmentId)
                         .build());
         List<AvailabilityDomain> availabilityDomainList = listAvailabilityDomainsResponse.getItems();
-        if (availabilityDomainList.isEmpty()) {
+        if (CollectionUtil.isEmpty(availabilityDomainList)) {
             log.error("用户：[{}] ，区域：[{}] ，可用域不足", user.getUsername(), user.getOciCfg().getRegion());
             throw new OciException(-1, "可用域不足");
         }
@@ -460,7 +460,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .compartmentId(compartmentId)
                         .build());
         List<AvailabilityDomain> availabilityDomainList = listAvailabilityDomainsResponse.getItems();
-        if (availabilityDomainList.isEmpty()) {
+        if (CollectionUtil.isEmpty(availabilityDomainList)) {
             log.error("用户：[{}] ，区域：[{}] ，可用域不足", user.getUsername(), user.getOciCfg().getRegion());
             throw new OciException(-1, "可用域不足");
         }
@@ -477,12 +477,12 @@ public class OracleInstanceFetcher implements Closeable {
                 .compartmentId(compartmentId)
                 .build());
         List<Shape> shapes = listShapesResponse.getItems();
-        List<Shape> vmShapes = shapes.isEmpty() ? Collections.emptyList() : shapes.stream()
+        List<Shape> vmShapes = CollectionUtil.isEmpty(shapes) ? Collections.emptyList() : shapes.stream()
                 .filter(shape -> shape.getShape().startsWith("VM"))
                 .collect(Collectors.toList());
         List<Shape> shapesNewList = new ArrayList<>();
         String type = ArchitectureEnum.getType(user.getArchitecture());
-        if (!vmShapes.isEmpty()) {
+        if (CollectionUtil.isNotEmpty(vmShapes)) {
             for (Shape vmShape : vmShapes) {
                 if (type.equals(vmShape.getShape())) {
                     shapesNewList.add(vmShape);
@@ -503,7 +503,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .build();
         ListImagesResponse response = computeClient.listImages(listImagesRequest);
         List<Image> images = response.getItems();
-        if (images.isEmpty()) {
+        if (CollectionUtil.isEmpty(images)) {
             return null;
         }
 
@@ -610,7 +610,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .compartmentId(compartmentId)
                         .build()
         );
-        if (subnetsResponse.getItems().isEmpty()) {
+        if (CollectionUtil.isEmpty(subnetsResponse.getItems())) {
             return;
         }
         subnetsResponse.getItems().forEach(subnet -> virtualNetworkClient.deleteSubnet(
@@ -624,7 +624,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .compartmentId(compartmentId)
                         .build()
         );
-        if (response.getItems().isEmpty()) {
+        if (CollectionUtil.isEmpty(response.getItems())) {
             return;
         }
         response.getItems().forEach(ig -> virtualNetworkClient.deleteInternetGateway(
@@ -1232,11 +1232,12 @@ public class OracleInstanceFetcher implements Closeable {
         ListPublicIpsRequest listPublicIpsRequest = ListPublicIpsRequest.builder()
                 .compartmentId(compartmentId)
                 .scope(ListPublicIpsRequest.Scope.Region)
+                .lifetime(ListPublicIpsRequest.Lifetime.Ephemeral)
                 .build();
 
         ListPublicIpsResponse response = virtualNetworkClient.listPublicIps(listPublicIpsRequest);
         List<PublicIp> publicIpList = response.getItems();
-        if (publicIpList.isEmpty()) {
+        if (CollectionUtil.isEmpty(publicIpList)) {
             return;
         }
         for (PublicIp publicIp : response.getItems()) {
@@ -1360,7 +1361,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .collect(Collectors.toList()));
             }
         }
-        if (bootVolumes.isEmpty()) {
+        if (CollectionUtil.isEmpty(bootVolumes)) {
             throw new OciException(-1, "实例引导卷不存在");
         }
         return bootVolumes;
@@ -1382,7 +1383,7 @@ public class OracleInstanceFetcher implements Closeable {
                     .availabilityDomain(availabilityDomain.getName())
                     .compartmentId(compartmentId)
                     .build()).getItems();
-            if (null != items && !items.isEmpty()) {
+            if (CollectionUtil.isNotEmpty(items)) {
                 bootVolumes.addAll(items.stream().map(BootVolume::getId)
                         .collect(Collectors.toList())
                         .parallelStream().map(this::getBootVolumeById)
@@ -1465,7 +1466,7 @@ public class OracleInstanceFetcher implements Closeable {
 
     public List<Vnic> listVnicByInstanceId(String instanceId) {
         List<Vnic> vnics = listInstanceIPs(instanceId);
-        if (vnics.isEmpty()) {
+        if (CollectionUtil.isEmpty(vnics)) {
             return null;
         }
         return vnics;
@@ -1473,7 +1474,7 @@ public class OracleInstanceFetcher implements Closeable {
 
     public Vnic getVnicByInstanceId(String instanceId) {
         List<Vnic> vnics = listInstanceIPs(instanceId);
-        if (vnics.isEmpty()) {
+        if (CollectionUtil.isEmpty(vnics)) {
             return null;
         }
         for (Vnic vnic : vnics) {
@@ -1495,7 +1496,7 @@ public class OracleInstanceFetcher implements Closeable {
     public InstanceCfgDTO getInstanceCfg(String instanceId) {
         Instance instance = getInstanceById(instanceId);
         List<String> ipv6Addresses = getVnicByInstanceId(instanceId).getIpv6Addresses();
-        String ipv6 = (null == ipv6Addresses || ipv6Addresses.isEmpty()) ? null : ipv6Addresses.get(0);
+        String ipv6 = CollectionUtil.isEmpty(ipv6Addresses) ? null : ipv6Addresses.get(0);
 
         String bootVolumeSize = null;
         String bootVolumeVpu = null;
@@ -1538,7 +1539,7 @@ public class OracleInstanceFetcher implements Closeable {
 //        GetRouteTableRequest getRouteTableRequest = GetRouteTableRequest.builder().rtId(vcn.getDefaultRouteTableId()).build();
 //        GetRouteTableResponse getRouteTableResponse = virtualNetworkClient.getRouteTable(getRouteTableRequest);
 //        RouteTable routeTable = getRouteTableResponse.getRouteTable();
-//        if (routeTable.getRouteRules().isEmpty()) {
+//        if (CollectionUtil.isEmpty(routeTable.getRouteRules())) {
 //            routeRules.add(v4Route);
 //            routeRules.add(v6Route);
 //        } else {
@@ -1564,25 +1565,25 @@ public class OracleInstanceFetcher implements Closeable {
                 user.getUsername(), user.getOciCfg().getRegion(), vcn.getDisplayName());
     }
 
-    public void releaseSecurityRule(Vcn vcn, Integer type) {
+    public void releaseSecurityRule(Vcn vcn, Integer type, String ipv4Cidr, String ipv6Cidr) {
         IngressSecurityRule in4 = IngressSecurityRule.builder()
                 .sourceType(IngressSecurityRule.SourceType.CidrBlock)
-                .source("0.0.0.0/0")
+                .source(ipv4Cidr)
                 .protocol("all")
                 .build();
         EgressSecurityRule out4 = EgressSecurityRule.builder()
                 .destinationType(EgressSecurityRule.DestinationType.CidrBlock)
-                .destination("0.0.0.0/0")
+                .destination(ipv4Cidr)
                 .protocol("all")
                 .build();
         IngressSecurityRule in6 = IngressSecurityRule.builder()
                 .sourceType(IngressSecurityRule.SourceType.CidrBlock)
-                .source("::/0")
+                .source(ipv6Cidr)
                 .protocol("all")
                 .build();
         EgressSecurityRule out6 = EgressSecurityRule.builder()
                 .destinationType(EgressSecurityRule.DestinationType.CidrBlock)
-                .destination("::/0")
+                .destination(ipv6Cidr)
                 .protocol("all")
                 .build();
         List<IngressSecurityRule> inList;
@@ -1597,7 +1598,7 @@ public class OracleInstanceFetcher implements Closeable {
                 outList = Collections.singletonList(out6);
                 break;
             default:
-                if (vcn.getIpv6CidrBlocks().isEmpty()) {
+                if (CollectionUtil.isEmpty(vcn.getIpv6CidrBlocks())) {
                     inList = Collections.singletonList(in4);
                     outList = Collections.singletonList(out4);
                 } else {
@@ -1609,7 +1610,7 @@ public class OracleInstanceFetcher implements Closeable {
         GetSecurityListRequest getSecurityListRequest = GetSecurityListRequest.builder().securityListId(vcn.getDefaultSecurityListId()).build();
         GetSecurityListResponse getSecurityListResponse = virtualNetworkClient.getSecurityList(getSecurityListRequest);
         List<IngressSecurityRule> ingressSecurityRules = getSecurityListResponse.getSecurityList().getIngressSecurityRules();
-        if (ingressSecurityRules.isEmpty()) {
+        if (CollectionUtil.isEmpty(ingressSecurityRules)) {
             ingressSecurityRules = inList;
         } else {
 //            for (IngressSecurityRule rule : ingressSecurityRules) {
@@ -1624,7 +1625,7 @@ public class OracleInstanceFetcher implements Closeable {
             ingressSecurityRules.addAll(inList);
         }
         List<EgressSecurityRule> egressSecurityRules = getSecurityListResponse.getSecurityList().getEgressSecurityRules();
-        if (egressSecurityRules.isEmpty()) {
+        if (CollectionUtil.isEmpty(egressSecurityRules)) {
             egressSecurityRules = outList;
         } else {
 //            for (EgressSecurityRule rule : egressSecurityRules) {
@@ -1665,7 +1666,7 @@ public class OracleInstanceFetcher implements Closeable {
 
         // 添加ipv6 cidr 前缀
         List<String> oldIpv6CidrBlocks = vcn.getIpv6CidrBlocks();
-        if (null == oldIpv6CidrBlocks || oldIpv6CidrBlocks.isEmpty()) {
+        if (CollectionUtil.isEmpty(oldIpv6CidrBlocks)) {
             try {
                 virtualNetworkClient.addIpv6VcnCidr(AddIpv6VcnCidrRequest.builder()
                         .vcnId(vcnId)
@@ -1684,7 +1685,7 @@ public class OracleInstanceFetcher implements Closeable {
 
         // 子网
         List<Subnet> oldSubnet = listSubnets(vcnId);
-        if (oldSubnet.isEmpty()) {
+        if (CollectionUtil.isEmpty(oldSubnet)) {
             try {
                 log.warn("用户：[{}] ，区域：[{}] 正在创建子网~", user.getUsername(), user.getOciCfg().getRegion());
                 oldSubnet.add(createSubnet(virtualNetworkClient,
@@ -1727,7 +1728,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .compartmentId(compartmentId)
                         .vcnId(vcnId)
                         .build());
-        if (listInternetGatewaysResponse.getItems().isEmpty()) {
+        if (CollectionUtil.isEmpty(listInternetGatewaysResponse.getItems())) {
             try {
                 InternetGateway gateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
                 updateRouteRules(gateway, vcn);
@@ -1743,7 +1744,7 @@ public class OracleInstanceFetcher implements Closeable {
 
         try {
             // 安全列表（默认存在）
-            releaseSecurityRule(vcn, 6);
+            releaseSecurityRule(vcn, 6, "0.0.0.0/0", "::/0");
         } catch (Exception e) {
             log.error("release security rule error >>>>>>>>>>>>>>>>>> ", e);
         }

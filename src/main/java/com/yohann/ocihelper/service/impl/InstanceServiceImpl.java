@@ -14,6 +14,7 @@ import com.oracle.bmc.networkloadbalancer.requests.DeleteNetworkLoadBalancerRequ
 import com.oracle.bmc.networkloadbalancer.requests.GetNetworkLoadBalancerRequest;
 import com.oracle.bmc.networkloadbalancer.requests.ListNetworkLoadBalancersRequest;
 import com.yohann.ocihelper.bean.Tuple2;
+import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
@@ -25,6 +26,7 @@ import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -59,6 +61,8 @@ public class InstanceServiceImpl implements IInstanceService {
     private ISysService sysService;
     @Resource
     private ExecutorService virtualExecutor;
+    @Resource
+    private CustomExpiryGuavaCache<String, Object> customCache;
 
     private static final String LEGACY_MESSAGE_TEMPLATE =
             "【开机任务】 \n\n🎉 用户：[%s] 开机成功 🎉\n" +
@@ -189,7 +193,7 @@ public class InstanceServiceImpl implements IInstanceService {
                 throw new OciException(-1, "当前用户未创建VCN，无法放行安全列表");
             }
             vcns.parallelStream().forEach(x -> {
-                fetcher.releaseSecurityRule(x, 0);
+                fetcher.releaseSecurityRule(x, 0,"0.0.0.0/0","::/0");
                 log.info("用户：[{}] ，区域：[{}] ，放行 vcn： [{}] 安全列表所有端口及协议成功",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), x.getDisplayName());
             });
@@ -502,11 +506,12 @@ public class InstanceServiceImpl implements IInstanceService {
                         .build());
 
                 // 放行所有端口
-                fetcher.releaseSecurityRule(vcn, 0);
+                fetcher.releaseSecurityRule(vcn, 4,"10.0.0.0/16","::/0");
 
                 log.info("【一键开启500MB任务】实例vnic绑定路由表成功，实例：【{}】已成功开启500MB🎉，公网IP：{}", instance.getDisplayName(), publicIp);
                 sysService.sendMessage(String.format("【一键开启500MB任务】用户：[%s]，区域：[%s]，实例：[%s] 已成功开启500MB🎉，公网IP：%s",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName(), publicIp));
+                customCache.remove(CacheConstant.PREFIX_NETWORK_LOAD_BALANCER + params.getOciCfgId());
             } catch (Exception e) {
                 log.error("【一键开启500MB任务】用户：[{}]，区域：[{}]，实例：[{}] 开启500MB失败❌",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, e);
