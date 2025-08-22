@@ -16,11 +16,11 @@ import com.oracle.bmc.identity.IdentityClient;
 import com.oracle.bmc.identity.model.*;
 import com.oracle.bmc.identity.requests.*;
 import com.oracle.bmc.identity.responses.*;
+import com.oracle.bmc.identitydomains.IdentityDomainsClient;
 import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.monitoring.MonitoringClient;
 import com.oracle.bmc.networkloadbalancer.NetworkLoadBalancerClient;
 import com.oracle.bmc.workrequests.WorkRequestClient;
-import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
@@ -61,6 +61,7 @@ public class OracleInstanceFetcher implements Closeable {
     private final BlockstorageClient blockstorageClient;
     private final MonitoringClient monitoringClient;
     private final NetworkLoadBalancerClient networkLoadBalancerClient;
+    private final IdentityDomainsClient identityDomainsClient;
     private SysUserDTO user;
     private String compartmentId;
 
@@ -75,6 +76,7 @@ public class OracleInstanceFetcher implements Closeable {
         blockstorageClient.close();
         monitoringClient.close();
         networkLoadBalancerClient.close();
+        identityDomainsClient.close();
     }
 
     public OracleInstanceFetcher(SysUserDTO user) {
@@ -107,6 +109,7 @@ public class OracleInstanceFetcher implements Closeable {
         virtualNetworkClient = VirtualNetworkClient.builder().build(provider);
         monitoringClient = MonitoringClient.builder().build(provider);
         networkLoadBalancerClient = NetworkLoadBalancerClient.builder().build(provider);
+        identityDomainsClient = IdentityDomainsClient.builder().build(provider);
         compartmentId = StrUtil.isBlank(ociCfg.getCompartmentId()) ? findRootCompartment(identityClient, provider.getTenantId()) : ociCfg.getCompartmentId();
     }
 

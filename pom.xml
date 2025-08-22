@@ -75,6 +75,11 @@
             <artifactId>oci-java-sdk-networkloadbalancer</artifactId>
             <version>${oci-version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.oracle.oci.sdk</groupId>
+            <artifactId>oci-java-sdk-identitydomains</artifactId>
+            <version>${oci-version}</version>
+        </dependency>
 
         <!-- sqlite依赖包 -->
         <dependency>
