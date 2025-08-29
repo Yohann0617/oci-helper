@@ -33,8 +33,8 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 ```
 > 此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
 
-- 🔔 安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`。
-第一次部署需要修改默认账号密码，更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
+- 🔔 安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号默认是：`yohann`，密码由脚本随机生成。
+第一次部署建议修改默认账号密码，更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
 - 📃 如需查看完整日志，执行：`docker logs oci-helper  >>  /app/oci-helper/oci-helper.log`导出日志文件自行查看。
 
 🎄 部署完成后，`/app/oci-helper`的目录结构如下：
@@ -210,5 +210,6 @@ Thanks to ZMTO for its strong support for this project! High cost-effective serv
 感谢 YxVM 对本项目的大力支持！ [高性价比服务器购买链接](https://yxvm.com/aff.php?aff=829)
 
 感谢 [NodeSupport](https://github.com/NodeSeekDev/NodeSupport) 赞助了本项目
+
 
 
