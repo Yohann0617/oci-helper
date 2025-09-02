@@ -202,14 +202,27 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 [![Stargazers over time](https://starchart.cc/Yohann0617/oci-helper.svg?variant=adaptive)](https://starchart.cc/Yohann0617/oci-helper)
 
-## 🙏特别鸣谢
-[![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
+## 🙏 特别鸣谢
 
-Thanks to ZMTO for its strong support for this project! High cost-effective server purchase link: [https://zmto.com](https://zmto.com)
+<p align="left">
+  <a href="https://dartnode.com" title="Powered by DartNode - Free VPS for Open Source">
+    <img src="https://dartnode.com/branding/DN-Open-Source-sm.png" alt="DartNode" height="50">
+  </a>
 
-感谢 YxVM 对本项目的大力支持！ [高性价比服务器购买链接](https://yxvm.com/aff.php?aff=829)
+  <a href="https://zmto.com" title="Powered by ZMTO">
+    <img src="https://console.zmto.com/templates/2019/dist/images/logo_white.svg" alt="ZMTO" height="50">
+  </a>
 
-感谢 [NodeSupport](https://github.com/NodeSeekDev/NodeSupport) 赞助了本项目
+  <a href="https://yxvm.com/" title="Powered by YxVM">
+    <img src="https://yxvm.com/assets/img/logo.png" alt="YxVM" height="50">
+  </a>
+
+  <a href="https://www.nodeseek.com/" title="Powered by NodeSeek">
+    <img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="50">
+  </a>
+</p>
+
+
 
 
 
