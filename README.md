@@ -157,7 +157,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 
 ### 2. 下载文件
 
-下载[Releases](https://github.com/Yohann0617/oci-helper/releases/tag/deploy)中最新的`application.yml`、`oci-helper.db`、`docker-compose.yml`、`sh_oci-helper_install.sh`这4个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
+下载 [Releases](https://github.com/Yohann0617/oci-helper/releases/tag/deploy) 中的`application.yml`、`oci-helper.db`、`docker-compose.yml`以及**最新 Release 版本**的`sh_oci-helper_install.sh`这4个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
 `sh_oci-helper_install.sh`是部署脚本，可自行修改内容，执行之前记得先`chmod +x /app/oci-helper/sh_oci-helper_install.sh`。
 
 ### 3. docker-compose 部署或更新
@@ -210,6 +210,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
   <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://yxvm.com/assets/img/logo.png" alt="YxVM" height="70"></a>
   <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
 </p>
+
 
 
 
