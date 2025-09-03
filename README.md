@@ -33,9 +33,9 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 ```
 > 此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
 
-- 🔔 安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号默认是：`yohann`，密码由脚本随机生成。
-第一次部署建议修改默认账号密码，更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
-- 📃 如需查看完整日志，执行：`docker logs oci-helper  >>  /app/oci-helper/oci-helper.log`导出日志文件自行查看。
+- 🔔 安装完成后浏览器直接访问 `http://ip:8818` 即可访问（建议之后通过https访问），账号密码可通过脚本进行修改。
+如需自己手动修改账号密码，更改 `/app/oci-helper/application.yml` 中的配置并执行 `docker restart oci-helper` 重启docker容器即可。
+- 📃 如需查看完整日志，执行：`docker logs oci-helper  >>  /app/oci-helper/oci-helper.log` 导出日志文件自行查看。
 
 🎄 部署完成后，`/app/oci-helper`的目录结构如下：
 ```bash
@@ -210,6 +210,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
   <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://yxvm.com/assets/img/logo.png" alt="YxVM" height="70"></a>
   <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
 </p>
+
 
 
 
