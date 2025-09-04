@@ -5,6 +5,7 @@ import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.params.oci.instance.Close500MParams;
 import com.yohann.ocihelper.bean.params.oci.instance.CreateNetworkLoadBalancerParams;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 
@@ -105,4 +106,10 @@ public interface IInstanceService {
      * @param params 参数
      */
     void oneClick500M(CreateNetworkLoadBalancerParams params);
+
+    /**
+     * 一键关闭500M
+     * @param params 参数
+     */
+    void oneClickClose500M(Close500MParams params);
 }
