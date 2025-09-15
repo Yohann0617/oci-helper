@@ -7,6 +7,7 @@ import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.oci.instance.Close500MParams;
 import com.yohann.ocihelper.bean.params.oci.instance.CreateNetworkLoadBalancerParams;
+import com.yohann.ocihelper.bean.params.oci.instance.UpdateShapeParams;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 
 import java.util.List;
@@ -112,4 +113,10 @@ public interface IInstanceService {
      * @param params 参数
      */
     void oneClickClose500M(Close500MParams params);
+
+    /**
+     * 修改实例Shape
+     * @param params 参数
+     */
+    void updateInstanceShape(UpdateShapeParams params);
 }

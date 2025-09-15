@@ -1,5 +1,6 @@
 package com.yohann.ocihelper.bean.params.oci.volume;
 
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
 import jakarta.validation.constraints.NotBlank;
@@ -18,6 +19,6 @@ public class TerminateBootVolumeParams {
 
     @NotBlank(message = "配置id不能为空")
     private String ociCfgId;
-    @NotBlank(message = "引导卷id不能为空")
+    @NotEmpty(message = "引导卷id不能为空")
     private List<String> bootVolumeIds;
 }

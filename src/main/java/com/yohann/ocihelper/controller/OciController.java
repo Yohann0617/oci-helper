@@ -192,4 +192,10 @@ public class OciController {
         instanceService.oneClick500M(params);
         return ResponseData.successData("一键开启500MB任务下发成功");
     }
+
+    @PostMapping(path = "/updateInstanceShape")
+    public ResponseData<Void> updateInstanceShape(@Validated @RequestBody UpdateShapeParams params) {
+        instanceService.updateInstanceShape(params);
+        return ResponseData.successData("修改实例 Shape 成功");
+    }
 }
