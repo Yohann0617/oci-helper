@@ -33,9 +33,9 @@ bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/downlo
 ```
 > 此命令也可以用于更新镜像并重启容器，不会删除已有的配置。
 
-- 🔔 安装完成后浏览器直接`ip:8818`即可访问（建议之后通过https访问），账号密码默认都是：`yohann`。
-第一次部署需要修改默认账号密码，更改`/app/oci-helper/application.yml`中的配置并执行`docker restart oci-helper`重启docker容器即可。
-- 📃 如需查看完整日志，执行：`docker logs oci-helper  >>  /app/oci-helper/oci-helper.log`导出日志文件自行查看。
+- 🔔 安装完成后浏览器直接访问 `http://ip:8818` 即可访问（建议之后通过https访问），账号密码可通过脚本进行修改。
+如需自己手动修改账号密码，更改 `/app/oci-helper/application.yml` 中的配置并执行 `docker restart oci-helper` 重启docker容器即可。
+- 📃 如需查看完整日志，执行：`docker logs oci-helper  >>  /app/oci-helper/oci-helper.log` 导出日志文件自行查看。
 
 🎄 部署完成后，`/app/oci-helper`的目录结构如下：
 ```bash
@@ -157,7 +157,7 @@ mkdir -p /app/oci-helper/keys && cd /app/oci-helper
 
 ### 2. 下载文件
 
-下载[Releases](https://github.com/Yohann0617/oci-helper/releases/tag/deploy)中最新的`application.yml`、`oci-helper.db`、`docker-compose.yml`、`sh_oci-helper_install.sh`这4个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
+下载 [Releases](https://github.com/Yohann0617/oci-helper/releases/tag/deploy) 中的`application.yml`、`oci-helper.db`、`docker-compose.yml`以及**最新 Release 版本**的`sh_oci-helper_install.sh`这4个文件到`/app/oci-helper`目录下，并修改`application.yml`部分配置。
 `sh_oci-helper_install.sh`是部署脚本，可自行修改内容，执行之前记得先`chmod +x /app/oci-helper/sh_oci-helper_install.sh`。
 
 ### 3. docker-compose 部署或更新
@@ -202,13 +202,21 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 [![Stargazers over time](https://starchart.cc/Yohann0617/oci-helper.svg?variant=adaptive)](https://starchart.cc/Yohann0617/oci-helper)
 
-## 🙏特别鸣谢
-[![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
+## 🙏 特别鸣谢
 
-Thanks to ZMTO for its strong support for this project! High cost-effective server purchase link: [https://zmto.com](https://zmto.com)
+<p align="left">
+  <a href="https://dartnode.com" title="Powered by DartNode - Free VPS for Open Source"><img src="https://dartnode.com/branding/DN-Open-Source-sm.png" alt="DartNode" height="70"></a>
+  <a href="https://zmto.com" title="Powered by ZMTO"><img src="https://zmto.com/favicon/favicon.ico" alt="ZMTO" height="70"></a>
+  <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://yxvm.com/assets/img/logo.png" alt="YxVM" height="70"></a>
+  <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
+</p>
 
-感谢 YxVM 对本项目的大力支持！ [高性价比服务器购买链接](https://yxvm.com/aff.php?aff=829)
 
-感谢 [NodeSupport](https://github.com/NodeSeekDev/NodeSupport) 赞助了本项目
+
+
+
+
+
+
 
 
