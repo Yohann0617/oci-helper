@@ -33,8 +33,8 @@ public class InstanceDetailDTO {
     private String architecture;
     private String username;
     private String region;
-    private float ocpus = 1F;
-    private float memory = 6F;
+    private Float ocpus = 1F;
+    private Float memory = 6F;
     private Long disk = 50L;
     private String rootPassword;
     private long createNumbers = 0;

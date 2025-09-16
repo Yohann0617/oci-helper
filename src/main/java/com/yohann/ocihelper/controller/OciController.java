@@ -190,7 +190,13 @@ public class OciController {
     @PostMapping(path = "/oneClick500M")
     public ResponseData<Void> oneClick500M(@Validated @RequestBody CreateNetworkLoadBalancerParams params) {
         instanceService.oneClick500M(params);
-        return ResponseData.successData("一键开启500MB任务下发成功");
+        return ResponseData.successData("一键开启下行500Mbps任务下发成功");
+    }
+
+    @PostMapping(path = "/oneClickClose500M")
+    public ResponseData<Void> oneClickClose500M(@Validated @RequestBody Close500MParams params) {
+        instanceService.oneClickClose500M(params);
+        return ResponseData.successData("关闭下行500Mbps任务下发成功");
     }
 
     @PostMapping(path = "/updateInstanceShape")

@@ -21,4 +21,5 @@ public class InstanceCfgDTO {
     private String memory;
     private String bootVolumeSize;
     private String bootVolumeVpu;
+    private String shape;
 }

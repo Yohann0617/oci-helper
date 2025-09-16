@@ -20,6 +20,7 @@ import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.params.oci.instance.Close500MParams;
 import com.yohann.ocihelper.bean.params.oci.instance.CreateNetworkLoadBalancerParams;
 import com.yohann.ocihelper.bean.params.oci.instance.UpdateShapeParams;
@@ -27,6 +28,7 @@ import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.ArchitectureEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IInstanceService;
+import com.yohann.ocihelper.service.IOciCreateTaskService;
 import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
@@ -64,6 +66,8 @@ public class InstanceServiceImpl implements IInstanceService {
     @Resource
     private ISysService sysService;
     @Resource
+    private IOciCreateTaskService createTaskService;
+    @Resource
     private ExecutorService virtualExecutor;
     @Resource
     private CustomExpiryGuavaCache<String, Object> customCache;
@@ -78,7 +82,9 @@ public class InstanceServiceImpl implements IInstanceService {
                     "磁盘大小（GB）： %s\n" +
                     "Shape： %s\n" +
                     "公网IP： %s\n" +
-                    "root密码： %s";
+                    "root密码： %s\n" +
+                    "开机次数：%s\n" +
+                    "开机时长：%s";
 
     @Override
     public List<SysUserDTO.CloudInstance> listRunningInstances(SysUserDTO sysUserDTO) {
@@ -108,6 +114,7 @@ public class InstanceServiceImpl implements IInstanceService {
                 fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(),
                 fetcher.getUser().getArchitecture(), fetcher.getUser().getCreateNumbers(), currentCount);
 
+        OciCreateTask createTask = createTaskService.getById(fetcher.getUser().getTaskId());
         List<InstanceDetailDTO> instanceList = new ArrayList<>();
         for (int i = 0; i < fetcher.getUser().getCreateNumbers(); i++) {
             InstanceDetailDTO instanceDetail = fetcher.createInstanceData();
@@ -129,12 +136,15 @@ public class InstanceServiceImpl implements IInstanceService {
                         LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                         instanceDetail.getRegion(),
                         instanceDetail.getArchitecture(),
-                        instanceDetail.getOcpus(),
-                        instanceDetail.getMemory(),
+                        instanceDetail.getOcpus().longValue(),
+                        instanceDetail.getMemory().longValue(),
                         instanceDetail.getDisk(),
                         instanceDetail.getShape(),
                         instanceDetail.getPublicIp(),
-                        instanceDetail.getRootPassword());
+                        instanceDetail.getRootPassword(),
+                        currentCount,
+                        createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime())
+                );
 
                 sysService.sendMessage(message);
             }
@@ -538,7 +548,7 @@ public class InstanceServiceImpl implements IInstanceService {
                 Vnic vnic = fetcher.getVnicByInstanceId(params.getInstanceId());
 
                 if (!instance.getShape().contains(ArchitectureEnum.AMD.getShapeDetail())) {
-                    log.error("【关闭500Mbps任务】实例 Shape: {} 不支持一键开启下行500Mbps", instance.getShape());
+                    log.error("【关闭实例下行500Mbps任务】实例 Shape: {} 不支持一键开启下行500Mbps", instance.getShape());
                     throw new OciException(-1, "该实例不支持开启下行500Mbps");
                 }
 
@@ -569,6 +579,7 @@ public class InstanceServiceImpl implements IInstanceService {
                                                 && routeRule.getDestinationType().getValue().equals(RouteRule.DestinationType.CidrBlock.getValue())) {
                                             routeTables.removeIf(x -> x.getId().equals(table.getId()));
                                             if (!params.getRetainNatGw()) {
+                                                log.info("【关闭实例下行500Mbps任务】正在清空路由表：[{}] 并删除...", table.getDisplayName());
                                                 // 清空路由表并删除
                                                 virtualNetworkClient.updateRouteTable(UpdateRouteTableRequest.builder()
                                                         .rtId(table.getId())
@@ -594,6 +605,7 @@ public class InstanceServiceImpl implements IInstanceService {
                         }
                         // 删除NAT网关
                         if (!params.getRetainNatGw()) {
+                            log.info("【关闭实例下行500Mbps任务】正在删除NAT网关：[{}] ...", natGateway.getDisplayName());
                             virtualNetworkClient.deleteNatGateway(DeleteNatGatewayRequest.builder()
                                     .natGatewayId(natGateway.getId())
                                     .build());
@@ -602,6 +614,7 @@ public class InstanceServiceImpl implements IInstanceService {
                 }
 
                 // 修改vnic路由表
+                log.info("【关闭实例下行500Mbps任务】正在修改vnic：[{}] 的路由表为：[{}]...", vnic.getDisplayName(), routeTables.getFirst().getDisplayName());
                 virtualNetworkClient.updateVnic(UpdateVnicRequest.builder()
                         .vnicId(vnic.getId())
                         .updateVnicDetails(UpdateVnicDetails.builder()
@@ -610,19 +623,24 @@ public class InstanceServiceImpl implements IInstanceService {
                                 .build())
                         .build());
 
-                // 删除网络负责平衡器
-                if (!params.getRetainBl()){
+                // 删除网络负载平衡器
+                if (!params.getRetainBl()) {
                     NetworkLoadBalancerClient networkLoadBalancerClient = fetcher.getNetworkLoadBalancerClient();
                     List<NetworkLoadBalancerSummary> networkLoadBalancerSummaries = networkLoadBalancerClient.listNetworkLoadBalancers(ListNetworkLoadBalancersRequest.builder()
                             .compartmentId(fetcher.getCompartmentId())
                             .build()).getNetworkLoadBalancerCollection().getItems();
                     for (NetworkLoadBalancerSummary networkLoadBalancerSummary : networkLoadBalancerSummaries) {
+                        log.info("【关闭实例下行500Mbps任务】正在删除网络负载平衡器：[{}] ...", networkLoadBalancerSummary.getDisplayName());
                         networkLoadBalancerClient.deleteNetworkLoadBalancer(DeleteNetworkLoadBalancerRequest.builder()
                                 .networkLoadBalancerId(networkLoadBalancerSummary.getId())
                                 .build());
                     }
                 }
 
+                log.info("【关闭实例下行500Mbps任务】用户：[{}]，区域：[{}]，实例：[{}] 已成功关闭实例下行500Mbps🎉🎉",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName);
+                sysService.sendMessage(String.format("【关闭实例下行500Mbps任务】用户：[%s]，区域：[%s]，实例：[%s] 已成功关闭实例下行500Mbps🎉",
+                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName()));
             } catch (Exception e) {
                 log.error("【关闭实例下行500Mbps任务】用户：[{}]，区域：[{}]，实例：[{}] 关闭下行500Mbps失败❌",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, e);

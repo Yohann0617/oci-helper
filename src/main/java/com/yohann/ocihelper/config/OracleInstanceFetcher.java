@@ -1518,6 +1518,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .memory(String.valueOf(instance.getShapeConfig().getMemoryInGBs()))
                 .bootVolumeSize(bootVolumeSize)
                 .bootVolumeVpu(bootVolumeVpu)
+                .shape(instance.getShape())
                 .build();
     }
 
