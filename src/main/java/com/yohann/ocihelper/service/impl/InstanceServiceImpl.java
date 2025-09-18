@@ -574,25 +574,22 @@ public class InstanceServiceImpl implements IInstanceService {
                         try {
                             if (CollectionUtil.isNotEmpty(routeTableList)) {
                                 for (RouteTable table : routeTableList) {
+                                    if (CollectionUtil.isEmpty(table.getRouteRules())) {
+                                        routeTables.removeIf(x -> x.getId().equals(table.getId()));
+                                        continue;
+                                    }
                                     for (RouteRule routeRule : table.getRouteRules()) {
                                         if (routeRule.getNetworkEntityId().equals(natGateway.getId()) && routeRule.getCidrBlock().equals("0.0.0.0/0")
                                                 && routeRule.getDestinationType().getValue().equals(RouteRule.DestinationType.CidrBlock.getValue())) {
                                             routeTables.removeIf(x -> x.getId().equals(table.getId()));
                                             if (!params.getRetainNatGw()) {
-                                                log.info("【关闭实例下行500Mbps任务】正在清空路由表：[{}] 并删除...", table.getDisplayName());
-                                                // 清空路由表并删除
+                                                log.info("【关闭实例下行500Mbps任务】正在清空路由表：[{}]...", table.getDisplayName());
+                                                // 清空路由表
                                                 virtualNetworkClient.updateRouteTable(UpdateRouteTableRequest.builder()
                                                         .rtId(table.getId())
                                                         .updateRouteTableDetails(UpdateRouteTableDetails.builder()
                                                                 .routeRules(Collections.emptyList())
                                                                 .build())
-                                                        .build());
-                                                while (!virtualNetworkClient.getRouteTable(GetRouteTableRequest.builder().rtId(table.getId()).build())
-                                                        .getRouteTable().getLifecycleState().getValue().equals(Available.getValue())) {
-                                                    Thread.sleep(1000);
-                                                }
-                                                virtualNetworkClient.deleteRouteTable(DeleteRouteTableRequest.builder()
-                                                        .rtId(table.getId())
                                                         .build());
                                             }
                                             break;
@@ -601,7 +598,8 @@ public class InstanceServiceImpl implements IInstanceService {
                                 }
                             }
                         } catch (Exception e) {
-
+                            log.error("【关闭实例下行500Mbps任务】用户：[{}]，区域：[{}]，实例：[{}] 清空路由表失败 ❌",
+                                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, e);
                         }
                         // 删除NAT网关
                         if (!params.getRetainNatGw()) {
@@ -622,6 +620,20 @@ public class InstanceServiceImpl implements IInstanceService {
                                 .routeTableId(routeTables.getFirst().getId())
                                 .build())
                         .build());
+
+                try {
+                    for (RouteTable rt : routeTableList) {
+                        if (!rt.getId().equals(routeTables.getFirst().getId())) {
+                            log.info("【关闭实例下行500Mbps任务】正在删除NAT路由表：[{}]...", rt.getDisplayName());
+                            virtualNetworkClient.deleteRouteTable(DeleteRouteTableRequest.builder()
+                                    .rtId(rt.getId())
+                                    .build());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("【关闭实例下行500Mbps任务】用户：[{}]，区域：[{}]，实例：[{}] 删除路由表失败 ❌",
+                            sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, e);
+                }
 
                 // 删除网络负载平衡器
                 if (!params.getRetainBl()) {
@@ -655,15 +667,32 @@ public class InstanceServiceImpl implements IInstanceService {
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             ComputeClient computeClient = fetcher.getComputeClient();
-            computeClient.updateInstance(UpdateInstanceRequest.builder()
-                    .instanceId(params.getInstanceId())
-                    .updateInstanceDetails(UpdateInstanceDetails.builder()
-                            .shape(params.getShape())
-                            .build())
-                    .build());
+            if (params.getShape().equals(ArchitectureEnum.AMD.getShapeDetail())) {
+                computeClient.updateInstance(UpdateInstanceRequest.builder()
+                        .instanceId(params.getInstanceId())
+                        .updateInstanceDetails(UpdateInstanceDetails.builder()
+                                .shape(params.getShape())
+                                .shapeConfig(UpdateInstanceShapeConfigDetails.builder()
+                                        .ocpus(1f)
+                                        .memoryInGBs(1f)
+                                        .build())
+                                .build())
+                        .build());
+            } else {
+                computeClient.updateInstance(UpdateInstanceRequest.builder()
+                        .instanceId(params.getInstanceId())
+                        .updateInstanceDetails(UpdateInstanceDetails.builder()
+                                .shape(params.getShape())
+                                .shapeConfig(UpdateInstanceShapeConfigDetails.builder()
+                                        .ocpus(1f)
+                                        .memoryInGBs(2f)
+                                        .build())
+                                .build())
+                        .build());
+            }
         } catch (Exception e) {
             log.error("【更改实例Shape任务】用户：[{}]，区域：[{}]，实例ID：[{}] 更新 Shape 为：[{}] 失败❌",
-                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), params.getInstanceId(), params.getShape());
+                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), params.getInstanceId(), params.getShape(), e);
             throw new OciException(-1, "更新实例 Shape 为：" + params.getShape() + " 失败");
         }
     }

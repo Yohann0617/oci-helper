@@ -21,6 +21,7 @@ public enum ArchitectureEnum {
      */
     AMD("AMD", "VM.Standard.E2.1.Micro", AlwaysFree),
     ARM("ARM", "VM.Standard.A1.Flex", LimitedFree),
+    ARM_A2("VM.Standard.A2.Flex", "VM.Standard.A2.Flex", Paid),
     AMD_E5("AMD_E5", "VM.Standard.E5.Flex", Paid),
 
     ;

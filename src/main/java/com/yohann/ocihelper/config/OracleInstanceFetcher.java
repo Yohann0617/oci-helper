@@ -1045,35 +1045,27 @@ public class OracleInstanceFetcher implements Closeable {
             SysUserDTO user) {
         String instanceName = "instance-" + LocalDateTime.now().format(CommonUtils.DATETIME_FMT_PURE);
         String encodedCloudInitScript = Base64.getEncoder().encodeToString(script.getBytes());
-//        Map<String, Object> extendedMetadata = new HashMap<>();
-        /*extendedMetadata.put(
-                "java-sdk-example-extended-metadata-key",
-                "java-sdk-example-extended-metadata-value");
-        extendedMetadata = Collections.unmodifiableMap(extendedMetadata);*/
-        InstanceSourceViaImageDetails instanceSourceViaImageDetails = InstanceSourceViaImageDetails.builder()
-                .imageId(image.getId())
-                //.kmsKeyId((kmsKeyId == null || "".equals(kmsKeyId)) ? null : kmsKeyId)
-                .build();
-        CreateVnicDetails createVnicDetails = CreateVnicDetails.builder()
-                .subnetId(subnet.getId())
-                .nsgIds(networkSecurityGroup == null ? null : Arrays.asList(networkSecurityGroup.getId()))
-                .build();
-        LaunchInstanceAgentConfigDetails launchInstanceAgentConfigDetails = LaunchInstanceAgentConfigDetails.builder()
-                .isMonitoringDisabled(true)
-                .build();
         return LaunchInstanceDetails.builder()
                 .availabilityDomain(availabilityDomain.getName())
                 .compartmentId(compartmentId)
                 .displayName(instanceName)
                 // faultDomain is optional parameter
 //                .faultDomain("FAULT-DOMAIN-2")
-                .sourceDetails(instanceSourceViaImageDetails)
+                .sourceDetails(InstanceSourceViaImageDetails.builder()
+                        .imageId(image.getId())
+                        //.kmsKeyId((kmsKeyId == null || "".equals(kmsKeyId)) ? null : kmsKeyId)
+                        .build())
                 .metadata(Collections.singletonMap("user_data", encodedCloudInitScript))
 //                .extendedMetadata(extendedMetadata)
                 .shape(shape.getShape())
-                .createVnicDetails(createVnicDetails)
+                .createVnicDetails(CreateVnicDetails.builder()
+                        .subnetId(subnet.getId())
+                        .nsgIds(networkSecurityGroup == null ? null : Arrays.asList(networkSecurityGroup.getId()))
+                        .build())
                 // agentConfig is an optional parameter
-                .agentConfig(launchInstanceAgentConfigDetails)
+                .agentConfig(LaunchInstanceAgentConfigDetails.builder()
+                        .isMonitoringDisabled(true)
+                        .build())
                 //配置核心和内存
                 .shapeConfig(LaunchInstanceShapeConfigDetails.
                         builder().
