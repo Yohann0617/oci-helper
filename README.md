@@ -63,10 +63,10 @@ root@yohann:/app/oci-helper# tree
 
 ### 🌏Nginx反向代理
 
-> 如果需要配置HTTPS，又想要 VNC 连接救砖，必须按照以下配置
+> 如果**需要配置HTTPS**，又想要 VNC 连接救砖，必须按照以下配置
 
 <details>
-    <summary> ☜ Read more 👨‍💻</summary>
+    <summary> ☜ 点击查看 👨‍💻</summary>
 
 #### 1. 修改 docker-compose.yaml
 > 这一步是保证服务端口只有服务器内部网络可以访问，外部无法直接通过IP+端口的方式访问服务，提高安全性。修改完之后需要执行 `cd /app/oci-helper && docker-compose down && docker-compose up -d` 重启服务或者直接再执行一次一键脚本。
@@ -151,7 +151,7 @@ networks:
 ## 👶手动部署（不推荐）
 
 <details>
-    <summary> ☜ Read more 👨‍💻</summary>
+    <summary> ☜ 点击查看 👨‍💻</summary>
 
 ### 1. 新建目录
 
@@ -178,8 +178,36 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 ## 🔍页面展示
 
-<details open>
-    <summary> ☜ 点击查看 👨‍💻</summary>
+> 部署脚本
+
+![image.png](./img/10-shell.png)
+
+> 部署在1C1G机器上运行一个月后资源占用情况
+
+![image.png](./img/10-status.png)
+
+> 主页
+
+![image.png](./img/1-home.png)
+
+> 新增配置
+
+![image.png](./img/3-add-1.png)
+
+> 更换IP并自动更新 Cloudflare 域名 DNS 记录
+
+![image.png](./img/3-instance-details.png)
+
+> 编辑实例
+
+![image.png](./img/3-instance-cfg.png)
+
+> TG操作
+
+![image.png](./img/9-tg-bot-1.jpg)
+
+<details>
+    <summary> ☜ 点击查看更多 👨‍💻</summary>
 
 ![image.png](./img/0-login.png)
 ![image.png](./img/1-home.png)
