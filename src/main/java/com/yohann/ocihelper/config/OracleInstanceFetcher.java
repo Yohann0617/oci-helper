@@ -298,6 +298,12 @@ public class OracleInstanceFetcher implements Closeable {
         return user;
     }
 
+    public String getRegisteredTime() {
+        return CommonUtils.dateFmt2String(identityClient.getCompartment(GetCompartmentRequest.builder()
+                .compartmentId(compartmentId)
+                .build()).getCompartment().getTimeCreated());
+    }
+
     public boolean checkVcnIsPublic(Vcn vcn) {
         List<Subnet> subnets = listSubnets(vcn.getId());
         if (CollectionUtil.isEmpty(subnets)) {

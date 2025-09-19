@@ -13,6 +13,7 @@ import com.oracle.bmc.identity.requests.ListUsersRequest;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
+import com.yohann.ocihelper.bean.params.oci.tenant.UpdatePwdExpirationPolicyParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserBasicParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserInfoParams;
 import com.yohann.ocihelper.bean.response.oci.tenant.TenantInfoRsp;
@@ -22,11 +23,13 @@ import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.service.ITenantService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
+import com.yohann.ocihelper.utils.OciUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
+
 import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -186,6 +189,21 @@ public class TenantServiceImpl implements ITenantService {
         } catch (Exception e) {
             log.error("删除用户失败", e);
             throw new OciException(-1, "删除用户失败", e);
+        }
+    }
+
+    @Override
+    public void updatePwdExpirationPolicy(UpdatePwdExpirationPolicyParams params) {
+        SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            if (params.getExpirationDays() == null || params.getExpirationDays() == 0) {
+                OciUtils.disablePasswordExpirationWithAutoDomain(fetcher);
+            } else {
+                OciUtils.enablePasswordExpirationWithAutoDomain(fetcher, params.getExpirationDays());
+            }
+        } catch (Exception e) {
+            log.error("更新密码策略失败", e);
+            throw new OciException(-1, "更新密码策略失败");
         }
     }
 }

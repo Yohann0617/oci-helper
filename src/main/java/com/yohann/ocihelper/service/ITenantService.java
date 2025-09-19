@@ -1,6 +1,7 @@
 package com.yohann.ocihelper.service;
 
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
+import com.yohann.ocihelper.bean.params.oci.tenant.UpdatePwdExpirationPolicyParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserBasicParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserInfoParams;
 import com.yohann.ocihelper.bean.response.oci.tenant.TenantInfoRsp;
@@ -24,4 +25,5 @@ public interface ITenantService {
 
     void deleteUser(UpdateUserBasicParams params);
 
+    void updatePwdExpirationPolicy(UpdatePwdExpirationPolicyParams params);
 }
