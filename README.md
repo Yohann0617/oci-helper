@@ -4,6 +4,9 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=Apache)](LICENSE)
 [![OpenJDK](https://img.shields.io/badge/OpenJDK-21+-orange?logo=openjdk)](https://openjdk.org/projects/jdk/21)
 [![Springboot](https://img.shields.io/badge/Springboot-3+-green?logo=springboot)](https://spring.io/projects/spring-boot)
+[![Maven](https://img.shields.io/badge/Maven-3+-blue?logo=apachemaven)](https://maven.apache.org)
+[![Vue](https://img.shields.io/badge/Vue-2+-blue?logo=vuedotjs)](https://vuejs.org)
+[![Docker](https://img.shields.io/badge/Docker-28+-blue?logo=Docker)](https://www.docker.com)
 [![Stars](https://img.shields.io/github/stars/Yohann0617/oci-helper)](https://github.com/Yohann0617/oci-helper/stargazers)
 [![Issues](https://img.shields.io/github/issues/Yohann0617/oci-helper?logo=refinedgithub)](https://github.com/Yohann0617/oci-helper/issues)
 
@@ -246,6 +249,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
   <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://yxvm.com/assets/img/logo.png" alt="YxVM" height="70"></a>
   <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
 </p>
+
 
 
 
