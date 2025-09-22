@@ -1,11 +1,17 @@
 # oci-helper 🐢
 
-[![visitors](https://komarev.com/ghpvc/?username=Yohann0617&color=green&label=visitors)](visitors)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Java](https://img.shields.io/badge/Java-21+-orange?logo=java)](Java)
-[![Springboot](https://img.shields.io/badge/Springboot-3+-green?logo=springboot)](Springboot)
+[![visitors](https://komarev.com/ghpvc/?username=Yohann0617&color=green&base=20000&abbreviated=true)](https://github.com/Yohann0617)
 [![Stars](https://img.shields.io/github/stars/Yohann0617/oci-helper)](https://github.com/Yohann0617/oci-helper/stargazers)
-[![Issues](https://img.shields.io/github/issues/Yohann0617/oci-helper)](https://github.com/Yohann0617/oci-helper/issues)
+[![Issues](https://img.shields.io/github/issues/Yohann0617/oci-helper?logo=refinedgithub)](https://github.com/Yohann0617/oci-helper/issues)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=Apache)](LICENSE)
+
+[![OpenJDK](https://img.shields.io/badge/OpenJDK-21+-orange?logo=openjdk)](https://openjdk.org/projects/jdk/21)
+[![Springboot](https://img.shields.io/badge/Springboot-3+-green?logo=springboot)](https://spring.io/projects/spring-boot)
+[![Vue](https://img.shields.io/badge/Vue-2+-green?logo=vuedotjs)](https://vuejs.org)
+[![SQLite](https://img.shields.io/badge/SQLite-3+-blue?logo=sqlite)](https://sqlite.org)
+[![Maven](https://img.shields.io/badge/Maven-3+-red?logo=apachemaven)](https://maven.apache.org)
+[![Docker](https://img.shields.io/badge/Docker-28+-blue?logo=Docker)](https://www.docker.com)
+
 
 
 > 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手（Y探长），目前实现的功能有：批量添加多个租户配置、更改实例配置以及引导卷配置、附加ipv6、一键开启免费AMD实例下行500Mbps、一键自动救援/缩小硬盘（默认47GB）、一键自动更新、安全列表、实时流量查询（分钟级别）、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、Cloud Shell、断点续抢、备份恢复、日志实时查看、消息通知、MFA登录验证、更新 Cloudflare DNS 记录、TG 机器人操作、IP信息查询、全球服务器地图等功能。
@@ -246,6 +252,10 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
   <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://yxvm.com/assets/img/logo.png" alt="YxVM" height="70"></a>
   <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
 </p>
+
+
+
+
 
 
 
