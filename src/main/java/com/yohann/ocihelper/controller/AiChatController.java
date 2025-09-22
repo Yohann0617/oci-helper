@@ -1,5 +1,6 @@
 package com.yohann.ocihelper.controller;
 
+import com.yohann.ocihelper.utils.search.DuckDuckGoSearchService;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,14 +22,14 @@ import java.util.Map;
 public class AiChatController {
 
     private final ChatClient chatClient;
+    private final DuckDuckGoSearchService searchService;
 
-    public AiChatController(ChatClient.Builder chatClientBuilder) {
+    public AiChatController(ChatClient.Builder chatClientBuilder,
+                            DuckDuckGoSearchService searchService) {
         this.chatClient = chatClientBuilder.build();
+        this.searchService = searchService;
     }
 
-    /**
-     * 流式聊天接口，前端可通过 fetch + ReadableStream 调用
-     */
     @PostMapping(value = "/stream", produces = MediaType.APPLICATION_NDJSON_VALUE)
     public Flux<String> stream(@RequestBody Map<String, String> request) {
         String userMessage = request.get("message");
@@ -41,4 +42,24 @@ public class AiChatController {
                 .bufferUntil(chunk -> chunk.endsWith("。") || chunk.endsWith("\n")) // 合并小 chunk
                 .map(list -> String.join("", list)); // 返回较长 chunk
     }
+
+    //    @PostMapping(value = "/stream", produces = MediaType.APPLICATION_NDJSON_VALUE)
+//    public Flux<String> streamWithSearch(@RequestBody Map<String, String> request) {
+//        String userMessage = request.get("message");
+//
+//        return searchService.search(userMessage)
+//                .flatMapMany(results -> {
+//                    System.out.println("------->"+results);
+//                    String prompt = userMessage + "\n根据以下内容回答：\n" +
+//                            String.join("\n", results);
+//
+//                    return chatClient.prompt()
+//                            .user(prompt)
+//                            .stream()
+//                            .content()
+//                            .bufferUntil(chunk -> chunk.endsWith("。") || chunk.endsWith("\n"))
+//                            .map(list -> String.join("", list));
+//                });
+//    }
+
 }
