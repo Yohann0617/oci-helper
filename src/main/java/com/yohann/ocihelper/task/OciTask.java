@@ -59,7 +59,7 @@ import static com.yohann.ocihelper.service.impl.OciServiceImpl.*;
  * @since 2024/11/1 19:21
  */
 @Slf4j
-//@Component
+@Component
 public class OciTask implements ApplicationRunner {
 
     @Resource

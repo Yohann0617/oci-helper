@@ -15,6 +15,14 @@ spring:
   sql:
     init:
       mode: always
+  ai:
+    openai:
+      api-key: sk-aehhmqwjfwusxyevalxpdstmugoeziewieaghfcwfmphwvxf
+      base-url: https://api.siliconflow.cn
+      chat:
+        options:
+#          model: deepseek-ai/DeepSeek-R1-0528-Qwen3-8B
+          model: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
 
 mybatis-plus:
   mapper-locations: classpath*:com/yohann/ocihelper/mapper/xml/*.xml
