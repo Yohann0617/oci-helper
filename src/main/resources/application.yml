@@ -17,8 +17,8 @@ spring:
       mode: always
   ai:
     openai:
-      api-key: sk-aehhmqwjfwusxyevalxpdstmugoeziewieaghfcwfmphwvxf
-      base-url: https://api.siliconflow.cn
+      api-key: sk-xxx
+      base-url: xxx
       chat:
         options:
 #          model: deepseek-ai/DeepSeek-R1-0528-Qwen3-8B
