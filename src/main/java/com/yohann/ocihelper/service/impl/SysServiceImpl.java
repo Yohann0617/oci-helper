@@ -38,6 +38,7 @@ import com.yohann.ocihelper.mapper.OciKvMapper;
 import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.telegram.TgBot;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import com.yohann.ocihelper.utils.MessageServiceFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -107,6 +108,8 @@ public class SysServiceImpl implements ISysService {
     private TaskScheduler taskScheduler;
     @Resource
     private ExecutorService virtualExecutor;
+    @Resource
+    private CustomExpiryGuavaCache<String, Object> customCache;
 
     @Override
     public void sendMessage(String message) {
@@ -184,6 +187,10 @@ public class SysServiceImpl implements ISysService {
                         case ENABLED_VERSION_UPDATE_NOTIFICATIONS:
                             ociKv.setValue(params.getEnableVersionInform().toString());
                             break;
+                        case SILICONFLOW_AI_API:
+                            ociKv.setValue(params.getGjAiApi());
+                            customCache.remove(SysCfgEnum.SILICONFLOW_AI_API.getCode());
+                            break;
                         default:
                             break;
                     }
@@ -239,6 +246,7 @@ public class SysServiceImpl implements ISysService {
         rsp.setDailyBroadcastCron(null == dbcValue ? CacheConstant.TASK_CRON : dbcValue);
         String evunValue = getCfgValue(SysCfgEnum.ENABLED_VERSION_UPDATE_NOTIFICATIONS);
         rsp.setEnableVersionInform(Boolean.valueOf(null == evunValue ? EnableEnum.ON.getCode() : evunValue));
+        rsp.setGjAiApi(getCfgValue(SysCfgEnum.SILICONFLOW_AI_API));
 
         OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));

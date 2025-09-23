@@ -1,7 +1,14 @@
 package com.yohann.ocihelper.controller;
 
+import cn.hutool.extra.spring.SpringUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.config.ai.DynamicChatClientFactory;
+import com.yohann.ocihelper.enums.SysCfgEnum;
+import com.yohann.ocihelper.service.IOciKvService;
+import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import com.yohann.ocihelper.utils.search.DuckDuckGoSearchService;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.client.ChatClient;
@@ -21,24 +28,38 @@ import reactor.core.publisher.Flux;
 @Slf4j
 public class AiChatController {
 
-    private final ChatClient chatClient;
+    @Resource
+    private CustomExpiryGuavaCache<String, Object> customCache;
+
+    private final DynamicChatClientFactory factory;
     private final DuckDuckGoSearchService searchService;
 
     public AiChatController(DynamicChatClientFactory factory,
                             DuckDuckGoSearchService searchService) {
-        // 动态配置
-        String apiKey = "sk-aehhmqwjfwusxyevalxpdstmugoeziewieaghfcwfmphwvxf";
-        String baseUrl = "https://api.siliconflow.cn";
-        String model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B";
-
-        this.chatClient = factory.create(apiKey, baseUrl, model);
+        this.factory = factory;
         this.searchService = searchService;
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> streamSse(@RequestParam("message") String message,
                                   @RequestParam("model") String model) {
+        String apiKey;
         try {
+            apiKey = (String) customCache.get(SysCfgEnum.SILICONFLOW_AI_API.getCode());
+            if (StringUtils.isBlank(apiKey)) {
+                IOciKvService kvService = SpringUtil.getBean(IOciKvService.class);
+                OciKv cfg = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SILICONFLOW_AI_API.getCode()));
+                if (null == cfg || StringUtils.isBlank(cfg.getValue())) {
+                    return Flux.just("抱歉，您未配置API秘钥，服务暂时不可用。");
+                } else {
+                    apiKey = cfg.getValue();
+                    customCache.put(SysCfgEnum.SILICONFLOW_AI_API.getCode(), apiKey, 24 * 60 * 60 * 1000);
+                }
+            }
+            String baseUrl = "https://api.siliconflow.cn";
+            String defaultModel = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B";
+
+            ChatClient chatClient = factory.create(apiKey, baseUrl, StringUtils.isBlank(model) ? defaultModel : model);
             return chatClient
                     .prompt()
                     .options(OpenAiChatOptions.builder()

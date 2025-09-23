@@ -23,4 +23,6 @@ public class GetSysCfgRsp {
     private Boolean enableDailyBroadcast;
     private String dailyBroadcastCron;
     private Boolean enableVersionInform;
+
+    private String gjAiApi;
 }

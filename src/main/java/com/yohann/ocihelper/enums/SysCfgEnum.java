@@ -27,6 +27,7 @@ public enum SysCfgEnum {
     ENABLE_DAILY_BROADCAST("Y107", "是否开启每日播报", SysCfgTypeEnum.SYS_INIT_CFG),
     DAILY_BROADCAST_CRON("Y108", "每日播报cron", SysCfgTypeEnum.SYS_INIT_CFG),
     ENABLED_VERSION_UPDATE_NOTIFICATIONS("Y109", "是否开启版本更新通知", SysCfgTypeEnum.SYS_INIT_CFG),
+    SILICONFLOW_AI_API("Y110", "硅基流动API", SysCfgTypeEnum.SYS_INIT_CFG),
 
     SYS_INFO_VERSION("Y106", "系统版本号", SysCfgTypeEnum.SYS_INFO),
 

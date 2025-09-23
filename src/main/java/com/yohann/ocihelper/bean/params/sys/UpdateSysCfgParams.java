@@ -21,4 +21,6 @@ public class UpdateSysCfgParams {
     private Boolean enableDailyBroadcast;
     private String dailyBroadcastCron;
     private Boolean enableVersionInform;
+
+    private String gjAiApi;
 }
