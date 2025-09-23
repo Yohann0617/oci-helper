@@ -39,6 +39,7 @@
 11. 支持 **Telegram 机器人**简单操作，服务成功部署后向机器人发送`/start`选择操作。
 12. 支持类似于甲骨文云 **Cloud Shell** 控制台功能，方便使用 netboot 救砖。⭐⭐
 13. 支持IP信息查询（部署成功后访问 http://ip:8818/ip-info ）以及首页显示全球服务器地图（可精确到街道的店铺），点亮全球。
+14. 支持 AI 聊天助手，基于 [硅基流动](https://cloud.siliconflow.cn) 免费API，可免费无限次调用。
 
 ## 💻一键 docker-compose 部署或更新
 
@@ -252,6 +253,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
   <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://yxvm.com/assets/img/logo.png" alt="YxVM" height="70"></a>
   <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
 </p>
+
 
 
 
