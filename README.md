@@ -14,7 +14,7 @@
 
 
 
-> 一个基于 Oracle OCI SDK 🐢 开发的 web 端可视化甲骨文云助手（Y探长），目前实现的功能有：批量添加多个租户配置、更改实例配置以及引导卷配置、附加ipv6、一键开启免费AMD实例下行500Mbps、一键自动救援/缩小硬盘（默认47GB）、一键自动更新、安全列表、实时流量查询（分钟级别）、根据多个 CIDR 网段更换实例公共IP、多租户同时批量抢机、Cloud Shell、断点续抢、备份恢复、日志实时查看、消息通知、MFA登录验证、更新 Cloudflare DNS 记录、TG 机器人操作、IP信息查询、全球服务器地图等功能。
+> oci-helper（Y探长） 是一个基于 Spring Boot 3 + JDK 21 开发的轻量级 OCI 管理面板，后端采用 SQLite 存储，整体通过 Docker 容器化运行，并支持一键脚本结合 docker-compose 快速部署，无需在本机安装额外环境。项目面向 Oracle Cloud（OCI）的日常运维与自动化场景，提供实例管理、网络与 IP 操作、任务持久化、日志实时查看、多租户管理等功能，帮助用户以更直观、安全、高效的方式管理云资源。得益于 Spring Boot 3 的现代化框架特性与 JDK 21 的虚拟线程机制，系统能够更好地应对高并发请求，降低资源消耗；结合 Docker 的隔离与一致性，保证了跨环境部署的安全与稳定。
 
 ## 🔔注意事项及免责声明
 
@@ -253,6 +253,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
   <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://yxvm.com/assets/img/logo.png" alt="YxVM" height="70"></a>
   <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
 </p>
+
 
 
 
