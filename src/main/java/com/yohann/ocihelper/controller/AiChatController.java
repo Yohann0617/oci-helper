@@ -17,11 +17,12 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+
 
 /**
  * @ClassName AIChatController
@@ -48,6 +49,71 @@ public class AiChatController {
         this.searchService = searchService;
     }
 
+    // 限制最多缓存多少个 ChatClient
+    private static final int MAX_CHAT_CLIENT_CACHE_SIZE = 5;
+    // 最长闲置时间（毫秒）
+    private static final long MAX_IDLE_TIME = 30 * 60 * 1000; // 半小时
+
+    // 封装 ChatClient + 最后使用时间
+    private static class CachedClient {
+        private final ChatClient client;
+        private volatile long lastUsed;
+
+        CachedClient(ChatClient client) {
+            this.client = client;
+            this.lastUsed = System.currentTimeMillis();
+        }
+
+        public ChatClient getClient() {
+            this.lastUsed = System.currentTimeMillis();
+            return client;
+        }
+
+        public long getLastUsed() {
+            return lastUsed;
+        }
+    }
+
+    // LRU 缓存（线程安全）
+    private final Map<String, CachedClient> chatClientCache = Collections.synchronizedMap(
+            new LinkedHashMap<String, CachedClient>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, CachedClient> eldest) {
+                    boolean needRemove = size() > MAX_CHAT_CLIENT_CACHE_SIZE;
+                    if (needRemove) {
+                        log.info("移除最久未使用的 ChatClient：{}", eldest.getKey());
+                    }
+                    return needRemove;
+                }
+            }
+    );
+
+    private ChatClient getOrCreateChatClient(String apiKey, String baseUrl, String model) {
+        String cacheKey = apiKey + "|" + baseUrl + "|" + model;
+        return chatClientCache
+                .computeIfAbsent(cacheKey, k -> {
+                    log.info("创建新的 ChatClient，model = {}", model);
+                    return new CachedClient(factory.create(apiKey, baseUrl, model));
+                })
+                .getClient(); // 每次取出都会刷新 lastUsed
+    }
+
+    // 定时清理不活跃的 ChatClient
+    @Scheduled(fixedRate = 30 * 60 * 1000) // 每 30 分钟执行一次
+    public void cleanIdleClients() {
+        long now = System.currentTimeMillis();
+        synchronized (chatClientCache) {
+            Iterator<Map.Entry<String, CachedClient>> it = chatClientCache.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, CachedClient> entry = it.next();
+                if (now - entry.getValue().getLastUsed() > MAX_IDLE_TIME) {
+                    log.info("清理闲置超过 1 小时的 ChatClient：{}", entry.getKey());
+                    it.remove();
+                }
+            }
+        }
+    }
+
     @GetMapping(value = "/removeCache")
     public ResponseData<Void> removeCache(@RequestParam("sessionId") String sessionId) {
         customCache.remove(sessionId);
@@ -72,7 +138,8 @@ public class AiChatController {
                 customCache.put(SysCfgEnum.SILICONFLOW_AI_API.getCode(), apiKey, 24 * 60 * 60 * 1000);
             }
         }
-        ChatClient chatClient = factory.create(apiKey, baseUrl, StringUtils.isBlank(model) ? defaultModel : model);
+        String finalModel = StringUtils.isBlank(model) ? defaultModel : model;
+        ChatClient chatClient = getOrCreateChatClient(apiKey, baseUrl, finalModel);
 
         // 拿当前 session 的历史消息（过期时间：30分钟）
         List<Message> history = (List<Message>) customCache.get(sessionId);

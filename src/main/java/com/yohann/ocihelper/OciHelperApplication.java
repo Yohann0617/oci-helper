@@ -8,6 +8,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.boot.web.embedded.tomcat.TomcatProtocolHandlerCustomizer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.task.support.TaskExecutorAdapter;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -41,4 +43,8 @@ public class OciHelperApplication {
         return protocolHandler -> protocolHandler.setExecutor(virtualExecutor);
     }
 
+    @Bean
+    public TaskExecutor taskExecutor() {
+        return new TaskExecutorAdapter(virtualExecutor);
+    }
 }

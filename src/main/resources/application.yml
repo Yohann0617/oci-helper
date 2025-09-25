@@ -9,6 +9,9 @@ web:
 # --------------------------------------- 用户自定义修改项 ------------------------------------
 
 spring:
+  threads:
+    virtual:
+      enabled: true
   datasource:
     driver-class-name: org.sqlite.JDBC
     url: jdbc:sqlite:oci-helper.db
