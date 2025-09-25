@@ -605,6 +605,23 @@ public class OracleInstanceFetcher implements Closeable {
                 .build());
         deleteAllSubnets(vcnId);
         deleteAllInternetGateways(vcnId);
+        List<NetworkSecurityGroup> securityGroupList = virtualNetworkClient.listNetworkSecurityGroups(ListNetworkSecurityGroupsRequest.builder()
+                .compartmentId(compartmentId)
+                .vcnId(vcnId)
+                .build()).getItems();
+        if (CollectionUtil.isNotEmpty(securityGroupList)) {
+            for (NetworkSecurityGroup networkSecurityGroup : securityGroupList) {
+                virtualNetworkClient.updateNetworkSecurityGroupSecurityRules(UpdateNetworkSecurityGroupSecurityRulesRequest.builder()
+                        .networkSecurityGroupId(networkSecurityGroup.getId())
+                        .updateNetworkSecurityGroupSecurityRulesDetails(UpdateNetworkSecurityGroupSecurityRulesDetails.builder()
+                                .securityRules(Collections.emptyList())
+                                .build())
+                        .build());
+                virtualNetworkClient.deleteNetworkSecurityGroup(DeleteNetworkSecurityGroupRequest.builder()
+                        .networkSecurityGroupId(networkSecurityGroup.getId())
+                        .build());
+            }
+        }
         virtualNetworkClient.deleteVcn(DeleteVcnRequest.builder()
                 .vcnId(vcnId)
                 .build());
