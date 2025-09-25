@@ -107,7 +107,7 @@ public class AiChatController {
             while (it.hasNext()) {
                 Map.Entry<String, CachedClient> entry = it.next();
                 if (now - entry.getValue().getLastUsed() > MAX_IDLE_TIME) {
-                    log.info("清理闲置超过 1 小时的 ChatClient：{}", entry.getKey());
+                    log.info("清理闲置超过30分钟的 ChatClient：{}", entry.getKey());
                     it.remove();
                 }
             }
