@@ -30,9 +30,9 @@ public class CreateInstanceParams {
     private Integer interval;
     @NotNull(message = "创建数目不能为空")
     private Integer createNumbers;
-    @NotNull(message = "系统类型不能为空")
+    @NotBlank(message = "系统类型不能为空")
     private String operationSystem;
-    @NotNull(message = "root密码不能为空")
+    @NotBlank(message = "root密码不能为空")
     private String rootPassword;
 
 }

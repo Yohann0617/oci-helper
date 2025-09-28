@@ -1,5 +1,6 @@
 package com.yohann.ocihelper.bean.params.oci.instance;
 
+import jakarta.validation.Valid;
 import lombok.Data;
 
 import jakarta.validation.constraints.NotBlank;
@@ -19,7 +20,7 @@ public class CreateInstanceBatchParams {
 
     @NotEmpty(message = "用户配置id列表不能为空")
     private List<String> userIds;
-
+    @Valid
     private InstanceInfo instanceInfo;
 
     @Data
@@ -36,9 +37,9 @@ public class CreateInstanceBatchParams {
         private Integer interval;
         @NotNull(message = "创建数目不能为空")
         private Integer createNumbers;
-        @NotNull(message = "系统类型不能为空")
+        @NotBlank(message = "系统类型不能为空")
         private String operationSystem;
-        @NotNull(message = "root密码不能为空")
+        @NotBlank(message = "root密码不能为空")
         private String rootPassword;
     }
 }
