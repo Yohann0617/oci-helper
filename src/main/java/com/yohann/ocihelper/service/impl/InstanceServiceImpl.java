@@ -520,7 +520,7 @@ public class InstanceServiceImpl implements IInstanceService {
                         .build());
 
                 // 放行所有端口
-                fetcher.releaseSecurityRule(vcn, 4, "10.0.0.0/16", "::/0");
+                fetcher.releaseSecurityRule(vcn, 0, "10.0.0.0/16", "::/0");
 
                 log.info("【一键开启下行500Mbps任务】实例vnic绑定路由表成功，实例：【{}】已成功开启下行500Mbps🎉，公网IP：{}", instance.getDisplayName(), publicIp);
                 sysService.sendMessage(String.format("【一键开启下行500Mbps任务】用户：[%s]，区域：[%s]，实例：[%s] 已成功开启下行500Mbps🎉，公网IP：%s",
