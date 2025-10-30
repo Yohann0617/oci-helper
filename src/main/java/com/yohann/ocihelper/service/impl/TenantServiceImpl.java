@@ -10,6 +10,7 @@ import com.oracle.bmc.identity.requests.DeleteUserRequest;
 import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.oracle.bmc.identity.requests.ListRegionSubscriptionsRequest;
 import com.oracle.bmc.identity.requests.ListUsersRequest;
+import com.oracle.bmc.identitydomains.model.PasswordPolicy;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
@@ -31,7 +32,10 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.Resource;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 /**
@@ -46,6 +50,8 @@ public class TenantServiceImpl implements ITenantService {
 
     @Resource
     private ISysService sysService;
+    @Resource
+    private ExecutorService virtualExecutor;
     @Resource
     private CustomExpiryGuavaCache<String, Object> customCache;
 
@@ -74,28 +80,58 @@ public class TenantServiceImpl implements ITenantService {
                     .tenancyId(sysUserDTO.getOciCfg().getTenantId())
                     .build()).getTenancy();
             BeanUtils.copyProperties(tenancy, rsp);
-            rsp.setUserList(Optional.ofNullable(identityClient.listUsers(ListUsersRequest.builder()
-                            .compartmentId(fetcher.getCompartmentId())
-                            .build()).getItems())
-                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
-                    .map(x -> {
-                        TenantInfoRsp.TenantUserInfo info = new TenantInfoRsp.TenantUserInfo();
-                        info.setId(x.getId());
-                        info.setName(x.getName());
-                        info.setEmail(x.getEmail());
-                        info.setLifecycleState(x.getLifecycleState().getValue());
-                        info.setEmailVerified(x.getEmailVerified());
-                        info.setIsMfaActivated(x.getIsMfaActivated());
-                        info.setTimeCreated(CommonUtils.dateFmt2String(x.getTimeCreated()));
-                        info.setLastSuccessfulLoginTime(x.getLastSuccessfulLoginTime() == null ? null : CommonUtils.dateFmt2String(x.getLastSuccessfulLoginTime()));
-                        info.setJsonStr(JSONUtil.toJsonStr(x));
-                        return info;
-                    }).collect(Collectors.toList()));
-            rsp.setRegions(identityClient.listRegionSubscriptions(ListRegionSubscriptionsRequest.builder()
-                            .tenancyId(sysUserDTO.getOciCfg().getTenantId())
-                            .build()).getItems().stream()
-                    .map(RegionSubscription::getRegionName)
-                    .collect(Collectors.toList()));
+
+            CompletableFuture<List<TenantInfoRsp.TenantUserInfo>> userListTask = CompletableFuture.supplyAsync(() ->
+                            Optional.ofNullable(identityClient.listUsers(ListUsersRequest.builder()
+                                            .compartmentId(fetcher.getCompartmentId())
+                                            .build()).getItems())
+                                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
+                                    .map(x -> {
+                                        TenantInfoRsp.TenantUserInfo info = new TenantInfoRsp.TenantUserInfo();
+                                        info.setId(x.getId());
+                                        info.setName(x.getName());
+                                        info.setEmail(x.getEmail());
+                                        info.setLifecycleState(x.getLifecycleState().getValue());
+                                        info.setEmailVerified(x.getEmailVerified());
+                                        info.setIsMfaActivated(x.getIsMfaActivated());
+                                        info.setTimeCreated(CommonUtils.dateFmt2String(x.getTimeCreated()));
+                                        info.setLastSuccessfulLoginTime(x.getLastSuccessfulLoginTime() == null ? null : CommonUtils.dateFmt2String(x.getLastSuccessfulLoginTime()));
+                                        info.setJsonStr(JSONUtil.toJsonStr(x));
+                                        return info;
+                                    }).collect(Collectors.toList()), virtualExecutor)
+                    .exceptionally(e -> {
+                        log.error("get user list error", e);
+                        return Collections.emptyList();
+                    });
+
+            CompletableFuture<List<String>> regionsTask = CompletableFuture.supplyAsync(() ->
+                            identityClient.listRegionSubscriptions(ListRegionSubscriptionsRequest.builder()
+                                            .tenancyId(sysUserDTO.getOciCfg().getTenantId())
+                                            .build()).getItems().stream()
+                                    .map(RegionSubscription::getRegionName)
+                                    .collect(Collectors.toList()), virtualExecutor)
+                    .exceptionally(e -> {
+                        log.error("get region list error", e);
+                        return Collections.emptyList();
+                    });
+
+            CompletableFuture<PasswordPolicy> pwdExpTask = CompletableFuture.supplyAsync(() -> {
+                        List<PasswordPolicy> passwordPolicyList = OciUtils.getCurrentPasswordPolicy(fetcher);
+                        return passwordPolicyList.parallelStream()
+                                .filter(x -> x.getPasswordExpiresAfter() != null && x.getPasswordExpiresAfter() >= 0)
+                                .findAny()
+                                .orElse(PasswordPolicy.builder().build());
+                    }, virtualExecutor)
+                    .exceptionally(e -> {
+                        log.error("get pwd expires after error", e);
+                        return PasswordPolicy.builder().build();
+                    });
+
+            CompletableFuture.allOf(userListTask, regionsTask, pwdExpTask).join();
+
+            rsp.setUserList(CommonUtils.safeJoin(userListTask, Collections.emptyList()));
+            rsp.setRegions(CommonUtils.safeJoin(regionsTask, Collections.emptyList()));
+            rsp.setPasswordExpiresAfter(CommonUtils.safeJoin(pwdExpTask, PasswordPolicy.builder().build()).getPasswordExpiresAfter());
             return rsp;
         } catch (Exception e) {
             log.error("获取租户信息失败", e);

@@ -25,7 +25,6 @@ import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.CompressionLevel;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.context.request.RequestContextHolder;
 
 import java.io.*;
 import java.net.*;
@@ -42,6 +41,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -135,6 +135,15 @@ public class CommonUtils {
             return true;
         }
         return ignoreCase ? StrUtil.containsIgnoreCase(target, keyword) : StrUtil.contains(target, keyword);
+    }
+
+    public static <T> T safeJoin(CompletableFuture<T> future, T defaultValue) {
+        try {
+            return future.join();
+        } catch (Exception e) {
+            log.error("Async task join failed", e);
+            return defaultValue;
+        }
     }
 
     public static boolean isValidCron(String cronExpression) {
@@ -476,6 +485,7 @@ public class CommonUtils {
 
     /**
      * 判断一个 IPv4 地址是否为私有地址
+     *
      * @param ip IPv4 地址（如 "192.168.1.10"）
      * @return true 如果是私有地址，否则 false
      */
@@ -646,7 +656,7 @@ public class CommonUtils {
     }
 
     public static void writeResponse(HttpServletResponse response,
-                                 InputStream inputStream, String contentType, String fileName) throws IOException {
+                                     InputStream inputStream, String contentType, String fileName) throws IOException {
 
         response.setContentType(contentType);
         response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + fileName);
