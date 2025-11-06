@@ -12,7 +12,7 @@ import lombok.Data;
 @Data
 public class UpdatePwdExpirationPolicyParams {
 
-    @NotBlank(message = "ociCfgId不能为空")
-    private String ociCfgId;
-    private Integer expirationDays;
+    @NotBlank(message = "cfgId不能为空")
+    private String cfgId;
+    private Integer passwordExpiresAfter;
 }

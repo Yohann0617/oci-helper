@@ -34,10 +34,10 @@ public class SQLiteHelper {
                 if (rs.next() && rs.getInt(1) == 0) {
                     try (Statement stmt = conn.createStatement()) {
                         stmt.executeUpdate(alterTableSql);
-                        log.info("Table [{}], Column [{}] added successfully.", tableName, columnName);
+//                        log.info("Table [{}], Column [{}] added successfully.", tableName, columnName);
                     }
                 } else {
-                    log.info("Table [{}], Column [{}] already exists.", tableName, columnName);
+//                    log.info("Table [{}], Column [{}] already exists.", tableName, columnName);
                 }
             }
         } catch (SQLException e) {

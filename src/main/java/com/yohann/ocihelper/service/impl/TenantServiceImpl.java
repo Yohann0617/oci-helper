@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -118,7 +119,7 @@ public class TenantServiceImpl implements ITenantService {
             CompletableFuture<PasswordPolicy> pwdExpTask = CompletableFuture.supplyAsync(() -> {
                         List<PasswordPolicy> passwordPolicyList = OciUtils.getCurrentPasswordPolicy(fetcher);
                         return passwordPolicyList.parallelStream()
-                                .filter(x -> x.getPasswordExpiresAfter() != null && x.getPasswordExpiresAfter() >= 0)
+                                .filter(x->x.getPasswordStrength() == com.oracle.bmc.identitydomains.model.PasswordPolicy.PasswordStrength.Custom)
                                 .findAny()
                                 .orElse(PasswordPolicy.builder().build());
                     }, virtualExecutor)
@@ -127,11 +128,23 @@ public class TenantServiceImpl implements ITenantService {
                         return PasswordPolicy.builder().build();
                     });
 
-            CompletableFuture.allOf(userListTask, regionsTask, pwdExpTask).join();
+            CompletableFuture<String> createTimeTask = CompletableFuture.supplyAsync(() -> {
+                        String registeredTime = fetcher.getRegisteredTime();
+                        String timeDifference = CommonUtils.getTimeDifference(LocalDateTime.parse(registeredTime, CommonUtils.DATETIME_FMT_NORM));
+                        return registeredTime + "（" + timeDifference + "）";
+                    }, virtualExecutor)
+                    .exceptionally(e -> {
+                        log.error("get account create time error", e);
+                        return null;
+                    });
+            ;
+
+            CompletableFuture.allOf(userListTask, regionsTask, pwdExpTask, createTimeTask).join();
 
             rsp.setUserList(CommonUtils.safeJoin(userListTask, Collections.emptyList()));
             rsp.setRegions(CommonUtils.safeJoin(regionsTask, Collections.emptyList()));
             rsp.setPasswordExpiresAfter(CommonUtils.safeJoin(pwdExpTask, PasswordPolicy.builder().build()).getPasswordExpiresAfter());
+            rsp.setCreatTime(CommonUtils.safeJoin(createTimeTask, null));
             return rsp;
         } catch (Exception e) {
             log.error("获取租户信息失败", e);
@@ -230,12 +243,12 @@ public class TenantServiceImpl implements ITenantService {
 
     @Override
     public void updatePwdExpirationPolicy(UpdatePwdExpirationPolicyParams params) {
-        SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
+        SysUserDTO sysUserDTO = sysService.getOciUser(params.getCfgId());
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            if (params.getExpirationDays() == null || params.getExpirationDays() == 0) {
+            if (params.getPasswordExpiresAfter() == null || params.getPasswordExpiresAfter() == 0) {
                 OciUtils.disablePasswordExpirationWithAutoDomain(fetcher);
             } else {
-                OciUtils.enablePasswordExpirationWithAutoDomain(fetcher, params.getExpirationDays());
+                OciUtils.enablePasswordExpirationWithAutoDomain(fetcher, params.getPasswordExpiresAfter());
             }
         } catch (Exception e) {
             log.error("更新密码策略失败", e);

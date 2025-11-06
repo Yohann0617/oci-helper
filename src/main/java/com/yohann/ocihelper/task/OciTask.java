@@ -135,11 +135,16 @@ public class OciTask implements ApplicationRunner {
     private void updateUserInDb() {
         sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_name", "VARCHAR(64) NULL");
         sqLiteHelper.addColumnIfNotExists("oci_create_task", "oci_region", "VARCHAR(64) NULL");
+        sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_create_time", "datetime NULL");
         virtualExecutor.execute(() -> {
             List<OciUser> ociUsers = userService.list(new LambdaQueryWrapper<OciUser>()
+                    .isNull(OciUser::getTenantCreateTime)
+                    .or()
                     .isNull(OciUser::getTenantName)
-                    .or().eq(OciUser::getTenantName, ""));
-            if (!ociUsers.isEmpty()) {
+                    .or()
+                    .eq(OciUser::getTenantName, "")
+            );
+            if (CollectionUtil.isNotEmpty(ociUsers)) {
                 userService.updateBatchById(ociUsers.parallelStream().peek(x -> {
                     SysUserDTO sysUserDTO = sysService.getOciUser(x.getId());
                     try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
@@ -147,6 +152,7 @@ public class OciTask implements ApplicationRunner {
                                 .tenancyId(sysUserDTO.getOciCfg().getTenantId())
                                 .build()).getTenancy();
                         x.setTenantName(tenancy.getName());
+                        x.setTenantCreateTime(LocalDateTime.parse(fetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
                     } catch (Exception e) {
                         log.error("更新配置：{} 失败", x.getUsername());
                     }

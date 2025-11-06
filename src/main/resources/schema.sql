@@ -1,15 +1,16 @@
 --用户表
 create table if not exists `oci_user`
 (
-    id              varchar(64)                                     not null,
-    username        varchar(64)                                     null,
-    tenant_name     varchar(64)                                     null,
-    oci_tenant_id   varchar(64)                                     null,
-    oci_user_id     varchar(64)                                     null,
-    oci_fingerprint varchar(64)                                     not null,
-    oci_region      varchar(32)                                     not null,
-    oci_key_path    varchar(256)                                    not null,
-    create_time     datetime default (datetime('now', 'localtime')) not null,
+    id                 varchar(64)                                     not null,
+    username           varchar(64)                                     null,
+    tenant_name        varchar(64)                                     null,
+    tenant_create_time datetime                                        null,
+    oci_tenant_id      varchar(64)                                     null,
+    oci_user_id        varchar(64)                                     null,
+    oci_fingerprint    varchar(64)                                     not null,
+    oci_region         varchar(32)                                     not null,
+    oci_key_path       varchar(256)                                    not null,
+    create_time        datetime default (datetime('now', 'localtime')) not null,
     primary key ("id")
 );
 CREATE INDEX if not exists oci_user_create_time ON oci_user (create_time DESC);

@@ -59,6 +59,7 @@ import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import com.yohann.ocihelper.utils.OciConsoleUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -127,6 +128,10 @@ public class OciServiceImpl implements IOciService {
         long offset = (params.getCurrentPage() - 1) * params.getPageSize();
         List<OciUserListRsp> list = userMapper.userPage(offset, params.getPageSize(), params.getKeyword(), params.getIsEnableCreate());
         Long total = userMapper.userPageTotal(params.getKeyword(), params.getIsEnableCreate());
+        list.parallelStream().filter(x -> StringUtils.isNotBlank(x.getCreateTime()))
+                .forEach(x -> {
+                    x.setCreateTime(x.getCreateTime() + String.format("（%s）", CommonUtils.getTimeDifference(LocalDateTime.parse(x.getCreateTime(), CommonUtils.DATETIME_FMT_NORM))));
+                });
         return CommonUtils.buildPage(list, params.getPageSize(), params.getCurrentPage(), total);
     }
 
@@ -172,6 +177,7 @@ public class OciServiceImpl implements IOciService {
                     .tenancyId(sysUserDTO.getOciCfg().getTenantId())
                     .build()).getTenancy();
             ociUser.setTenantName(tenancy.getName());
+            ociUser.setTenantCreateTime(LocalDateTime.parse(fetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
         } catch (Exception e) {
             log.error("配置：[{}] ，区域：[{}] ，不生效，错误信息：[{}]",
                     ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
@@ -245,6 +251,7 @@ public class OciServiceImpl implements IOciService {
 
         sysService.sendMessage(beginCreateMsg);
     }
+
     @Override
     public OciCfgDetailsRsp details(GetOciCfgDetailsParams params) {
         if (params.isCleanReLaunchDetails()) {
@@ -455,6 +462,7 @@ public class OciServiceImpl implements IOciService {
                                 .tenancyId(sysUserDTO.getOciCfg().getTenantId())
                                 .build()).getTenancy();
                         ociUser.setTenantName(tenancy.getName());
+                        ociUser.setTenantCreateTime(LocalDateTime.parse(ociFetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
                     } catch (Exception e) {
                         log.error("配置：[{}] ，区域：[{}] 不生效，请检查密钥与配置项是否准确无误，错误信息：{}",
                                 ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());

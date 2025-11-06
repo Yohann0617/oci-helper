@@ -21,6 +21,7 @@ public class TenantInfoRsp {
     private String upiIdcsCompatibilityLayerEndpoint;
     private List<String> regions;
     private List<TenantUserInfo> userList;
+    private String creatTime;
     private Integer passwordExpiresAfter;
 
     @Data

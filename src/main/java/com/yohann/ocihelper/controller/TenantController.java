@@ -2,6 +2,7 @@ package com.yohann.ocihelper.controller;
 
 import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
+import com.yohann.ocihelper.bean.params.oci.tenant.UpdatePwdExpirationPolicyParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserBasicParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserInfoParams;
 import com.yohann.ocihelper.bean.response.oci.tenant.TenantInfoRsp;
@@ -61,6 +62,12 @@ public class TenantController {
     public ResponseData<Void> updateUserInfo(@Validated @RequestBody UpdateUserInfoParams params) {
         tenantService.updateUserInfo(params);
         return ResponseData.successData("更新用户信息成功");
+    }
+
+    @RequestMapping("updatePwdEx")
+    public ResponseData<Void> updatePwdEx(@Validated @RequestBody UpdatePwdExpirationPolicyParams params) {
+        tenantService.updatePwdExpirationPolicy(params);
+        return ResponseData.successData("更新密码过期时间成功");
     }
 
 }

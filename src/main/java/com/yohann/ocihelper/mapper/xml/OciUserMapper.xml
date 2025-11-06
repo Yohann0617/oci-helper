@@ -10,7 +10,7 @@
         t1.username,
         t1.tenant_name,
         t1.oci_region AS region,
-        t1.create_time,
+        t1.tenant_create_time as createTime,
         CASE
         WHEN MAX(t2.id) IS NOT NULL THEN 1
         ELSE 0

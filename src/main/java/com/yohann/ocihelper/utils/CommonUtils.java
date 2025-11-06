@@ -716,7 +716,7 @@ public class CommonUtils {
                 "      \n" +
                 "      # Set up warning message\n" +
                 "      {\n" +
-                "        echo \"🎉 欢迎使用Y探长~ 🎉\"\n" +
+                "        echo \"🎉 欢迎使用 Y 探长~ 🎉\"\n" +
                 "        echo \"Source code address: https://github.com/Yohann0617/oci-helper\"\n" +
                 "      } | tee /etc/motd\n" +
                 "      \n" +
