@@ -71,6 +71,7 @@ public class TenantServiceImpl implements ITenantService {
 
         TenantInfoRsp tenantInfoInCache = (TenantInfoRsp) customCache.get(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId());
         if (tenantInfoInCache != null) {
+            customCache.put(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId(), tenantInfoInCache, 10 * 60 * 1000);
             return tenantInfoInCache;
         }
 
