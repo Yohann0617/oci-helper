@@ -994,11 +994,14 @@ public class OciServiceImpl implements IOciService {
             }
 
             if (sysUserDTO.getCreateNumbers() == outCounts) {
-                stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因超额而终止任务...",
-                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
-                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因超额而终止任务",
+//                stopAndRemoveTask(sysUserDTO, createTaskService);
+//                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因超额而终止任务...",
+//                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+//                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
+//                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因超额而终止任务",
+//                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+//                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
+                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 官方提示配额已超过限制，但任务未终止",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
             }

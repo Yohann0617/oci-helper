@@ -13,7 +13,7 @@ import lombok.Getter;
 @Getter
 public enum OciUnSupportRegionEnum {
 
-    EU_MADRID_3("eu-madrid-3",Realm.OC1,"orf"),
+    EU_TURIN_1("eu-turin-1",Realm.OC1,"nrq"),
     ;
 
 
