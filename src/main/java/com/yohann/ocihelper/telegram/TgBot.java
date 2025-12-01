@@ -75,12 +75,12 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                 message = SendMessage
                         .builder()
                         .chatId(chat_id)
-                        .text("无权限")
+                        .text("❌ 无权限操作此机器人🤖，项目地址：https://github.com/Yohann0617/oci-helper")
                         .build();
                 try {
                     telegramClient.execute(message);
-                    ISysService sysService = SpringUtil.getBean(ISysService.class);
-                    sysService.sendMessage("用户：" + chat_id + " 操作失败，发送的消息：" + message_text);
+//                    ISysService sysService = SpringUtil.getBean(ISysService.class);
+//                    sysService.sendMessage("用户：" + chat_id + " 操作失败，发送的消息：" + message_text);
                     return;
                 } catch (TelegramApiException e) {
                     log.error("TG Bot error", e);
