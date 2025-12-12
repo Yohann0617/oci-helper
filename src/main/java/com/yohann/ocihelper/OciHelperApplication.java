@@ -39,11 +39,6 @@ public class OciHelperApplication {
     }
 
     @Bean
-    public TomcatProtocolHandlerCustomizer<?> protocolHandlerVirtualThreadExecutorCustomizer() {
-        return protocolHandler -> protocolHandler.setExecutor(virtualExecutor);
-    }
-
-    @Bean
     public TaskExecutor taskExecutor() {
         return new TaskExecutorAdapter(virtualExecutor);
     }
