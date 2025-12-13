@@ -383,8 +383,10 @@ public class SysServiceImpl implements ISysService {
         } finally {
             FileUtil.del(tempZip);
             FileUtil.del(unzipDir);
-            initGenMfaPng();
-            cleanAndRestartTask();
+            virtualExecutor.execute(() -> {
+                initGenMfaPng();
+                cleanAndRestartTask();
+            });
         }
     }
 
@@ -433,17 +435,17 @@ public class SysServiceImpl implements ISysService {
                             .isNotNull(OciUser::getId)
                             .select(OciUser::getOciRegion), String::valueOf)
                     .stream().distinct().count());
-        },virtualExecutor);
+        }, virtualExecutor);
 
         CompletableFuture<String> daysFuture = CompletableFuture.supplyAsync(() -> {
             long uptimeMillis = SystemUtil.getRuntimeMXBean().getUptime();
             return String.valueOf(uptimeMillis / (24 * 60 * 60 * 1000));
-        },virtualExecutor);
+        }, virtualExecutor);
 
         CompletableFuture<String> currentVersionFuture = CompletableFuture.supplyAsync(() -> kvService.getObj(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
-                .select(OciKv::getValue), String::valueOf),virtualExecutor);
+                .select(OciKv::getValue), String::valueOf), virtualExecutor);
 
         CompletableFuture.allOf(mapDataFuture, tasksFuture, regionsFuture, daysFuture, currentVersionFuture).join();
 
@@ -535,37 +537,42 @@ public class SysServiceImpl implements ISysService {
     }
 
     private void cleanAndRestartTask() {
+        Random random = new Random();
         Optional.ofNullable(createTaskService.list())
                 .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
                 .forEach(task -> {
-                    if (task.getCreateNumbers() <= 0) {
-                        createTaskService.removeById(task.getId());
-                    } else {
-                        OciUser ociUser = userService.getById(task.getUserId());
-                        SysUserDTO sysUserDTO = SysUserDTO.builder()
-                                .ociCfg(SysUserDTO.OciCfg.builder()
-                                        .userId(ociUser.getOciUserId())
-                                        .tenantId(ociUser.getOciTenantId())
-                                        .region(ociUser.getOciRegion())
-                                        .fingerprint(ociUser.getOciFingerprint())
-                                        .privateKeyPath(ociUser.getOciKeyPath())
-                                        .build())
-                                .taskId(task.getId())
-                                .username(ociUser.getUsername())
-                                .ocpus(task.getOcpus())
-                                .memory(task.getMemory())
-                                .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
-                                .architecture(task.getArchitecture())
-                                .interval(Long.valueOf(task.getInterval()))
-                                .createNumbers(task.getCreateNumbers())
-                                .operationSystem(task.getOperationSystem())
-                                .rootPassword(task.getRootPassword())
-                                .build();
-                        stopTask(CommonUtils.CREATE_TASK_PREFIX + task.getId());
-                        addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
-                                        execCreate(sysUserDTO, this, instanceService, createTaskService),
-                                0, task.getInterval(), TimeUnit.SECONDS);
-                    }
+                    // 随机延迟 5~10 秒
+                    int delay = 5 + random.nextInt(6);
+                    CREATE_INSTANCE_POOL.schedule(() -> {
+                        if (task.getCreateNumbers() <= 0) {
+                            createTaskService.removeById(task.getId());
+                        } else {
+                            OciUser ociUser = userService.getById(task.getUserId());
+                            SysUserDTO sysUserDTO = SysUserDTO.builder()
+                                    .ociCfg(SysUserDTO.OciCfg.builder()
+                                            .userId(ociUser.getOciUserId())
+                                            .tenantId(ociUser.getOciTenantId())
+                                            .region(ociUser.getOciRegion())
+                                            .fingerprint(ociUser.getOciFingerprint())
+                                            .privateKeyPath(ociUser.getOciKeyPath())
+                                            .build())
+                                    .taskId(task.getId())
+                                    .username(ociUser.getUsername())
+                                    .ocpus(task.getOcpus())
+                                    .memory(task.getMemory())
+                                    .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
+                                    .architecture(task.getArchitecture())
+                                    .interval(Long.valueOf(task.getInterval()))
+                                    .createNumbers(task.getCreateNumbers())
+                                    .operationSystem(task.getOperationSystem())
+                                    .rootPassword(task.getRootPassword())
+                                    .build();
+                            stopTask(CommonUtils.CREATE_TASK_PREFIX + task.getId());
+                            addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
+                                            execCreate(sysUserDTO, this, instanceService, createTaskService),
+                                    0, task.getInterval(), TimeUnit.SECONDS);
+                        }
+                    }, delay, TimeUnit.SECONDS);
                 });
     }
 

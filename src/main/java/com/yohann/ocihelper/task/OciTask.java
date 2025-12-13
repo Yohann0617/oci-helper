@@ -38,10 +38,7 @@ import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import jakarta.annotation.Resource;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -163,36 +160,41 @@ public class OciTask implements ApplicationRunner {
 
     private void cleanAndRestartTask() {
         virtualExecutor.execute(() -> {
+            Random random = new Random();
             Optional.ofNullable(createTaskService.list())
                     .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList)
                     .forEach(task -> {
-                        if (task.getCreateNumbers() <= 0) {
-                            createTaskService.removeById(task.getId());
-                        } else {
-                            OciUser ociUser = userService.getById(task.getUserId());
-                            SysUserDTO sysUserDTO = SysUserDTO.builder()
-                                    .ociCfg(SysUserDTO.OciCfg.builder()
-                                            .userId(ociUser.getOciUserId())
-                                            .tenantId(ociUser.getOciTenantId())
-                                            .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
-                                            .fingerprint(ociUser.getOciFingerprint())
-                                            .privateKeyPath(ociUser.getOciKeyPath())
-                                            .build())
-                                    .taskId(task.getId())
-                                    .username(ociUser.getUsername())
-                                    .ocpus(task.getOcpus())
-                                    .memory(task.getMemory())
-                                    .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
-                                    .architecture(task.getArchitecture())
-                                    .interval(Long.valueOf(task.getInterval()))
-                                    .createNumbers(task.getCreateNumbers())
-                                    .operationSystem(task.getOperationSystem())
-                                    .rootPassword(task.getRootPassword())
-                                    .build();
-                            addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
-                                            execCreate(sysUserDTO, sysService, instanceService, createTaskService),
-                                    0, task.getInterval(), TimeUnit.SECONDS);
-                        }
+                        // 随机延迟 5~10 秒
+                        int delay = 5 + random.nextInt(6);
+                        CREATE_INSTANCE_POOL.schedule(() -> {
+                            if (task.getCreateNumbers() <= 0) {
+                                createTaskService.removeById(task.getId());
+                            } else {
+                                OciUser ociUser = userService.getById(task.getUserId());
+                                SysUserDTO sysUserDTO = SysUserDTO.builder()
+                                        .ociCfg(SysUserDTO.OciCfg.builder()
+                                                .userId(ociUser.getOciUserId())
+                                                .tenantId(ociUser.getOciTenantId())
+                                                .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
+                                                .fingerprint(ociUser.getOciFingerprint())
+                                                .privateKeyPath(ociUser.getOciKeyPath())
+                                                .build())
+                                        .taskId(task.getId())
+                                        .username(ociUser.getUsername())
+                                        .ocpus(task.getOcpus())
+                                        .memory(task.getMemory())
+                                        .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
+                                        .architecture(task.getArchitecture())
+                                        .interval(Long.valueOf(task.getInterval()))
+                                        .createNumbers(task.getCreateNumbers())
+                                        .operationSystem(task.getOperationSystem())
+                                        .rootPassword(task.getRootPassword())
+                                        .build();
+                                addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
+                                                execCreate(sysUserDTO, sysService, instanceService, createTaskService),
+                                        0, task.getInterval(), TimeUnit.SECONDS);
+                            }
+                        }, delay, TimeUnit.SECONDS);
                     });
         });
     }
