@@ -17,6 +17,7 @@ public class OciUserListRsp {
     private String username;
     private String tenantName;
     private String region;
+    private String regionName;
     private String createTime;
     private Integer enableCreate;
 }

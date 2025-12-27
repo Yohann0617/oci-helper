@@ -48,10 +48,7 @@ import com.yohann.ocihelper.bean.response.oci.task.CreateTaskRsp;
 import com.yohann.ocihelper.bean.response.oci.cfg.OciCfgDetailsRsp;
 import com.yohann.ocihelper.bean.response.oci.cfg.OciUserListRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
-import com.yohann.ocihelper.enums.ArchitectureEnum;
-import com.yohann.ocihelper.enums.ErrorEnum;
-import com.yohann.ocihelper.enums.InstanceActionEnum;
-import com.yohann.ocihelper.enums.OciCfgEnum;
+import com.yohann.ocihelper.enums.*;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.mapper.OciCreateTaskMapper;
 import com.yohann.ocihelper.service.*;
@@ -130,6 +127,11 @@ public class OciServiceImpl implements IOciService {
         Long total = userMapper.userPageTotal(params.getKeyword(), params.getIsEnableCreate());
         list.parallelStream().filter(x -> StringUtils.isNotBlank(x.getCreateTime()))
                 .forEach(x -> {
+                    try {
+                        x.setRegionName(OciRegionsEnum.getNameById(x.getRegion()).get());
+                    }catch (Exception ignored){
+
+                    }
                     x.setCreateTime(x.getCreateTime() + String.format("（%s）", CommonUtils.getTimeDifference(LocalDateTime.parse(x.getCreateTime(), CommonUtils.DATETIME_FMT_NORM))));
                 });
         return CommonUtils.buildPage(list, params.getPageSize(), params.getCurrentPage(), total);

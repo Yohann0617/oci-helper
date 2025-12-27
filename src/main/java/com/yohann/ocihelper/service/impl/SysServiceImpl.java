@@ -191,6 +191,9 @@ public class SysServiceImpl implements ISysService {
                             ociKv.setValue(params.getGjAiApi());
                             customCache.remove(SysCfgEnum.SILICONFLOW_AI_API.getCode());
                             break;
+                        case BOOT_BROADCAST_TOKEN:
+                            ociKv.setValue(params.getBootBroadcastToken());
+                            break;
                         default:
                             break;
                     }
@@ -247,6 +250,7 @@ public class SysServiceImpl implements ISysService {
         String evunValue = getCfgValue(SysCfgEnum.ENABLED_VERSION_UPDATE_NOTIFICATIONS);
         rsp.setEnableVersionInform(Boolean.valueOf(null == evunValue ? EnableEnum.ON.getCode() : evunValue));
         rsp.setGjAiApi(getCfgValue(SysCfgEnum.SILICONFLOW_AI_API));
+        rsp.setBootBroadcastToken(getCfgValue(SysCfgEnum.BOOT_BROADCAST_TOKEN));
 
         OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));

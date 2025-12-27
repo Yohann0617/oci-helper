@@ -3,6 +3,9 @@ package com.yohann.ocihelper.service.impl;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oracle.bmc.core.ComputeClient;
 import com.oracle.bmc.core.VirtualNetworkClient;
 import com.oracle.bmc.core.model.*;
@@ -21,28 +24,30 @@ import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
+import com.yohann.ocihelper.bean.entity.OciKv;
 import com.yohann.ocihelper.bean.params.oci.instance.Close500MParams;
 import com.yohann.ocihelper.bean.params.oci.instance.CreateNetworkLoadBalancerParams;
 import com.yohann.ocihelper.bean.params.oci.instance.UpdateShapeParams;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.enums.ArchitectureEnum;
+import com.yohann.ocihelper.enums.OciRegionsEnum;
+import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IInstanceService;
 import com.yohann.ocihelper.service.IOciCreateTaskService;
+import com.yohann.ocihelper.service.IOciKvService;
 import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
@@ -68,9 +73,14 @@ public class InstanceServiceImpl implements IInstanceService {
     @Resource
     private IOciCreateTaskService createTaskService;
     @Resource
+    private IOciKvService kvService;
+    @Resource
     private ExecutorService virtualExecutor;
     @Resource
     private CustomExpiryGuavaCache<String, Object> customCache;
+
+    @Value("${oci-cfg.boot-broadcast-url}")
+    private String bootBroadcastUrl;
 
     private static final String LEGACY_MESSAGE_TEMPLATE =
             "【开机任务】 \n\n🎉 用户：[%s] 开机成功 🎉\n" +
@@ -114,6 +124,8 @@ public class InstanceServiceImpl implements IInstanceService {
                 fetcher.getUser().getUsername(), fetcher.getUser().getOciCfg().getRegion(),
                 fetcher.getUser().getArchitecture(), fetcher.getUser().getCreateNumbers(), currentCount);
 
+        OciKv bootBroadcastTokenCfg = kvService.getOne(new LambdaQueryWrapper<OciKv>()
+                .eq(OciKv::getCode, SysCfgEnum.BOOT_BROADCAST_TOKEN.getCode()));
         OciCreateTask createTask = createTaskService.getById(fetcher.getUser().getTaskId());
         List<InstanceDetailDTO> instanceList = new ArrayList<>();
         for (int i = 0; i < fetcher.getUser().getCreateNumbers(); i++) {
@@ -147,6 +159,34 @@ public class InstanceServiceImpl implements IInstanceService {
                 );
 
                 sysService.sendMessage(message);
+
+                // 放货推送
+                if (bootBroadcastTokenCfg != null) {
+                    if (Arrays.asList("ARM", "AMD").contains(instanceDetail.getArchitecture())) {
+                        String arch = instanceDetail.getArchitecture().toLowerCase();
+                        try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
+                                .form("region", OciRegionsEnum.getKeyById(instanceDetail.getRegion()))
+                                .form("arch", arch)
+                                .form("token", bootBroadcastTokenCfg.getValue())
+                                .timeout(20_000)
+                                .execute()) {
+
+                            int status = response.getStatus();
+                            String body = response.body();
+
+                            if (status == 200) {
+//                                log.info("放货推送成功，status：{}", status);
+//                                log.info("放货推送成功，body：{}", body);
+                                log.info("放货信息推送成功");
+                            } else {
+                                log.warn("放货推送失败，status：{}，body：{}", status, body);
+                            }
+
+                        } catch (Exception e) {
+                            log.error("放货推送异常", e);
+                        }
+                    }
+                }
             }
         }
 

@@ -11,7 +11,7 @@
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <oci-version>3.77.1</oci-version>
+        <oci-version>3.77.2</oci-version>
         <spring-boot.version>3.5.0</spring-boot.version>
         <spring-ai.version>1.0.0-M6</spring-ai.version>
     </properties>

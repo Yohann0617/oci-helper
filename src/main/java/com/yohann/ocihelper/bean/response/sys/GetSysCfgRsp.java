@@ -25,4 +25,6 @@ public class GetSysCfgRsp {
     private Boolean enableVersionInform;
 
     private String gjAiApi;
+    private String bootBroadcastToken;
+
 }

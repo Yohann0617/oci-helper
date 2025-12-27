@@ -23,4 +23,5 @@ public class UpdateSysCfgParams {
     private Boolean enableVersionInform;
 
     private String gjAiApi;
+    private String bootBroadcastToken;
 }
