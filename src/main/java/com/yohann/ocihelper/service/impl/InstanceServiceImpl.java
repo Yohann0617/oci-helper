@@ -81,6 +81,8 @@ public class InstanceServiceImpl implements IInstanceService {
 
     @Value("${oci-cfg.boot-broadcast-url}")
     private String bootBroadcastUrl;
+    @Value("${oci-cfg.boot-broadcast-channel}")
+    private String bootBroadcastChannel;
 
     private static final String LEGACY_MESSAGE_TEMPLATE =
             "【开机任务】 \n\n🎉 用户：[%s] 开机成功 🎉\n" +
@@ -93,6 +95,14 @@ public class InstanceServiceImpl implements IInstanceService {
                     "Shape： %s\n" +
                     "公网IP： %s\n" +
                     "root密码： %s\n" +
+                    "开机次数：%s\n" +
+                    "开机时长：%s";
+    private static final String CHANNEL_MESSAGE_TEMPLATE =
+            "【开机成功提醒】有用户成功开机🎉\n\n" +
+                    "时间： %s\n" +
+                    "Region： %s\n" +
+                    "区域： %s\n" +
+                    "CPU类型： %s\n" +
                     "开机次数：%s\n" +
                     "开机时长：%s";
 
@@ -160,33 +170,60 @@ public class InstanceServiceImpl implements IInstanceService {
 
                 sysService.sendMessage(message);
 
-                // 放货推送
-                if (bootBroadcastTokenCfg != null) {
-                    if (Arrays.asList("ARM", "AMD").contains(instanceDetail.getArchitecture())) {
-                        String arch = instanceDetail.getArchitecture().toLowerCase();
-                        try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
-                                .form("region", OciRegionsEnum.getKeyById(instanceDetail.getRegion()))
-                                .form("arch", arch)
-                                .form("token", bootBroadcastTokenCfg.getValue())
-                                .timeout(20_000)
-                                .execute()) {
+                virtualExecutor.execute(() -> {
+                    // 放货推送
+                    if (bootBroadcastTokenCfg != null) {
+                        if (Arrays.asList("ARM", "AMD").contains(instanceDetail.getArchitecture())) {
+                            String arch = instanceDetail.getArchitecture().toLowerCase();
+                            try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
+                                    .form("region", OciRegionsEnum.getKeyById(instanceDetail.getRegion()))
+                                    .form("arch", arch)
+                                    .form("token", bootBroadcastTokenCfg.getValue())
+                                    .timeout(20_000)
+                                    .execute()) {
 
-                            int status = response.getStatus();
-                            String body = response.body();
+                                int status = response.getStatus();
+                                String body = response.body();
 
-                            if (status == 200) {
+                                if (status == 200) {
 //                                log.info("放货推送成功，status：{}", status);
 //                                log.info("放货推送成功，body：{}", body);
-                                log.info("放货信息推送成功");
-                            } else {
-                                log.warn("放货推送失败，status：{}，body：{}", status, body);
-                            }
+                                    log.info("放货信息推送成功");
+                                } else {
+                                    log.warn("放货推送失败，status：{}，body：{}", status, body);
+                                }
 
-                        } catch (Exception e) {
-                            log.error("放货推送异常", e);
+                            } catch (Exception e) {
+                                log.error("放货推送异常", e);
+                            }
                         }
                     }
-                }
+
+                    // TG 频道消息推送
+                    String channelMsg = String.format(CHANNEL_MESSAGE_TEMPLATE,
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                            instanceDetail.getRegion(),
+                            OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
+                            instanceDetail.getArchitecture(),
+                            currentCount,
+                            createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()));
+                    try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
+                            .form("text", channelMsg)
+                            .timeout(20_000)
+                            .execute()) {
+                        int status = response.getStatus();
+                        String body = response.body();
+
+                        if (status == 200) {
+                            log.info("频道放货信息推送成功");
+                        } else {
+                            log.warn("频道放货推送失败，status：{}，body：{}", status, body);
+                        }
+                    } catch (Exception e) {
+                        log.error("频道放货推送异常", e);
+                    }
+                });
+
             }
         }
 
