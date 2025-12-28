@@ -23,6 +23,7 @@
 - 🔒强烈建议不要裸HTTP访问，应使用Nginx反向代理配置HTTPS访问。
 - 🔐建议使用密钥登录服务器，防止服务器被SSH爆破导致API数据及密钥泄露。
 - 📃记得定时清理docker日志~
+- 💬TG放货通知频道：https://t.me/oci_helper
 
 ## ⚙核心功能
 
@@ -253,6 +254,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
   <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://cdn.nodeimage.com/i/586XdeDMwqemcrC8Qw7d6ITJIUYQgjJs.webp" alt="YxVM" height="70"></a>
   <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
 </p>
+
 
 
 
