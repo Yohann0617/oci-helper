@@ -98,7 +98,7 @@ public class InstanceServiceImpl implements IInstanceService {
                     "开机次数：%s\n" +
                     "开机时长：%s";
     private static final String CHANNEL_MESSAGE_TEMPLATE =
-            "【开机成功提醒】有用户成功开机🎉\n\n" +
+            "【放货提醒】有用户成功开机🎉\n\n" +
                     "时间： %s\n" +
                     "Region： %s\n" +
                     "区域： %s\n" +
