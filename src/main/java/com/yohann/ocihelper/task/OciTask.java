@@ -234,7 +234,7 @@ public class OciTask implements ApplicationRunner {
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf);
         log.info(String.format("【oci-helper】服务启动成功~ 当前版本：%s 最新版本：%s", nowVersion, latestVersion));
-        sysService.sendMessage(String.format("【oci-helper】服务启动成功🎉🎉\n当前版本：%s\n最新版本：%s\n发送 /start 操作机器人🤖", nowVersion, latestVersion));
+        sysService.sendMessage(String.format("【oci-helper】服务启动成功🎉🎉\n\n当前版本：%s\n最新版本：%s\n发送 /start 操作机器人🤖\n放货通知频道：https://t.me/oci_helper", nowVersion, latestVersion));
     }
 
     public static void pushVersionUpdateMsg(IOciKvService kvService, ISysService sysService) {
@@ -257,7 +257,7 @@ public class OciTask implements ApplicationRunner {
             if (!now.equals(latest)) {
                 log.warn(String.format("【oci-helper】版本更新啦！！！当前版本：%s 最新版本：%s", now, latest));
                 if (!isPushedLatestVersion) {
-                    sysService.sendMessage(String.format("🔔【oci-helper】版本更新啦！！！\n当前版本：%s\n最新版本：%s\n一键脚本：%s\n更新内容：\n%s",
+                    sysService.sendMessage(String.format("🔔【oci-helper】版本更新啦！！！\n\n当前版本：%s\n最新版本：%s\n一键脚本：%s\n\n更新内容：\n%s",
                             now, latest,
                             "bash <(wget -qO- https://github.com/Yohann0617/oci-helper/releases/latest/download/sh_oci-helper_install.sh)",
                             CommonUtils.getLatestVersionBody()));

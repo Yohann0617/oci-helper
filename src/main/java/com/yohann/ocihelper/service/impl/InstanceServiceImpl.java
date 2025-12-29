@@ -103,6 +103,9 @@ public class InstanceServiceImpl implements IInstanceService {
                     "Region： %s\n" +
                     "区域： %s\n" +
                     "CPU类型： %s\n" +
+                    "CPU核心数： %s\n" +
+                    "内存（GB）： %s\n" +
+                    "磁盘大小（GB）： %s\n" +
                     "开机次数：%s\n" +
                     "开机时长：%s";
 
@@ -172,30 +175,28 @@ public class InstanceServiceImpl implements IInstanceService {
 
                 virtualExecutor.execute(() -> {
                     // 放货推送
-                    if (bootBroadcastTokenCfg != null) {
-                        if (Arrays.asList("ARM", "AMD").contains(instanceDetail.getArchitecture())) {
-                            String arch = instanceDetail.getArchitecture().toLowerCase();
-                            try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
-                                    .form("region", OciRegionsEnum.getKeyById(instanceDetail.getRegion()))
-                                    .form("arch", arch)
-                                    .form("token", bootBroadcastTokenCfg.getValue())
-                                    .timeout(20_000)
-                                    .execute()) {
+                    if (Arrays.asList("ARM", "AMD").contains(instanceDetail.getArchitecture())) {
+                        String arch = instanceDetail.getArchitecture().toLowerCase();
+                        try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
+                                .form("region", OciRegionsEnum.getKeyById(instanceDetail.getRegion()))
+                                .form("arch", arch)
+                                .form("token", bootBroadcastTokenCfg.getValue())
+                                .timeout(20_000)
+                                .execute()) {
 
-                                int status = response.getStatus();
-                                String body = response.body();
+                            int status = response.getStatus();
+                            String body = response.body();
 
-                                if (status == 200) {
+                            if (status == 200) {
 //                                log.info("放货推送成功，status：{}", status);
 //                                log.info("放货推送成功，body：{}", body);
-                                    log.info("放货信息推送成功");
-                                } else {
-                                    log.warn("放货推送失败，status：{}，body：{}", status, body);
-                                }
-
-                            } catch (Exception e) {
-                                log.error("放货推送异常", e);
+                                log.info("放货信息推送成功");
+                            } else {
+                                log.warn("放货推送失败，status：{}，body：{}", status, body);
                             }
+
+                        } catch (Exception e) {
+                            log.error("放货推送异常", e);
                         }
                     }
 
@@ -205,6 +206,9 @@ public class InstanceServiceImpl implements IInstanceService {
                             instanceDetail.getRegion(),
                             OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
                             instanceDetail.getArchitecture(),
+                            instanceDetail.getOcpus().longValue(),
+                            instanceDetail.getMemory().longValue(),
+                            instanceDetail.getDisk(),
                             currentCount,
                             createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()));
                     try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)

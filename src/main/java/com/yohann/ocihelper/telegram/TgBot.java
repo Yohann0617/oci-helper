@@ -240,6 +240,18 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                 new InlineKeyboardRow(
                         InlineKeyboardButton
                                 .builder()
+                                .text("\uD83D\uDCE2 通知频道")
+                                .url("https://t.me/oci_helper")
+                                .build(),
+                        InlineKeyboardButton
+                                .builder()
+                                .text("\uD83D\uDD0D 放货查询")
+                                .url("https://check.oci-helper.de5.net")
+                                .build()
+                ),
+                new InlineKeyboardRow(
+                        InlineKeyboardButton
+                                .builder()
                                 .text("\uD83D\uDCBB 开源地址（帮忙点点star⭐）")
                                 .url("https://github.com/Yohann0617/oci-helper")
                                 .build()

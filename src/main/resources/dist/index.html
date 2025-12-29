@@ -1,4 +1,37 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1" id="meta-pc"><meta name="viewport" content="width=1280,user-scalable=no" id="meta-mobile" disabled="disabled"><title>oci-helper</title><script>window.addEventListener('load', () => {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" id="meta-pc">
+    <meta name="viewport" content="width=1280, user-scalable=no" id="meta-mobile" disabled>
+    <title>oci-helper</title>
+
+    <style>
+        /* Prevent white flash on page load */
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: #f5f7fa;
+            transition: background-color 0.3s ease;
+        }
+        
+        html.dark, html.dark body {
+            background-color: #1a1f2e;
+        }
+    </style>
+
+    <script>
+        // Apply theme before page renders to avoid flash
+        (function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
+    <script>
+        window.addEventListener('load', () => {
             setTimeout(() => {
                 const isMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
                 if (isMobile) {
@@ -7,4 +40,16 @@
                     document.body.classList.add('force-desktop');
                 }
             }, 1000);
-        });</script><script defer="defer" src="/js/chunk-vendors.607477f8.js"></script><script defer="defer" src="/js/app.ccc11f19.js"></script><link href="/css/chunk-vendors.9dec6011.css" rel="stylesheet"><link href="/css/app.792a83a7.css" rel="stylesheet"></head><body><div id="app"></div></body></html>
+        });
+    </script>
+  <script type="module" crossorigin src="/js/index.C40PP_gZ.js"></script>
+  <link rel="modulepreload" crossorigin href="/js/chunk-vendors.CdTauPKY.js">
+  <link rel="stylesheet" crossorigin href="/css/chunk-vendors.DwrtiuHY.css">
+  <link rel="stylesheet" crossorigin href="/css/index.DutXjbw7.css">
+</head>
+<body>
+    <div id="app"></div>
+</body>
+<!-- 引入外部烟花波纹脚本 -->
+<!--<script src="https://fastly.jsdelivr.net/gh/mocchen/cssmeihua/js/yanhuabowen.js"></script>-->
+</html>

@@ -148,6 +148,7 @@ public class SysServiceImpl implements ISysService {
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf);
+        sendMessage(String.format("请求IP：%s 登录成功，时间：%s", clientIp, LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)));
         LoginRsp rsp = new LoginRsp();
         rsp.setToken(token);
         rsp.setCurrentVersion(currentVersion);

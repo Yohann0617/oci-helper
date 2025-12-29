@@ -1,1 +1,0 @@
-:root{--main-bg-color:#fff;--main-text-color:#333}.dark{--main-bg-color:hsla(0,2%,8%,.93);--main-text-color:#fff}body{background-color:var(--main-bg-color);color:var(--main-text-color)}
