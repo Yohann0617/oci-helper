@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.yohann</groupId>
     <artifactId>oci-helper</artifactId>
-    <version>3.3.2</version>
+    <version>3.3.3</version>
     <name>oci-helper</name>
     <description>oci helper</description>
     <properties>
@@ -145,6 +145,12 @@
                     <artifactId>javax.servlet-api</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <!-- JSch for SSH support (required by hutool extra ssh) -->
+        <dependency>
+            <groupId>com.jcraft</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.1.55</version>
         </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>

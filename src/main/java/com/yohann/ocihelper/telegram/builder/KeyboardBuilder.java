@@ -51,9 +51,19 @@ public class KeyboardBuilder {
                 ),
                 new InlineKeyboardRow(
                         InlineKeyboardButton.builder()
+                                .text("\uD83E\uDD16 AI 聊天")
+                                .callbackData("ai_chat")
+                                .build(),
+                        InlineKeyboardButton.builder()
+                                .text("\uD83D\uDD0C SSH 管理")
+                                .callbackData("ssh_management")
+                                .build(),
+                        InlineKeyboardButton.builder()
                                 .text("\uD83D\uDEE1\uFE0F 版本信息")
                                 .callbackData("version_info")
-                                .build(),
+                                .build()
+                ),
+                new InlineKeyboardRow(
                         InlineKeyboardButton.builder()
                                 .text("\uD83D\uDCE2 通知频道")
                                 .url("https://t.me/oci_helper")

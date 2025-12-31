@@ -173,60 +173,60 @@ public class InstanceServiceImpl implements IInstanceService {
 
                 sysService.sendMessage(message);
 
-                virtualExecutor.execute(() -> {
-                    // 放货推送
-                    if (Arrays.asList("ARM", "AMD").contains(instanceDetail.getArchitecture())) {
-                        String arch = instanceDetail.getArchitecture().toLowerCase();
-                        try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
-                                .form("region", OciRegionsEnum.getKeyById(instanceDetail.getRegion()))
-                                .form("arch", arch)
-                                .form("token", bootBroadcastTokenCfg.getValue())
-                                .timeout(20_000)
-                                .execute()) {
-
-                            int status = response.getStatus();
-                            String body = response.body();
-
-                            if (status == 200) {
-//                                log.info("放货推送成功，status：{}", status);
-//                                log.info("放货推送成功，body：{}", body);
-                                log.info("放货信息推送成功");
-                            } else {
-                                log.warn("放货推送失败，status：{}，body：{}", status, body);
-                            }
-
-                        } catch (Exception e) {
-                            log.error("放货推送异常", e);
-                        }
-                    }
-
-                    // TG 频道消息推送
-                    String channelMsg = String.format(CHANNEL_MESSAGE_TEMPLATE,
-                            LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                            instanceDetail.getRegion(),
-                            OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
-                            instanceDetail.getArchitecture(),
-                            instanceDetail.getOcpus().longValue(),
-                            instanceDetail.getMemory().longValue(),
-                            instanceDetail.getDisk(),
-                            currentCount,
-                            createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()));
-                    try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
-                            .form("text", channelMsg)
-                            .timeout(20_000)
-                            .execute()) {
-                        int status = response.getStatus();
-                        String body = response.body();
-
-                        if (status == 200) {
-                            log.info("频道放货信息推送成功");
-                        } else {
-                            log.warn("频道放货推送失败，status：{}，body：{}", status, body);
-                        }
-                    } catch (Exception e) {
-                        log.error("频道放货推送异常", e);
-                    }
-                });
+//                virtualExecutor.execute(() -> {
+//                    // 放货推送
+//                    if (Arrays.asList("ARM", "AMD").contains(instanceDetail.getArchitecture())) {
+//                        String arch = instanceDetail.getArchitecture().toLowerCase();
+//                        try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
+//                                .form("region", OciRegionsEnum.getKeyById(instanceDetail.getRegion()))
+//                                .form("arch", arch)
+//                                .form("token", bootBroadcastTokenCfg.getValue())
+//                                .timeout(20_000)
+//                                .execute()) {
+//
+//                            int status = response.getStatus();
+//                            String body = response.body();
+//
+//                            if (status == 200) {
+////                                log.info("放货推送成功，status：{}", status);
+////                                log.info("放货推送成功，body：{}", body);
+//                                log.info("放货信息推送成功");
+//                            } else {
+//                                log.warn("放货推送失败，status：{}，body：{}", status, body);
+//                            }
+//
+//                        } catch (Exception e) {
+//                            log.error("放货推送异常", e);
+//                        }
+//                    }
+//
+//                    // TG 频道消息推送
+//                    String channelMsg = String.format(CHANNEL_MESSAGE_TEMPLATE,
+//                            LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+//                            instanceDetail.getRegion(),
+//                            OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
+//                            instanceDetail.getArchitecture(),
+//                            instanceDetail.getOcpus().longValue(),
+//                            instanceDetail.getMemory().longValue(),
+//                            instanceDetail.getDisk(),
+//                            currentCount,
+//                            createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()));
+//                    try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
+//                            .form("text", channelMsg)
+//                            .timeout(20_000)
+//                            .execute()) {
+//                        int status = response.getStatus();
+//                        String body = response.body();
+//
+//                        if (status == 200) {
+//                            log.info("频道放货信息推送成功");
+//                        } else {
+//                            log.warn("频道放货推送失败，status：{}，body：{}", status, body);
+//                        }
+//                    } catch (Exception e) {
+//                        log.error("频道放货推送异常", e);
+//                    }
+//                });
 
             }
         }
