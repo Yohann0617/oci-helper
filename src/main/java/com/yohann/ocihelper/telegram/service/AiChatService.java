@@ -71,7 +71,7 @@ public class AiChatService {
                 // Get API key
                 String apiKey = getApiKey();
                 if (StringUtils.isBlank(apiKey)) {
-                    return "❌ 未配置 AI API 密钥，请联系管理员配置";
+                    return "❌ 未配置 AI API 密钥，请在系统配置中设置";
                 }
                 
                 // Get or create ChatClient
