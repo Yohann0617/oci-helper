@@ -70,7 +70,7 @@ public class TenantServiceImpl implements ITenantService {
         }
 
         TenantInfoRsp tenantInfoInCache = (TenantInfoRsp) customCache.get(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId());
-        if (tenantInfoInCache != null) {
+        if (tenantInfoInCache != null && StrUtil.isNotBlank(tenantInfoInCache.getCreatTime())) {
             customCache.put(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId(), tenantInfoInCache, 10 * 60 * 1000);
             return tenantInfoInCache;
         }
@@ -120,7 +120,7 @@ public class TenantServiceImpl implements ITenantService {
             CompletableFuture<PasswordPolicy> pwdExpTask = CompletableFuture.supplyAsync(() -> {
                         List<PasswordPolicy> passwordPolicyList = OciUtils.getCurrentPasswordPolicy(fetcher);
                         return passwordPolicyList.parallelStream()
-                                .filter(x->x.getPasswordStrength() == com.oracle.bmc.identitydomains.model.PasswordPolicy.PasswordStrength.Custom)
+                                .filter(x -> x.getPasswordStrength() == com.oracle.bmc.identitydomains.model.PasswordPolicy.PasswordStrength.Custom)
                                 .findAny()
                                 .orElse(PasswordPolicy.builder().build());
                     }, virtualExecutor)
@@ -146,12 +146,12 @@ public class TenantServiceImpl implements ITenantService {
             rsp.setRegions(CommonUtils.safeJoin(regionsTask, Collections.emptyList()));
             rsp.setPasswordExpiresAfter(CommonUtils.safeJoin(pwdExpTask, PasswordPolicy.builder().build()).getPasswordExpiresAfter());
             rsp.setCreatTime(CommonUtils.safeJoin(createTimeTask, null));
+
+            customCache.put(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId(), rsp, 10 * 60 * 1000);
             return rsp;
         } catch (Exception e) {
             log.error("获取租户信息失败", e);
             throw new OciException(-1, "获取租户信息失败", e);
-        } finally {
-            customCache.put(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId(), rsp, 10 * 60 * 1000);
         }
     }
 

@@ -125,14 +125,16 @@ public class OciServiceImpl implements IOciService {
         long offset = (params.getCurrentPage() - 1) * params.getPageSize();
         List<OciUserListRsp> list = userMapper.userPage(offset, params.getPageSize(), params.getKeyword(), params.getIsEnableCreate());
         Long total = userMapper.userPageTotal(params.getKeyword(), params.getIsEnableCreate());
-        list.parallelStream().filter(x -> StringUtils.isNotBlank(x.getCreateTime()))
+        list.parallelStream()
                 .forEach(x -> {
                     try {
                         x.setRegionName(OciRegionsEnum.getNameById(x.getRegion()).get());
-                    }catch (Exception ignored){
+                    } catch (Exception ignored) {
 
                     }
-                    x.setCreateTime(x.getCreateTime() + String.format("（%s）", CommonUtils.getTimeDifference(LocalDateTime.parse(x.getCreateTime(), CommonUtils.DATETIME_FMT_NORM))));
+                    if (StringUtils.isNotBlank(x.getCreateTime())) {
+                        x.setCreateTime(x.getCreateTime() + String.format("（%s）", CommonUtils.getTimeDifference(LocalDateTime.parse(x.getCreateTime(), CommonUtils.DATETIME_FMT_NORM))));
+                    }
                 });
         return CommonUtils.buildPage(list, params.getPageSize(), params.getCurrentPage(), total);
     }
@@ -982,10 +984,10 @@ public class OciServiceImpl implements IOciService {
 
             if (dieCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B，请自行登录官方控制台检查。",
+                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 开机失败，可能的原因：(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B)，请自行登录官方控制台检查。",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B，请自行登录官方控制台检查。",
+                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 开机失败，(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B)，请自行登录官方控制台检查。",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
             }
@@ -1041,10 +1043,10 @@ public class OciServiceImpl implements IOciService {
                 BmcException error = (BmcException) e;
                 if (error.getStatusCode() == 401 || error.getMessage().contains(ErrorEnum.NOT_AUTHENTICATED.getErrorType())) {
                     stopAndRemoveTask(sysUserDTO, createTaskService);
-                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B，请自行登录官方控制台检查。",
+                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 开机失败，(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B)，请自行登录官方控制台检查。",
                             sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                             sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-                    sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 开机失败，账号可能已无权或已封禁\uD83D\uDC7B，请自行登录官方控制台检查。",
+                    sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 开机失败，(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B)，请自行登录官方控制台检查。",
                             sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                             sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
                 }

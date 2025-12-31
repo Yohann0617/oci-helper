@@ -358,6 +358,15 @@ public class SysServiceImpl implements ISysService {
                         if (null != list) {
                             list.forEach(obj -> {
                                 try {
+                                    String time = String.valueOf(BeanUtil.getFieldValue(obj, "tenantCreateTime"));
+                                    Long timestamp = Long.valueOf(time);
+                                    LocalDateTime localDateTime = Instant.ofEpochMilli(timestamp)
+                                            .atZone(ZoneId.systemDefault())
+                                            .toLocalDateTime();
+                                    BeanUtil.setFieldValue(obj, "tenantCreateTime", localDateTime);
+                                } catch (Exception ignored) {
+                                }
+                                try {
                                     String time = String.valueOf(BeanUtil.getFieldValue(obj, "createTime"));
                                     Long timestamp = Long.valueOf(time);
                                     LocalDateTime localDateTime = Instant.ofEpochMilli(timestamp)

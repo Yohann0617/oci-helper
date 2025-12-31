@@ -27,18 +27,26 @@ public class KeyboardBuilder {
                                 .callbackData("config_list")
                                 .build(),
                         InlineKeyboardButton.builder()
+                                .text("\uD83D\uDCC3 任务管理")
+                                .callbackData("task_management")
+                                .build(),
+                        InlineKeyboardButton.builder()
                                 .text("\uD83D\uDECE 一键测活")
                                 .callbackData("check_alive")
                                 .build()
                 ),
                 new InlineKeyboardRow(
                         InlineKeyboardButton.builder()
-                                .text("\uD83D\uDCC3 任务管理")
-                                .callbackData("task_management")
+                                .text("\uD83C\uDF10 流量统计")
+                                .callbackData("traffic_statistics")
                                 .build(),
                         InlineKeyboardButton.builder()
-                                .text("\uD83D\uDCCA 流量统计")
-                                .callbackData("traffic_statistics")
+                                .text("\uD83D\uDCCA 资源监控")
+                                .callbackData("system_metrics")
+                                .build(),
+                        InlineKeyboardButton.builder()
+                                .text("\uD83D\uDCCB 日志查询")
+                                .callbackData("log_query")
                                 .build()
                 ),
                 new InlineKeyboardRow(
@@ -49,9 +57,7 @@ public class KeyboardBuilder {
                         InlineKeyboardButton.builder()
                                 .text("\uD83D\uDCE2 通知频道")
                                 .url("https://t.me/oci_helper")
-                                .build()
-                ),
-                new InlineKeyboardRow(
+                                .build(),
                         InlineKeyboardButton.builder()
                                 .text("\uD83D\uDD0D 放货查询")
                                 .url("https://check.oci-helper.de5.net")

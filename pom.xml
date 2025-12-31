@@ -155,12 +155,12 @@
         <dependency>
             <groupId>org.telegram</groupId>
             <artifactId>telegrambots-longpolling</artifactId>
-            <version>8.2.0</version>
+            <version>9.2.0</version>
         </dependency>
         <dependency>
             <groupId>org.telegram</groupId>
             <artifactId>telegrambots-client</artifactId>
-            <version>8.2.0</version>
+            <version>9.2.0</version>
         </dependency>
 
         <!--AI-->
