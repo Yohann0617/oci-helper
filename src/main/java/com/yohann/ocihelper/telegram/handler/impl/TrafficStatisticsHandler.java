@@ -68,10 +68,21 @@ class TrafficStatisticsConfirmHandler extends AbstractCallbackHandler {
         TelegramBotService botService = SpringUtil.getBean(TelegramBotService.class);
         String result = botService.getTrafficStatistics();
         
+        // Build keyboard with refresh button
+        InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
+                .keyboard(Arrays.asList(
+                        new InlineKeyboardRow(
+                                KeyboardBuilder.button("🔄 刷新", "traffic_statistics_confirm")
+                        ),
+                        KeyboardBuilder.buildBackToMainMenuRow(),
+                        KeyboardBuilder.buildCancelRow()
+                ))
+                .build();
+        
         return buildEditMessage(
                 callbackQuery,
                 result,
-                new InlineKeyboardMarkup(KeyboardBuilder.buildMainMenu())
+                keyboard
         );
     }
     

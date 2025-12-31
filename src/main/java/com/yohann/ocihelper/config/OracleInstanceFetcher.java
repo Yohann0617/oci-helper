@@ -1400,7 +1400,9 @@ public class OracleInstanceFetcher implements Closeable {
                     .compartmentId(compartmentId)
                     .build()).getItems();
             if (CollectionUtil.isNotEmpty(items)) {
-                bootVolumes.addAll(items.stream().map(BootVolume::getId)
+                bootVolumes.addAll(items.stream()
+                        .filter(x -> !x.getLifecycleState().getValue().equals(BootVolume.LifecycleState.Terminated.getValue()))
+                        .map(BootVolume::getId)
                         .collect(Collectors.toList())
                         .parallelStream().map(this::getBootVolumeById)
                         .collect(Collectors.toList()));

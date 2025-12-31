@@ -18,13 +18,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 选择配置回调处理器 - 显示实例方案
+ * Show create instance plans handler
  * 
  * @author yohann
  */
 @Slf4j
 @Component
-public class SelectConfigHandler extends AbstractCallbackHandler {
+public class ShowCreatePlansHandler extends AbstractCallbackHandler {
     
     @Override
     public BotApiMethod<? extends Serializable> handle(CallbackQuery callbackQuery, TelegramClient telegramClient) {
@@ -44,28 +44,25 @@ public class SelectConfigHandler extends AbstractCallbackHandler {
         
         List<InlineKeyboardRow> keyboard = new ArrayList<>();
         
-        // 添加"创建实例"、"实例管理"和"引导卷管理"选项
+        // Plan 1: AMD 1C1G
         keyboard.add(new InlineKeyboardRow(
                 KeyboardBuilder.button(
-                        "🚀 创建实例",
-                        "show_create_plans:" + userId
+                        "💻 方案1: 1台1核1G50G(AMD/Ubuntu/80s)",
+                        "create_instance:" + userId + ":plan1"
                 )
         ));
         
+        // Plan 2: ARM 1C6G
         keyboard.add(new InlineKeyboardRow(
                 KeyboardBuilder.button(
-                        "📋 实例管理",
-                        "instance_management:" + userId
-                ),
-                KeyboardBuilder.button(
-                        "💾 引导卷管理",
-                        "boot_volume_management:" + userId
+                        "🖥 方案2: 1台1核6G50G(ARM/Ubuntu/80s)",
+                        "create_instance:" + userId + ":plan2"
                 )
         ));
-
-        // 返回按钮
+        
+        // Back button
         keyboard.add(new InlineKeyboardRow(
-                KeyboardBuilder.button("◀️ 返回配置列表", "config_list")
+                KeyboardBuilder.button("◀️ 返回", "select_config:" + userId)
         ));
         keyboard.add(KeyboardBuilder.buildCancelRow());
         
@@ -75,12 +72,12 @@ public class SelectConfigHandler extends AbstractCallbackHandler {
                 : "未知";
         
         String message = String.format(
-                "【配置操作】\n\n" +
+                "【选择开机方案】\n\n" +
                 "🔑 配置名：%s\n" +
                 "🌏 区域：%s\n" +
                 "👤 租户名：%s\n" +
                 "📅 租户创建时间：%s\n\n" +
-                "请选择操作：",
+                "请选择开机方案：",
                 user.getUsername(),
                 user.getOciRegion(),
                 user.getTenantName() != null ? user.getTenantName() : "未知",
@@ -96,6 +93,6 @@ public class SelectConfigHandler extends AbstractCallbackHandler {
     
     @Override
     public String getCallbackPattern() {
-        return "select_config:";
+        return "show_create_plans:";
     }
 }

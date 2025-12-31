@@ -1,10 +1,13 @@
 package com.yohann.ocihelper.telegram.handler.impl;
 
+import com.yohann.ocihelper.telegram.builder.KeyboardBuilder;
 import com.yohann.ocihelper.telegram.handler.AbstractCallbackHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import oshi.SystemInfo;
 import oshi.hardware.*;
@@ -36,16 +39,36 @@ public class SystemMetricsHandler extends AbstractCallbackHandler {
         try {
             String metricsInfo = collectSystemMetrics();
             
+            // Build keyboard with refresh button
+            List<InlineKeyboardRow> keyboard = List.of(
+                    new InlineKeyboardRow(
+                            KeyboardBuilder.button("🔄 刷新", "system_metrics")
+                    ),
+                    KeyboardBuilder.buildBackToMainMenuRow(),
+                    KeyboardBuilder.buildCancelRow()
+            );
+            
             return buildEditMessage(
                 callbackQuery,
-                metricsInfo
+                metricsInfo,
+                new InlineKeyboardMarkup(keyboard)
             );
             
         } catch (Exception e) {
             log.error("获取系统资源信息失败", e);
+            
+            List<InlineKeyboardRow> keyboard = List.of(
+                    new InlineKeyboardRow(
+                            KeyboardBuilder.button("🔄 重试", "system_metrics")
+                    ),
+                    KeyboardBuilder.buildBackToMainMenuRow(),
+                    KeyboardBuilder.buildCancelRow()
+            );
+            
             return buildEditMessage(
                 callbackQuery,
-                "❌ 获取系统资源信息失败: " + e.getMessage()
+                "❌ 获取系统资源信息失败: " + e.getMessage(),
+                new InlineKeyboardMarkup(keyboard)
             );
         }
     }
