@@ -183,7 +183,7 @@ public class OciServiceImpl implements IOciService {
             ociUser.setTenantName(tenancy.getName());
             ociUser.setTenantCreateTime(LocalDateTime.parse(fetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
         } catch (Exception e) {
-            log.error("配置：[{}] ，区域：[{}] ，不生效，错误信息：[{}]",
+            log.error("配置:[{}],区域:[{}],不生效,错误信息:[{}]",
                     ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
             throw new OciException(-1, "配置不生效，请检查密钥与配置项是否准确无误");
         }
@@ -195,7 +195,7 @@ public class OciServiceImpl implements IOciService {
     public void removeCfg(IdListParams params) {
         params.getIdList().forEach(id -> {
             if (createTaskService.count(new LambdaQueryWrapper<OciCreateTask>().eq(OciCreateTask::getUserId, id)) > 0) {
-                throw new OciException(-1, "配置：" + userService.getById(id).getUsername() + " 存在开机任务，无法删除，请先停止开机任务");
+                throw new OciException(-1, "配置:" + userService.getById(id).getUsername() + " 存在开机任务,无法删除,请先停止开机任务");
             }
         });
         userService.removeBatchByIds(params.getIdList());
@@ -238,6 +238,7 @@ public class OciServiceImpl implements IOciService {
                 .createNumbers(params.getCreateNumbers())
                 .operationSystem(params.getOperationSystem())
                 .rootPassword(params.getRootPassword())
+                .joinChannelBroadcast(params.isJoinChannelBroadcast())
                 .build();
         addTask(CommonUtils.CREATE_TASK_PREFIX + taskId, () ->
                         execCreate(sysUserDTO, sysService, instanceService, createTaskService),
@@ -336,7 +337,7 @@ public class OciServiceImpl implements IOciService {
     public void changeIp(ChangeIpParams params) {
         params.getCidrList().forEach(cidr -> {
             if (!CommonUtils.isValidCidr(cidr)) {
-                throw new OciException(-1, "无效的CIDR网段：" + cidr);
+                throw new OciException(-1, "无效的CIDR网段:" + cidr);
             }
         });
 
@@ -356,7 +357,7 @@ public class OciServiceImpl implements IOciService {
                     sysUserDTO.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                     sysUserDTO.getOciCfg().getRegion(), instance.getDisplayName(), currentIp);
-            log.info("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，当前公网IP：[{}] 开始执行更换公网IP任务...",
+            log.info("【更换公共IP】用户:[{}],区域:[{}],实例:[{}],当前公网IP:[{}] 开始执行更换公网IP任务...",
                     sysUserDTO.getUsername(),
                     sysUserDTO.getOciCfg().getRegion(),
                     instance.getDisplayName(), currentIp);
@@ -461,8 +462,8 @@ public class OciServiceImpl implements IOciService {
                 .flatMap(Collection::stream).parallel()
                 .peek(ociUser -> {
                     if (!seenUsernames.add(ociUser.getUsername())) {
-                        log.error("名称：{} 重复，添加配置失败", ociUser.getUsername());
-                        throw new OciException(-1, "名称: " + ociUser.getUsername() + " 重复，添加配置失败");
+                        log.error("名称:[{}]重复,添加配置失败", ociUser.getUsername());
+                        throw new OciException(-1, "名称: " + ociUser.getUsername() + " 重复,添加配置失败");
                     }
                     ociUser.setId(IdUtil.randomUUID());
                     ociUser.setOciKeyPath(keyDirPath + File.separator + ociUser.getOciKeyPath());
@@ -483,9 +484,9 @@ public class OciServiceImpl implements IOciService {
                         ociUser.setTenantName(tenancy.getName());
                         ociUser.setTenantCreateTime(LocalDateTime.parse(ociFetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
                     } catch (Exception e) {
-                        log.error("配置：[{}] ，区域：[{}] 不生效，请检查密钥与配置项是否准确无误，错误信息：{}",
+                        log.error("配置:[{}],区域:[{}]不生效,请检查密钥与配置项是否准确无误,错误信息:{}",
                                 ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
-                        throw new OciException(-1, "配置：" + ociUser.getUsername() + " 不生效，请检查密钥与配置项是否准确无误");
+                        throw new OciException(-1, "配置:" + ociUser.getUsername() + " 不生效,请检查密钥与配置项是否准确无误");
                     }
                 })
                 .collect(Collectors.toList());
@@ -498,7 +499,7 @@ public class OciServiceImpl implements IOciService {
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             fetcher.updateInstanceState(params.getInstanceId(), InstanceActionEnum.getActionEnum(params.getAction()));
         } catch (Exception e) {
-            log.error("用户：[{}] ，区域：[{}] 更新实例状态失败，错误详情：[{}]",
+            log.error("用户:[{}],区域:[{}] 更新实例状态失败,错误详情:[{}]",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), e.getLocalizedMessage());
             throw new OciException(-1, "更新实例状态失败");
         }
@@ -522,7 +523,7 @@ public class OciServiceImpl implements IOciService {
                         sysUserDTO.getOciCfg().getRegion());
                 sysService.sendMessage(message);
             } catch (Exception e) {
-                log.error("用户：[{}] ，区域：[{}] 终止实例失败，错误详情：[{}]",
+                log.error("用户:[{}],区域:[{}] 终止实例失败,错误详情:[{}]",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), e.getLocalizedMessage());
                 throw new OciException(-1, "终止实例失败");
             }
@@ -620,7 +621,7 @@ public class OciServiceImpl implements IOciService {
         Optional.ofNullable(userService.getOne(new LambdaQueryWrapper<OciUser>()
                 .eq(OciUser::getUsername, params.getUpdateCfgName()))).ifPresent(user -> {
             if (!user.getId().equals(params.getCfgId())) {
-                throw new OciException(-1, "配置名称：【" + params.getUpdateCfgName() + "】已存在");
+                throw new OciException(-1, "配置名称:【" + params.getUpdateCfgName() + "】已存在");
             }
         });
 
@@ -752,12 +753,12 @@ public class OciServiceImpl implements IOciService {
                         .collect(Collectors.toList());
                 String type = ArchitectureEnum.getType(ArchitectureEnum.AMD.getType());
                 if (shapeList.isEmpty() || !shapeList.contains(type)) {
-                    log.error("用户：[{}] ，区域：[{}] 开机失败，该区域可能无法创建AMD实例，用户可开机的机型：{}",
+                    log.error("用户:[{}],区域:[{}] 开机失败,该区域可能无法创建AMD实例,用户可开机的机型:[{}]",
                             sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), shapeList);
                     throw new OciException(-1, "当前区域无法创建AMD实例");
                 }
 
-                log.warn("用户：[{}]，区域：[{}]，实例：[{}] 开始执行自动救援/缩小硬盘任务...",
+                log.warn("用户:[{}],区域:[{}],实例:[{}] 开始执行自动救援/缩小硬盘任务...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), params.getName());
 
                 // 先关机
@@ -818,7 +819,7 @@ public class OciServiceImpl implements IOciService {
                 }
 
                 // 创建47GB的AMD机器
-                log.warn("（5/9）⌛ 正在创建并初始化AMD机器，大概需要5分钟，请耐心等待");
+                log.warn("（5/9）⌛ 正在创建并初始化AMD机器,大概需要5分钟,请耐心等待");
                 String newAmdSshPwd = "ocihelper2024";
                 SysUserDTO newAmd = SysUserDTO.builder()
                         .ociCfg(SysUserDTO.OciCfg.builder()
@@ -839,7 +840,7 @@ public class OciServiceImpl implements IOciService {
                 fetcher.setUser(newAmd);
                 InstanceDetailDTO instanceData = fetcher.createInstanceData();
                 if (!instanceData.isSuccess()) {
-                    log.error("用户：[{}] ，区域：[{}] 创建AMD实例失败", sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion());
+                    log.error("用户:[{}],区域:[{}] 创建AMD实例失败", sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion());
                     throw new OciException(-1, "创建AMD实例失败");
                 }
                 Instance newAmdInstance = instanceData.getInstance();
@@ -902,7 +903,7 @@ public class OciServiceImpl implements IOciService {
 
                 Thread.sleep(3000);
 
-                log.warn("（9/9）⌛ 实例救援成功，正在启动实例...");
+                log.warn("（9/9）⌛ 实例救援成功,正在启动实例...");
                 while (!fetcher.getInstanceById(instanceId).getLifecycleState().getValue().equals(Instance.LifecycleState.Running.getValue())) {
                     try {
                         computeClient.instanceAction(InstanceActionRequest.builder()
@@ -916,14 +917,14 @@ public class OciServiceImpl implements IOciService {
                 }
                 Vnic vnic = fetcher.getVnicByInstanceId(instanceId);
                 String publicIp = vnic.getPublicIp();
-                log.info("（9/9）🎉 实例启动成功 🎉，公网IP：{}，SSH端口：22，SSH账号：root，SSH密码：{}", publicIp, newAmdSshPwd);
+                log.info("（9/9）🎉 实例启动成功 🎉,公网IP:{},SSH端口:22,SSH账号:root,SSH密码:{}", publicIp, newAmdSshPwd);
                 sysService.sendMessage(String.format("【自动救援/缩小硬盘任务】\n\n恭喜！实例自动救援/缩小硬盘成功🎉\n" +
                                 "用户：\t%s\n区域：\t%s\n实例：\t%s\n公网IP：\t%s\nSSH端口：\t22\nSSH账号：\troot\nSSH密码：\t%s\n",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), params.getName(),
                         publicIp, newAmdSshPwd));
             } catch (Exception e) {
                 log.error("自动救援/缩小硬盘失败", e);
-                throw new OciException(-1, "自动救援/缩小硬盘失败，具体原因请查看日志");
+                throw new OciException(-1, "自动救援/缩小硬盘失败,具体原因请查看日志");
             }
         });
     }
@@ -968,7 +969,7 @@ public class OciServiceImpl implements IOciService {
         String taskId = CommonUtils.CREATE_TASK_PREFIX + sysUserDTO.getTaskId();
         // 检查是否已经有同一个任务在运行
         if (!RUNNING_TASKS.add(taskId)) {
-//            log.warn("【开机任务】任务 [{}] 已在运行中，跳过本轮执行", taskId);
+//            log.warn("【开机任务】任务 [{}] 已在运行中,跳过本轮执行", taskId);
             return;
         }
 
@@ -984,50 +985,50 @@ public class OciServiceImpl implements IOciService {
 
             if (dieCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 开机失败，可能的原因：(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B)，请自行登录官方控制台检查。",
+                log.error("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],开机数量:[{}] 开机失败,可能的原因:(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B),请自行登录官方控制台检查。",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 开机失败，(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B)，请自行登录官方控制台检查。",
+                sysService.sendMessage(String.format("【开机任务】用户:[%s],区域:[%s],系统架构:[%s],开机数量:[%s] 开机失败,可能的原因:(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B),请自行登录官方控制台检查。",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
             }
 
             if (noPubVcnCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因无有效公网 VCN 而终止任务...",
+                log.error("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],开机数量:[{}] 因无有效公网 VCN 而终止任务...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 无有效公网 VCN，且无法再创建 VCN，请删除无效的私网 VCN",
+                sysService.sendMessage(String.format("【开机任务】用户:[%s],区域:[%s],系统架构:[%s],开机数量:[%s] 无有效公网 VCN,且无法再创建 VCN,请删除无效的私网 VCN",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
             }
 
             if (noShapeCounts > 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因不支持 CPU 架构：[{}] 或配额不足而终止任务...",
+                log.error("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],开机数量:[{}] 因不支持 CPU 架构:[{}] 或配额不足而终止任务...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), sysUserDTO.getArchitecture());
-                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因不支持 CPU 架构：[%s] 或配额不足而终止任务",
+                sysService.sendMessage(String.format("【开机任务】用户:[%s],区域:[%s],系统架构:[%s],开机数量:[%s] 因不支持 CPU 架构:[%s] 或配额不足而终止任务",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), sysUserDTO.getArchitecture()));
             }
 
             if (sysUserDTO.getCreateNumbers() == outCounts) {
 //                stopAndRemoveTask(sysUserDTO, createTaskService);
-//                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 因超额而终止任务...",
+//                log.error("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],开机数量:[{}] 因超额而终止任务...",
 //                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
 //                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-//                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 因超额而终止任务",
+//                sysService.sendMessage(String.format("【开机任务】用户:[%s],区域:[%s],系统架构:[%s],开机数量:[%s] 因超额而终止任务",
 //                        sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
 //                        sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
-                sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 官方提示配额已超过限制，但任务未终止",
+                sysService.sendMessage(String.format("【开机任务】用户:[%s],区域:[%s],系统架构:[%s],开机数量:[%s] 官方提示配额已超过限制,但任务未终止",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
             }
 
             if (sysUserDTO.getCreateNumbers() == successCounts || leftCreateNum == 0) {
                 stopAndRemoveTask(sysUserDTO, createTaskService);
-                log.warn("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 任务结束...",
+                log.warn("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],开机数量:[{}] 任务结束...",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
             }
@@ -1043,20 +1044,20 @@ public class OciServiceImpl implements IOciService {
                 BmcException error = (BmcException) e;
                 if (error.getStatusCode() == 401 || error.getMessage().contains(ErrorEnum.NOT_AUTHENTICATED.getErrorType())) {
                     stopAndRemoveTask(sysUserDTO, createTaskService);
-                    log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 开机失败，(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B)，请自行登录官方控制台检查。",
+                    log.error("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],开机数量:[{}] 开机失败,可能的原因:(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B),请自行登录官方控制台检查。",
                             sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                             sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers());
-                    sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] 开机失败，(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B)，请自行登录官方控制台检查。",
+                    sysService.sendMessage(String.format("【开机任务】用户:[%s],区域:[%s],系统架构:[%s],开机数量:[%s] 开机失败,可能的原因:(新生成的API暂未生效|账号已无权|账号已封禁\uD83D\uDC7B),请自行登录官方控制台检查。",
                             sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                             sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
                 }
             } else {
-                log.error("【开机任务】用户：[{}] ，区域：[{}] ，系统架构：[{}] ，开机数量：[{}] 发生了异常：{}",
+                log.error("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],开机数量:[{}] 发生了异常:{}",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
                         sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers(), e.getLocalizedMessage());
 //            stopAndRemoveTask(sysUserDTO, createTaskService);
-//            sysService.sendMessage(String.format("【开机任务】用户：[%s] ，区域：[%s] ，系统架构：[%s] ，开机数量：[%s] " +
-//                            "发生了异常但并未停止枪机任务，可能是网络响应超时等原因，具体情况自行查看日志",
+//            sysService.sendMessage(String.format("【开机任务】用户:[%s],区域:[%s],系统架构:[%s],开机数量:[%s] " +
+//                            "发生了异常但并未停止枪机任务,可能是网络响应超时等原因,具体情况自行查看日志",
 //                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
 //                    sysUserDTO.getArchitecture(), sysUserDTO.getCreateNumbers()));
             }
@@ -1105,7 +1106,7 @@ public class OciServiceImpl implements IOciService {
                     (key, value) -> value == null ? 1L : Long.parseLong(String.valueOf(value)) + 1
             );
             if (currentCount > 5) {
-                log.error("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，执行更换IP任务失败次数达到5次，任务终止",
+                log.error("【更换公共IP】用户:[{}],区域:[{}],实例:[{}],执行更换IP任务失败次数达到5次,任务终止",
                         sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), tuple2.getSecond().getDisplayName());
                 stopTask(CommonUtils.CHANGE_IP_TASK_PREFIX + instanceId);
                 TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
@@ -1115,7 +1116,7 @@ public class OciServiceImpl implements IOciService {
         String publicIp = tuple2.getFirst();
         String instanceName = tuple2.getSecond().getDisplayName();
         if (!CommonUtils.isIpInCidrList(tuple2.getFirst(), cidrList)) {
-            log.warn("【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，获取到的IP：{} 不在给定的 CIDR 网段中，{} 秒后将继续更换公共IP...",
+            log.warn("【更换公共IP】用户:[{}],区域:[{}],实例:[{}],获取到的IP:{} 不在给定的 CIDR 网段中,[{}]秒后将继续更换公共IP...",
                     sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName,
                     publicIp, randomIntInterval);
             TEMP_MAP.remove(CommonUtils.CHANGE_IP_ERROR_COUNTS_PREFIX + instanceId);
@@ -1130,7 +1131,7 @@ public class OciServiceImpl implements IOciService {
     private void sendChangeIpMsg(String ociCfgId, String username, String region, String instanceName, String publicIp) {
         customCache.remove(CacheConstant.PREFIX_INSTANCE_PAGE + ociCfgId);
 
-        log.info("✔✔✔【更换公共IP】用户：[{}] ，区域：[{}] ，实例：[{}] ，更换公共IP成功，新的公共IP地址：{} ✔✔✔",
+        log.info("✔✔✔【更换公共IP】用户:[{}],区域:[{}],实例:[{}],更换公共IP成功,新的公共IP地址:{} ✔✔✔",
                 username, region, instanceName,
                 publicIp);
         String message = String.format(CommonUtils.CHANGE_IP_MESSAGE_TEMPLATE,
@@ -1142,7 +1143,7 @@ public class OciServiceImpl implements IOciService {
 
     private void updateCfDns(ChangeIpParams params, String publicIp) {
         if (params.isChangeCfDns()) {
-            log.info("更换IP成功，开始更新 Cloudflare DNS 记录...");
+            log.info("更换IP成功,开始更新 Cloudflare DNS 记录...");
             CfCfg cfCfg = cfCfgService.getById(params.getSelectedDomainCfgId());
             RemoveCfDnsRecordsParams removeCfDnsRecordsParams = new RemoveCfDnsRecordsParams();
             removeCfDnsRecordsParams.setProxyDomainList(Collections.singletonList(params.getDomainPrefix() + "." + cfCfg.getDomain()));
