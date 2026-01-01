@@ -49,7 +49,7 @@ public class KeyboardBuilder {
                                 .callbackData("log_query")
                                 .build()
                 ),
-                new InlineKeyboardRow(
+                                                new InlineKeyboardRow(
                         InlineKeyboardButton.builder()
                                 .text("\uD83E\uDD16 AI 聊天")
                                 .callbackData("ai_chat")
@@ -61,6 +61,20 @@ public class KeyboardBuilder {
                         InlineKeyboardButton.builder()
                                 .text("\uD83D\uDEE1\uFE0F 版本信息")
                                 .callbackData("version_info")
+                                .build()
+                ),
+                new InlineKeyboardRow(
+                        InlineKeyboardButton.builder()
+                                .text("\uD83D\uDD10 MFA 管理")
+                                .callbackData("mfa_management")
+                                .build(),
+                        InlineKeyboardButton.builder()
+                                .text("\uD83D\uDD27 VNC 配置")
+                                .callbackData("vnc_config")
+                                .build(),
+                        InlineKeyboardButton.builder()
+                                .text("\uD83D\uDCE6 备份恢复")
+                                .callbackData("backup_restore")
                                 .build()
                 ),
                 new InlineKeyboardRow(

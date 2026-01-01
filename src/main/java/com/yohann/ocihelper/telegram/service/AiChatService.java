@@ -110,6 +110,7 @@ public class AiChatService {
     /**
      * Format AI response to separate thinking and answer
      * Extracts <think> tags and formats them as code blocks
+     * Properly handles Markdown formatting in answer
      * 
      * @param response raw AI response
      * @return formatted response
@@ -118,10 +119,6 @@ public class AiChatService {
         if (response == null || response.isEmpty()) {
             return response;
         }
-        
-        // Pattern to match <think>...</think> or </think>...
-        String thinkPattern = "(?s)<think>(.*?)</think>";
-        String thinkEndPattern = "(?s)</think>(.*)";
         
         // Check if response contains thinking tags
         if (response.contains("<think>") || response.contains("</think>")) {
@@ -146,24 +143,214 @@ public class AiChatService {
                     formatted.append("\n```\n\n");
                 }
                 
-                // Add answer
+                // Add answer with Markdown support
                 if (!answer.isEmpty()) {
                     formatted.append("💬 *回答：*\n");
-                    formatted.append(answer);
+                    // Process answer to support Markdown properly
+                    formatted.append(processMarkdownContent(answer));
                 } else {
-                    formatted.append(answer);
+                    formatted.append(processMarkdownContent(answer));
                 }
                 
                 return formatted.toString();
             } else if (thinkEnd != -1) {
                 // Only </think> found, everything after is answer
                 String answer = response.substring(thinkEnd + 8).trim();
-                return "💬 *回答：*\n" + answer;
+                return "💬 *回答：*\n" + processMarkdownContent(answer);
             }
         }
         
-        // No thinking tags, return as-is
-        return response;
+        // No thinking tags, process the whole response for Markdown
+        return processMarkdownContent(response);
+    }
+    
+    /**
+     * Process content to preserve Markdown formatting
+     * Protects code blocks and inline code from being escaped
+     * Allows bold, italic, links, headers, and lists to work properly
+     * 
+     * Supported Markdown syntax:
+     * - ```code blocks```
+     * - `inline code`
+     * - **bold**, *italic*, _italic_
+     * - [links](url)
+     * - # Headers (at line start)
+     * - - Lists (at line start)
+     * 
+     * @param content raw content
+     * @return processed content with Markdown support
+     */
+    private String processMarkdownContent(String content) {
+        if (content == null || content.isEmpty()) {
+            return content;
+        }
+        
+        // Strategy: Preserve existing Markdown syntax
+        // - Keep ```code blocks``` intact
+        // - Keep `inline code` intact
+        // - Keep **bold**, *italic*, _italic_ intact
+        // - Keep [links](url) intact
+        // - Keep # headers (at line start) intact
+        // - Keep - lists (at line start) intact
+        // - Escape problematic standalone characters
+        
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        int len = content.length();
+        
+        while (i < len) {
+            char c = content.charAt(i);
+            
+            // Handle code blocks ```
+            if (i + 2 < len && content.substring(i, i + 3).equals("```")) {
+                // Find the closing ```
+                int closeIndex = content.indexOf("```", i + 3);
+                if (closeIndex != -1) {
+                    // Include entire code block
+                    result.append(content, i, closeIndex + 3);
+                    i = closeIndex + 3;
+                    continue;
+                } else {
+                    // No closing found, just append ```
+                    result.append("```");
+                    i += 3;
+                    continue;
+                }
+            }
+            
+            // Handle inline code `
+            if (c == '`') {
+                // Find the closing `
+                int closeIndex = content.indexOf('`', i + 1);
+                if (closeIndex != -1) {
+                    // Include entire inline code
+                    result.append(content, i, closeIndex + 1);
+                    i = closeIndex + 1;
+                    continue;
+                } else {
+                    // No closing found, escape the backtick
+                    result.append("\\`");
+                    i++;
+                    continue;
+                }
+            }
+            
+            // Handle bold ** or *
+            if (c == '*') {
+                // Check if it's ** (bold) or * (italic)
+                if (i + 1 < len && content.charAt(i + 1) == '*') {
+                    // Find closing **
+                    int closeIndex = content.indexOf("**", i + 2);
+                    if (closeIndex != -1 && closeIndex - i - 2 > 0) {
+                        // Valid bold, keep it
+                        result.append(content, i, closeIndex + 2);
+                        i = closeIndex + 2;
+                        continue;
+                    }
+                } else {
+                    // Check for single * (italic)
+                    int closeIndex = content.indexOf('*', i + 1);
+                    if (closeIndex != -1 && closeIndex - i - 1 > 0) {
+                        // Valid italic, keep it
+                        result.append(content, i, closeIndex + 1);
+                        i = closeIndex + 1;
+                        continue;
+                    }
+                }
+                // Standalone *, keep it (Telegram Markdown is lenient)
+                result.append('*');
+                i++;
+                continue;
+            }
+            
+            // Handle italic _
+            if (c == '_') {
+                // Find closing _
+                int closeIndex = content.indexOf('_', i + 1);
+                if (closeIndex != -1 && closeIndex - i - 1 > 0) {
+                    // Valid italic, keep it
+                    result.append(content, i, closeIndex + 1);
+                    i = closeIndex + 1;
+                    continue;
+                }
+                // Standalone _, escape it
+                result.append("\\_");
+                i++;
+                continue;
+            }
+            
+            // Handle links [text](url)
+            if (c == '[') {
+                // Find ]
+                int closeBracket = content.indexOf(']', i + 1);
+                if (closeBracket != -1 && closeBracket + 1 < len && content.charAt(closeBracket + 1) == '(') {
+                    // Find closing )
+                    int closeParen = content.indexOf(')', closeBracket + 2);
+                    if (closeParen != -1) {
+                        // Valid link, keep it
+                        result.append(content, i, closeParen + 1);
+                        i = closeParen + 1;
+                        continue;
+                    }
+                }
+                // Not a valid link, escape [
+                result.append("\\[");
+                i++;
+                continue;
+            }
+            
+            // Handle headers # (at start of line)
+            if (c == '#' && (i == 0 || content.charAt(i - 1) == '\n')) {
+                // Count consecutive #
+                int hashCount = 0;
+                int j = i;
+                while (j < len && content.charAt(j) == '#') {
+                    hashCount++;
+                    j++;
+                }
+                // If followed by space, it's a header - keep as-is
+                if (j < len && content.charAt(j) == ' ') {
+                    result.append(content, i, j);
+                    i = j;
+                    continue;
+                }
+                // Otherwise, escape single #
+                result.append("\\#");
+                i++;
+                continue;
+            }
+            
+            // Handle lists - (at start of line)
+            if (c == '-' && (i == 0 || content.charAt(i - 1) == '\n')) {
+                // If followed by space, it's a list item - keep as-is
+                if (i + 1 < len && content.charAt(i + 1) == ' ') {
+                    result.append('-');
+                    i++;
+                    continue;
+                }
+            }
+            
+            // For other - characters, check context
+            if (c == '-') {
+                // Keep - as-is (Telegram Markdown is lenient with -)
+                result.append('-');
+                i++;
+                continue;
+            }
+            
+            // Handle # outside of line start (keep as-is for Telegram)
+            if (c == '#') {
+                result.append('#');
+                i++;
+                continue;
+            }
+            
+            // Regular character, keep as-is
+            result.append(c);
+            i++;
+        }
+        
+        return result.toString();
     }
     
     /**

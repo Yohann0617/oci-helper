@@ -55,4 +55,10 @@ public class InstancePlan {
      * Root 密码（可选，如果未提供将自动生成）
      */
     private String rootPassword;
+    
+    /**
+     * 是否向 TG 频道推送开机成功信息
+     */
+    @Builder.Default
+    private boolean joinChannelBroadcast = true;
 }

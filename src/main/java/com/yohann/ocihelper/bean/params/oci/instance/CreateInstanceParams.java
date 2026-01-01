@@ -35,4 +35,6 @@ public class CreateInstanceParams {
     @NotBlank(message = "root密码不能为空")
     private String rootPassword;
 
+    private boolean joinChannelBroadcast = true;
+
 }

@@ -16,6 +16,12 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.io.*;
+import java.nio.charset.Charset;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import com.yohann.ocihelper.bean.constant.CacheConstant;
@@ -318,9 +324,58 @@ public class SysServiceImpl implements ISysService {
             log.error("备份文件失败：{}", e.getLocalizedMessage());
             throw new OciException(-1, "备份文件失败");
         } finally {
+                        FileUtil.del(tempDir);
+            FileUtil.del(dataFile);
+            FileUtil.del(outEncZip);
+        }
+    }
+
+    @Override
+    public String createBackupFile(BackupParams params) {
+        if (params.isEnableEnc() && StrUtil.isBlank(params.getPassword())) {
+            throw new OciException(-1, "密码不能为空");
+        }
+        File tempDir = null;
+        File dataFile = null;
+        File outEncZip = null;
+        try {
+            String basicDirPath = System.getProperty("user.dir") + File.separator;
+            tempDir = FileUtil.mkdir(basicDirPath + "oci-helper-backup-" +
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.PURE_DATETIME_PATTERN)));
+            String keysDirPath = basicDirPath + "keys";
+            FileUtil.copy(keysDirPath, tempDir.getAbsolutePath(), true);
+
+            Map<String, IService> serviceMap = SpringUtil.getBeanFactory().getBeansOfType(IService.class);
+            Map<String, List> listMap = serviceMap.entrySet().parallelStream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, (x) -> x.getValue().list()));
+            String jsonStr = JSONUtil.toJsonStr(listMap);
+            dataFile = FileUtil.touch(basicDirPath + "data.json");
+            FileUtil.writeString(jsonStr, dataFile, Charset.defaultCharset());
+            FileUtil.copy(dataFile, tempDir, true);
+
+            outEncZip = FileUtil.touch(tempDir.getAbsolutePath() + ".zip");
+            ZipFile zipFile = CommonUtils.zipFile(
+                    params.isEnableEnc(),
+                    tempDir.getAbsolutePath(),
+                    params.getPassword(),
+                    outEncZip.getAbsolutePath());
+
+            // Return the zip file path instead of writing to response
+            String backupFilePath = zipFile.getFile().getAbsolutePath();
+            log.info("备份文件创建成功: {}", backupFilePath);
+            
+            // Don't delete the zip file, caller will handle it
+            FileUtil.del(tempDir);
+            FileUtil.del(dataFile);
+            
+            return backupFilePath;
+        } catch (Exception e) {
+            log.error("备份文件失败：{}", e.getLocalizedMessage());
+            // Clean up on error
             FileUtil.del(tempDir);
             FileUtil.del(dataFile);
             FileUtil.del(outEncZip);
+            throw new OciException(-1, "备份文件失败");
         }
     }
 
@@ -397,6 +452,120 @@ public class SysServiceImpl implements ISysService {
         } finally {
             FileUtil.del(tempZip);
             FileUtil.del(unzipDir);
+                        virtualExecutor.execute(() -> {
+                initGenMfaPng();
+                cleanAndRestartTask();
+            });
+        }
+    }
+
+        @Override
+    public void recoverFromFile(String backupFilePath, String password) {
+        String basicDirPath = System.getProperty("user.dir") + File.separator;
+        File tempZip = new File(backupFilePath);
+        File unzipDir = null;
+        
+        if (!tempZip.exists()) {
+            throw new OciException(-1, "备份文件不存在");
+        }
+        
+        try {
+            // 解压到临时目录
+            String tempUnzipDir = basicDirPath + "temp_unzip_" + System.currentTimeMillis();
+            new File(tempUnzipDir).mkdirs();
+            
+            CommonUtils.unzipFile(tempUnzipDir, password, tempZip.getAbsolutePath());
+
+            // 查找解压后的备份目录（应该是 oci-helper-backup-* 格式）
+            File tempUnzipDirFile = new File(tempUnzipDir);
+            File[] subDirs = tempUnzipDirFile.listFiles(File::isDirectory);
+            
+            if (subDirs == null || subDirs.length == 0) {
+                // 没有子目录，直接使用解压目录
+                unzipDir = tempUnzipDirFile;
+            } else {
+                // 使用第一个子目录（应该是备份目录）
+                unzipDir = subDirs[0];
+            }
+            
+            if (!unzipDir.exists() || unzipDir.listFiles() == null || unzipDir.listFiles().length == 0) {
+                throw new OciException(-1, "解压失败或备份文件为空");
+            }
+            
+            log.info("备份文件解压成功: {}", unzipDir.getAbsolutePath());
+
+            for (File unzipFile : unzipDir.listFiles()) {
+                if (unzipFile.isDirectory() && unzipFile.getName().contains("keys")) {
+                    FileUtil.copyFilesFromDir(unzipFile, new File(basicDirPath + "keys"), false);
+                    log.info("恢复 keys 目录成功");
+                }
+                if (unzipFile.isFile() && unzipFile.getName().contains("data.json")) {
+                    log.info("开始恢复数据库数据...");
+                    Map<String, IService> serviceMap = SpringUtil.getBeanFactory().getBeansOfType(IService.class);
+                    List<String> impls = new ArrayList<>(serviceMap.keySet());
+                    String readJsonStr = FileUtil.readUtf8String(unzipFile);
+                    Map<String, List> map = JSONUtil.toBean(readJsonStr, Map.class);
+
+                    impls.forEach(x -> {
+                        List list = map.get(x);
+                        if (null != list) {
+                            list.forEach(obj -> {
+                                try {
+                                    String time = String.valueOf(BeanUtil.getFieldValue(obj, "tenantCreateTime"));
+                                    Long timestamp = Long.valueOf(time);
+                                    LocalDateTime localDateTime = Instant.ofEpochMilli(timestamp)
+                                            .atZone(ZoneId.systemDefault())
+                                            .toLocalDateTime();
+                                    BeanUtil.setFieldValue(obj, "tenantCreateTime", localDateTime);
+                                } catch (Exception ignored) {
+                                }
+                                try {
+                                    String time = String.valueOf(BeanUtil.getFieldValue(obj, "createTime"));
+                                    Long timestamp = Long.valueOf(time);
+                                    LocalDateTime localDateTime = Instant.ofEpochMilli(timestamp)
+                                            .atZone(ZoneId.systemDefault())
+                                            .toLocalDateTime();
+                                    BeanUtil.setFieldValue(obj, "createTime", localDateTime);
+                                } catch (Exception ignored) {
+                                }
+                            });
+
+                            IService service = serviceMap.get(x);
+                            Class entityClass = service.getEntityClass();
+                            String simpleName = entityClass.getSimpleName();
+                            TableName annotation = (TableName) entityClass.getAnnotation(TableName.class);
+                            String tableName = annotation == null ? StrUtil.toUnderlineCase(simpleName) : annotation.value();
+                            log.info("clear table:{}", tableName);
+                            kvMapper.removeAllData(tableName);
+                            log.info("restore table:{},size:{}", tableName, list.size());
+                            service.saveBatch(list);
+                        }
+                    });
+                    log.info("数据库数据恢复成功");
+                }
+            }
+            
+            log.info("数据恢复成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error("恢复数据失败：{}", e.getLocalizedMessage());
+            throw new OciException(-1, "恢复数据失败");
+        } finally {
+            // 清理解压目录
+            if (unzipDir != null) {
+                try {
+                    // 删除整个临时解压目录
+                    File tempUnzipDirFile = new File(basicDirPath + "temp_unzip_" + 
+                        unzipDir.getParentFile().getName().replace("temp_unzip_", ""));
+                    if (tempUnzipDirFile.exists()) {
+                        FileUtil.del(tempUnzipDirFile);
+                    } else {
+                        FileUtil.del(unzipDir);
+                    }
+                } catch (Exception e) {
+                    log.warn("删除临时目录失败", e);
+                }
+            }
             virtualExecutor.execute(() -> {
                 initGenMfaPng();
                 cleanAndRestartTask();

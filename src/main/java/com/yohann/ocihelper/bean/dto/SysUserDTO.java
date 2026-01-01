@@ -29,6 +29,7 @@ public class SysUserDTO {
     private String rootPassword;
     private String operationSystem = "Ubuntu";
     private List<CloudInstance> instanceList;
+    private boolean joinChannelBroadcast = true;
 
     @Data
     @Builder

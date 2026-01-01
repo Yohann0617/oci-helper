@@ -103,11 +103,12 @@ public class InstanceCreationService {
         params.setCreateNumbers(plan.getCreateNumbers());
         params.setOperationSystem(plan.getOperationSystem());
         params.setRootPassword(password);
+        params.setJoinChannelBroadcast(plan.isJoinChannelBroadcast());
         
         // Call IOciService.createInstance method to create instance task
         ociService.createInstance(params);
         
-        log.info("Successfully called IOciService.createInstance: userId={}, ocpus={}, memory={}, disk={}, arch={}", 
-                 userId, plan.getOcpus(), plan.getMemory(), plan.getDisk(), plan.getArchitecture());
+        log.info("Successfully called IOciService.createInstance: userId={}, ocpus={}, memory={}, disk={}, arch={}, joinChannelBroadcast={}", 
+                 userId, plan.getOcpus(), plan.getMemory(), plan.getDisk(), plan.getArchitecture(), plan.isJoinChannelBroadcast());
     }
 }

@@ -250,6 +250,17 @@ public class CommonUtils {
         return gAuth.authorize(secretKey, userInputOtp);
     }
 
+    /**
+     * Generate current MFA code based on secret key
+     * 
+     * @param secretKey MFA secret key
+     * @return current 6-digit MFA code
+     */
+    public static int generateMfaCode(String secretKey) {
+        GoogleAuthenticator gAuth = new GoogleAuthenticator();
+        return gAuth.getTotpPassword(secretKey);
+    }
+
     public static List<OciUser> parseConfigContent(String configContent) throws IOException {
         // 检查并移除 UTF-8 BOM
 //        if (configContent.startsWith("\uFEFF")) {
