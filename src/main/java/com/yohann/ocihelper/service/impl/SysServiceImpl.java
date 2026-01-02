@@ -210,7 +210,7 @@ public class SysServiceImpl implements ISysService {
                             GoogleLoginConfigDTO googleConfig = new GoogleLoginConfigDTO();
                             googleConfig.setEnabled(params.getEnableGoogleLogin() != null ? params.getEnableGoogleLogin() : false);
                             googleConfig.setClientId(params.getGoogleClientId());
-                            googleConfig.setAllowedEmailSuffixes(params.getGoogleAllowedEmailSuffixes());
+                            googleConfig.setAllowedEmails(params.getAllowedEmails());
                             ociKv.setValue(JSONUtil.toJsonStr(googleConfig));
                             break;
                         default:
@@ -278,17 +278,17 @@ public class SysServiceImpl implements ISysService {
                 GoogleLoginConfigDTO googleConfig = JSONUtil.toBean(googleLoginJson, GoogleLoginConfigDTO.class);
                 rsp.setEnableGoogleLogin(googleConfig.getEnabled());
                 rsp.setGoogleClientId(googleConfig.getClientId());
-                rsp.setGoogleAllowedEmailSuffixes(googleConfig.getAllowedEmailSuffixes());
+                rsp.setAllowedEmails(googleConfig.getAllowedEmails());
             } catch (Exception e) {
                 log.error("解析Google登录配置失败：{}", e.getMessage());
                 rsp.setEnableGoogleLogin(false);
                 rsp.setGoogleClientId(null);
-                rsp.setGoogleAllowedEmailSuffixes(null);
+                rsp.setAllowedEmails(null);
             }
         } else {
             rsp.setEnableGoogleLogin(false);
             rsp.setGoogleClientId(null);
-            rsp.setGoogleAllowedEmailSuffixes(null);
+            rsp.setAllowedEmails(null);
         }
 
         OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
@@ -749,6 +749,8 @@ public class SysServiceImpl implements ISysService {
     @Override
     public LoginRsp googleLogin(GoogleLoginParams params) {
         String clientIp = CommonUtils.getClientIP(request);
+        log.info("收到Google登录请求，IP: {}, credential长度: {}", clientIp,
+                params.getCredential() != null ? params.getCredential().length() : 0);
         try {
             // Get Google login configuration from database
             String googleLoginJson = getCfgValue(SysCfgEnum.GOOGLE_ONE_CLICK_LOGIN);
@@ -769,44 +771,145 @@ public class SysServiceImpl implements ISysService {
             }
 
             // Verify the Google ID token
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-                    .setAudience(Collections.singletonList(googleConfig.getClientId()))
-                    .build();
+            GoogleIdToken idToken = null;
+            try {
+                log.info("开始验证Google Token, Client ID: {}", googleConfig.getClientId());
 
-            GoogleIdToken idToken = verifier.verify(params.getCredential());
+                // 打印credential的前50个字符（调试用）
+                String credentialPreview = params.getCredential().length() > 50
+                        ? params.getCredential().substring(0, 50) + "..."
+                        : params.getCredential();
+                log.info("Credential 预览: {}", params.getCredential());
+
+                // 重要：确保验证器能访问 Google 的公钥
+                GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                        .setAudience(Collections.singletonList(googleConfig.getClientId()))
+                        .setIssuer("https://accounts.google.com") // 明确指定 issuer
+                        .build();
+
+                log.info("开始调用 verifier.verify()...");
+                idToken = verifier.verify(params.getCredential());
+                log.info("verifier.verify() 返回结果: {}", idToken != null ? "非空" : "NULL");
+
+                if (idToken != null) {
+                    log.info("Token验证成功！");
+                } else {
+                    log.error("Token验证返回null！这可能意味着：");
+                    log.error("1. 服务器无法访问Google的公钥endpoint");
+                    log.error("2. Client ID 不匹配");
+                    log.error("3. Token 签名无效");
+                    // 关键修复：必须抛出异常！
+                    sendMessage(String.format("请求IP：%s Google登录失败，Token验证失败", clientIp));
+                    throw new OciException(-1, "无效的Google凭证：Token验证失败");
+                }
+            } catch (Exception e) {
+                log.error("请求IP：{} Google登录失败，验证token异常：{}", clientIp, e.getMessage(), e);
+                log.error("异常堆栈信息：", e);
+                sendMessage(String.format("请求IP：%s Google登录失败，无效的凭证，异常: %s", clientIp, e.getMessage()));
+                throw new OciException(-1, "无效的Google凭证: " + e.getMessage());
+            }
+
             if (idToken == null) {
-                log.error("请求IP：{} Google登录失败，无效的凭证", clientIp);
+                log.error("请求IP：{} Google登录失败，无效的凭证（token为null）", clientIp);
                 sendMessage(String.format("请求IP：%s Google登录失败，无效的凭证，如果不是本人操作，可能存在被攻击的风险", clientIp));
                 throw new OciException(-1, "无效的Google凭证");
             }
 
             GoogleIdToken.Payload payload = idToken.getPayload();
+
             String email = payload.getEmail();
+            String userId = payload.getSubject(); // Google用户的唯一ID
+            Long expirationTime = payload.getExpirationTimeSeconds();
+            Long issuedAt = payload.getIssuedAtTimeSeconds();
+
+            log.info("Google Token验证成功 - Email: {}, UserID: {}, Issuer: {}, Audience: {}, Exp: {}, Iat: {}",
+                    email, userId, payload.getIssuer(), payload.getAudience(), expirationTime, issuedAt);
+
+            // Check token expiration
+            long currentTime = System.currentTimeMillis() / 1000;
+            if (expirationTime != null && expirationTime < currentTime) {
+                log.error("请求IP：{} Google登录失败，token已过期，过期时间：{}，当前时间：{}",
+                        clientIp, expirationTime, currentTime);
+                throw new OciException(-1, "Google凭证已过期");
+            }
+
+            // Check if token is issued in the future (clock skew attack)
+            if (issuedAt != null && issuedAt > currentTime + 300) { // 5 minutes tolerance
+                log.error("请求IP：{} Google登录失败，token的签发时间在未来，签发时间：{}，当前时间：{}",
+                        clientIp, issuedAt, currentTime);
+                throw new OciException(-1, "无效的Google凭证");
+            }
+
+            // Check token age (should be fresh, not older than 5 minutes)
+            if (issuedAt != null && (currentTime - issuedAt) > 300) {
+                log.warn("请求IP：{} Google登录使用了较旧的token，签发时间：{}，当前时间：{}，差值：{}秒",
+                        clientIp, issuedAt, currentTime, (currentTime - issuedAt));
+                // Not throwing error, just warning for now
+            }
+
+            // Anti-replay attack: check if token has been used before
+            String tokenHash = CommonUtils.getMD5(params.getCredential());
+            String cacheKey = "GOOGLE_TOKEN_USED:" + tokenHash;
+            Object usedToken = customCache.get(cacheKey);
+            if (usedToken != null) {
+                log.error("请求IP：{} Google登录失败，该token已被使用过，可能是重放攻击！Email: {}", clientIp, email);
+                sendMessage(String.format("请求IP：%s 尝试重复使用Google登录token，可能是攻击行为！Email: %s", clientIp, email));
+                throw new OciException(-1, "该Google凭证已被使用，请重新登录");
+            }
+            // Mark token as used (cache for exp time or 1 hour, whichever is longer)
+            long cacheDuration = expirationTime != null ? (expirationTime - currentTime + 3600) : 3600;
+            customCache.put(cacheKey, true, cacheDuration);
+
+            // Additional security checks
+            String issuer = payload.getIssuer();
+            if (!"https://accounts.google.com".equals(issuer) && !"accounts.google.com".equals(issuer)) {
+                log.error("请求IP：{} Google登录失败，无效的issuer：{}", clientIp, issuer);
+                sendMessage(String.format("请求IP：%s Google登录失败，无效的issuer: %s", clientIp, issuer));
+                throw new OciException(-1, "无效的Google凭证");
+            }
+
+            String audience = (String) payload.getAudience();
+            if (!googleConfig.getClientId().equals(audience)) {
+                log.error("请求IP：{} Google登录失败，无效的audience：{}，期望：{}", clientIp, audience, googleConfig.getClientId());
+                sendMessage(String.format("请求IP：%s Google登录失败，无效的audience", clientIp));
+                throw new OciException(-1, "无效的Google凭证");
+            }
+
             boolean emailVerified = payload.getEmailVerified();
             String name = (String) payload.get("name");
             String pictureUrl = (String) payload.get("picture");
+
+            log.info("请求IP：{} 尝试使用Google账号 {} 登录", clientIp, email);
 
             if (!emailVerified) {
                 log.error("请求IP：{} Google登录失败，邮箱未验证", clientIp);
                 throw new OciException(-1, "Google邮箱未验证");
             }
 
-            // Validate email suffix if configured
-            if (StrUtil.isNotBlank(googleConfig.getAllowedEmailSuffixes())) {
-                String[] allowedSuffixes = googleConfig.getAllowedEmailSuffixes().split(",");
-                boolean isAllowed = false;
-                for (String suffix : allowedSuffixes) {
-                    String trimmedSuffix = suffix.trim();
-                    if (StrUtil.isNotBlank(trimmedSuffix) && email.toLowerCase().endsWith(trimmedSuffix.toLowerCase())) {
-                        isAllowed = true;
-                        break;
-                    }
+            // Validate email whitelist - must be configured
+            if (StrUtil.isBlank(googleConfig.getAllowedEmails())) {
+                log.error("请求IP：{} Google登录失败，未配置允许的邮箱白名单", clientIp);
+                sendMessage(String.format("请求IP：%s 尝试使用邮箱 %s Google登录，但未配置白名单", clientIp, email));
+                throw new OciException(-1, "系统管理员未配置允许登录的Google账号白名单");
+            }
+
+            // Check if email is in whitelist (exact match)
+            String[] allowedEmailsArray = googleConfig.getAllowedEmails().split(",");
+            boolean isAllowed = false;
+            for (String allowedEmail : allowedEmailsArray) {
+                String trimmedEmail = allowedEmail.trim();
+                if (StrUtil.isNotBlank(trimmedEmail) && email.equalsIgnoreCase(trimmedEmail)) {
+                    isAllowed = true;
+                    log.info("邮箱 {} 在白名单中，允许登录", email);
+                    break;
                 }
-                if (!isAllowed) {
-                    log.error("请求IP：{} Google登录失败，邮箱 {} 不在允许的后缀列表中", clientIp, email);
-                    sendMessage(String.format("请求IP：%s Google登录失败，邮箱 %s 不在允许的后缀列表中，如果不是本人操作，可能存在被攻击的风险", clientIp, email));
-                    throw new OciException(-1, "该Google账号不在允许登录的账号列表中");
-                }
+            }
+
+            if (!isAllowed) {
+                log.error("请求IP：{} Google登录失败，邮箱 {} 不在允许的白名单中", clientIp, email);
+                log.error("当前配置的白名单：{}", googleConfig.getAllowedEmails());
+                sendMessage(String.format("请求IP：%s 尝试使用未授权的Google账号 %s 登录，如果不是本人操作，可能存在被放击的风险！", clientIp, email));
+                throw new OciException(-1, "该Google账号不在允许登录的账号白名单中");
             }
 
             // Generate JWT token

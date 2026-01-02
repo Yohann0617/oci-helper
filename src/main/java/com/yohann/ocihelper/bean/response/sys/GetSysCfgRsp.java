@@ -28,6 +28,6 @@ public class GetSysCfgRsp {
     private String bootBroadcastToken;
     private Boolean enableGoogleLogin;
     private String googleClientId;
-    private String googleAllowedEmailSuffixes;
+    private String allowedEmails;
 
 }

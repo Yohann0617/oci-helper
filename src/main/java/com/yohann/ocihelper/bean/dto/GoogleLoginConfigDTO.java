@@ -27,7 +27,8 @@ public class GoogleLoginConfigDTO {
     private String clientId;
 
     /**
-     * 允许登录的Google账号后缀（逗号分隔，例如：@gmail.com,@company.com）
+     * 允许登录的Google账号列表（逗号分隔，必须是完整邮箱地址）
+     * 例如：user1@gmail.com,user2@company.com,admin@example.com
      */
-    private String allowedEmailSuffixes;
+    private String allowedEmails;
 }
