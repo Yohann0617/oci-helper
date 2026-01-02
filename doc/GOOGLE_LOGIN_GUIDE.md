@@ -34,17 +34,23 @@
 4. 创建 OAuth 客户端 ID：
    - 应用类型：选择"Web 应用"
    - 名称：`OCI Helper Web`
-   - 已获授权的 JavaScript 来源：
+   - 已获授权的 JavaScript 来源示例：
      ```
      http://localhost:5173
      http://localhost:8080
      https://yourdomain.com
      ```
-   - 已获授权的重定向 URI：
+   - 已获授权的重定向 URI 示例：
      ```
      http://localhost:5173
      http://localhost:8080
      https://yourdomain.com
+     ```
+   - 手机端已获授权的重定向 URI 示例：
+     ```
+     http://localhost:5173/google-callback
+     http://localhost:8080/google-callback
+     https://yourdomain.com/google-callback
      ```
    - 点击"创建"
 
@@ -56,10 +62,7 @@
 3. 找到"Google OAuth 配置"卡片
 4. 启用"Google 一键登录"开关
 5. 粘贴 Google Client ID
-6. （可选）设置允许登录的 Google 账号后缀，例如：
-   - `@gmail.com` - 只允许 Gmail 账号
-   - `@yourcompany.com` - 只允许企业邮箱
-   - 留空 - 允许所有 Google 账号
+6. 设置允许登录的 Google 账号
 7. 点击"保存"按钮
 
 ---
