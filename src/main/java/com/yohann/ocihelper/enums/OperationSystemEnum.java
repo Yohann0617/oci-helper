@@ -40,10 +40,10 @@ public enum OperationSystemEnum {
         for (OperationSystemEnum value : values) {
             if (value.getType().equals(type)){
                 if (value.getType().equals("Canonical Ubuntu")){
-                    return OperationSystemEnum.UBUNTU_22_04_MINIMAL;
+                    return OperationSystemEnum.UBUNTU_22_04;
                 }
             }
         }
-        return OperationSystemEnum.UBUNTU_22_04_MINIMAL;
+        return OperationSystemEnum.UBUNTU_22_04;
     }
 }
