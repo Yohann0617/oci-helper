@@ -24,4 +24,7 @@ public class UpdateSysCfgParams {
 
     private String gjAiApi;
     private String bootBroadcastToken;
+    private Boolean enableGoogleLogin;
+    private String googleClientId;
+    private String googleAllowedEmailSuffixes;
 }

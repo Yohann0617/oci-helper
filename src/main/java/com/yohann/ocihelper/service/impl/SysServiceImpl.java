@@ -15,6 +15,10 @@ import cn.hutool.system.SystemUtil;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 
 import java.io.*;
 import java.nio.charset.Charset;
@@ -25,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import com.yohann.ocihelper.bean.constant.CacheConstant;
+import com.yohann.ocihelper.bean.dto.GoogleLoginConfigDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.IpData;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
@@ -201,6 +206,13 @@ public class SysServiceImpl implements ISysService {
                         case BOOT_BROADCAST_TOKEN:
                             ociKv.setValue(params.getBootBroadcastToken());
                             break;
+                        case GOOGLE_ONE_CLICK_LOGIN:
+                            GoogleLoginConfigDTO googleConfig = new GoogleLoginConfigDTO();
+                            googleConfig.setEnabled(params.getEnableGoogleLogin() != null ? params.getEnableGoogleLogin() : false);
+                            googleConfig.setClientId(params.getGoogleClientId());
+                            googleConfig.setAllowedEmailSuffixes(params.getGoogleAllowedEmailSuffixes());
+                            ociKv.setValue(JSONUtil.toJsonStr(googleConfig));
+                            break;
                         default:
                             break;
                     }
@@ -258,6 +270,26 @@ public class SysServiceImpl implements ISysService {
         rsp.setEnableVersionInform(Boolean.valueOf(null == evunValue ? EnableEnum.ON.getCode() : evunValue));
         rsp.setGjAiApi(getCfgValue(SysCfgEnum.SILICONFLOW_AI_API));
         rsp.setBootBroadcastToken(getCfgValue(SysCfgEnum.BOOT_BROADCAST_TOKEN));
+
+        // Parse Google login configuration from JSON
+        String googleLoginJson = getCfgValue(SysCfgEnum.GOOGLE_ONE_CLICK_LOGIN);
+        if (StrUtil.isNotBlank(googleLoginJson)) {
+            try {
+                GoogleLoginConfigDTO googleConfig = JSONUtil.toBean(googleLoginJson, GoogleLoginConfigDTO.class);
+                rsp.setEnableGoogleLogin(googleConfig.getEnabled());
+                rsp.setGoogleClientId(googleConfig.getClientId());
+                rsp.setGoogleAllowedEmailSuffixes(googleConfig.getAllowedEmailSuffixes());
+            } catch (Exception e) {
+                log.error("解析Google登录配置失败：{}", e.getMessage());
+                rsp.setEnableGoogleLogin(false);
+                rsp.setGoogleClientId(null);
+                rsp.setGoogleAllowedEmailSuffixes(null);
+            }
+        } else {
+            rsp.setEnableGoogleLogin(false);
+            rsp.setGoogleClientId(null);
+            rsp.setGoogleAllowedEmailSuffixes(null);
+        }
 
         OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                 .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
@@ -324,7 +356,7 @@ public class SysServiceImpl implements ISysService {
             log.error("备份文件失败：{}", e.getLocalizedMessage());
             throw new OciException(-1, "备份文件失败");
         } finally {
-                        FileUtil.del(tempDir);
+            FileUtil.del(tempDir);
             FileUtil.del(dataFile);
             FileUtil.del(outEncZip);
         }
@@ -363,11 +395,11 @@ public class SysServiceImpl implements ISysService {
             // Return the zip file path instead of writing to response
             String backupFilePath = zipFile.getFile().getAbsolutePath();
             log.info("备份文件创建成功: {}", backupFilePath);
-            
+
             // Don't delete the zip file, caller will handle it
             FileUtil.del(tempDir);
             FileUtil.del(dataFile);
-            
+
             return backupFilePath;
         } catch (Exception e) {
             log.error("备份文件失败：{}", e.getLocalizedMessage());
@@ -452,34 +484,34 @@ public class SysServiceImpl implements ISysService {
         } finally {
             FileUtil.del(tempZip);
             FileUtil.del(unzipDir);
-                        virtualExecutor.execute(() -> {
+            virtualExecutor.execute(() -> {
                 initGenMfaPng();
                 cleanAndRestartTask();
             });
         }
     }
 
-        @Override
+    @Override
     public void recoverFromFile(String backupFilePath, String password) {
         String basicDirPath = System.getProperty("user.dir") + File.separator;
         File tempZip = new File(backupFilePath);
         File unzipDir = null;
-        
+
         if (!tempZip.exists()) {
             throw new OciException(-1, "备份文件不存在");
         }
-        
+
         try {
             // 解压到临时目录
             String tempUnzipDir = basicDirPath + "temp_unzip_" + System.currentTimeMillis();
             new File(tempUnzipDir).mkdirs();
-            
+
             CommonUtils.unzipFile(tempUnzipDir, password, tempZip.getAbsolutePath());
 
             // 查找解压后的备份目录（应该是 oci-helper-backup-* 格式）
             File tempUnzipDirFile = new File(tempUnzipDir);
             File[] subDirs = tempUnzipDirFile.listFiles(File::isDirectory);
-            
+
             if (subDirs == null || subDirs.length == 0) {
                 // 没有子目录，直接使用解压目录
                 unzipDir = tempUnzipDirFile;
@@ -487,11 +519,11 @@ public class SysServiceImpl implements ISysService {
                 // 使用第一个子目录（应该是备份目录）
                 unzipDir = subDirs[0];
             }
-            
+
             if (!unzipDir.exists() || unzipDir.listFiles() == null || unzipDir.listFiles().length == 0) {
                 throw new OciException(-1, "解压失败或备份文件为空");
             }
-            
+
             log.info("备份文件解压成功: {}", unzipDir.getAbsolutePath());
 
             for (File unzipFile : unzipDir.listFiles()) {
@@ -544,7 +576,7 @@ public class SysServiceImpl implements ISysService {
                     log.info("数据库数据恢复成功");
                 }
             }
-            
+
             log.info("数据恢复成功");
         } catch (Exception e) {
             e.printStackTrace();
@@ -555,8 +587,8 @@ public class SysServiceImpl implements ISysService {
             if (unzipDir != null) {
                 try {
                     // 删除整个临时解压目录
-                    File tempUnzipDirFile = new File(basicDirPath + "temp_unzip_" + 
-                        unzipDir.getParentFile().getName().replace("temp_unzip_", ""));
+                    File tempUnzipDirFile = new File(basicDirPath + "temp_unzip_" +
+                            unzipDir.getParentFile().getName().replace("temp_unzip_", ""));
                     if (tempUnzipDirFile.exists()) {
                         FileUtil.del(tempUnzipDirFile);
                     } else {
@@ -711,6 +743,120 @@ public class SysServiceImpl implements ISysService {
             log.info("Start the version update task...");
         } else {
             log.error("version update task exec error,exitCode:{}", exitCode);
+        }
+    }
+
+    @Override
+    public LoginRsp googleLogin(GoogleLoginParams params) {
+        String clientIp = CommonUtils.getClientIP(request);
+        try {
+            // Get Google login configuration from database
+            String googleLoginJson = getCfgValue(SysCfgEnum.GOOGLE_ONE_CLICK_LOGIN);
+            if (StrUtil.isBlank(googleLoginJson)) {
+                log.error("请求IP：{} Google登录失败，Google登录功能未配置", clientIp);
+                throw new OciException(-1, "Google登录功能未配置");
+            }
+
+            GoogleLoginConfigDTO googleConfig = JSONUtil.toBean(googleLoginJson, GoogleLoginConfigDTO.class);
+            if (googleConfig.getEnabled() == null || !googleConfig.getEnabled()) {
+                log.error("请求IP：{} Google登录失败，Google登录功能未启用", clientIp);
+                throw new OciException(-1, "Google登录功能未启用");
+            }
+
+            if (StrUtil.isBlank(googleConfig.getClientId())) {
+                log.error("请求IP：{} Google登录失败，Google Client ID未配置", clientIp);
+                throw new OciException(-1, "Google Client ID未配置");
+            }
+
+            // Verify the Google ID token
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleConfig.getClientId()))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(params.getCredential());
+            if (idToken == null) {
+                log.error("请求IP：{} Google登录失败，无效的凭证", clientIp);
+                sendMessage(String.format("请求IP：%s Google登录失败，无效的凭证，如果不是本人操作，可能存在被攻击的风险", clientIp));
+                throw new OciException(-1, "无效的Google凭证");
+            }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            boolean emailVerified = payload.getEmailVerified();
+            String name = (String) payload.get("name");
+            String pictureUrl = (String) payload.get("picture");
+
+            if (!emailVerified) {
+                log.error("请求IP：{} Google登录失败，邮箱未验证", clientIp);
+                throw new OciException(-1, "Google邮箱未验证");
+            }
+
+            // Validate email suffix if configured
+            if (StrUtil.isNotBlank(googleConfig.getAllowedEmailSuffixes())) {
+                String[] allowedSuffixes = googleConfig.getAllowedEmailSuffixes().split(",");
+                boolean isAllowed = false;
+                for (String suffix : allowedSuffixes) {
+                    String trimmedSuffix = suffix.trim();
+                    if (StrUtil.isNotBlank(trimmedSuffix) && email.toLowerCase().endsWith(trimmedSuffix.toLowerCase())) {
+                        isAllowed = true;
+                        break;
+                    }
+                }
+                if (!isAllowed) {
+                    log.error("请求IP：{} Google登录失败，邮箱 {} 不在允许的后缀列表中", clientIp, email);
+                    sendMessage(String.format("请求IP：%s Google登录失败，邮箱 %s 不在允许的后缀列表中，如果不是本人操作，可能存在被攻击的风险", clientIp, email));
+                    throw new OciException(-1, "该Google账号不在允许登录的账号列表中");
+                }
+            }
+
+            // Generate JWT token
+            Map<String, Object> tokenPayload = new HashMap<>(2);
+            tokenPayload.put("account", CommonUtils.getMD5(email));
+            tokenPayload.put("googleUser", true);
+            String token = CommonUtils.genToken(tokenPayload, password);
+
+            // Get version info
+            String latestVersion = CommonUtils.getLatestVersion();
+            String currentVersion = kvService.getObj(new LambdaQueryWrapper<OciKv>()
+                    .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
+                    .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
+                    .select(OciKv::getValue), String::valueOf);
+
+            sendMessage(String.format("Google用户 [%s] 从IP：%s 登录成功，时间：%s",
+                    email, clientIp, LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)));
+
+            LoginRsp rsp = new LoginRsp();
+            rsp.setToken(token);
+            rsp.setCurrentVersion(currentVersion);
+            rsp.setLatestVersion(latestVersion);
+            return rsp;
+        } catch (Exception e) {
+            log.error("请求IP：{} Google登录失败，错误信息：{}", clientIp, e.getMessage(), e);
+            sendMessage(String.format("请求IP：%s Google登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp));
+            if (e instanceof OciException) {
+                throw (OciException) e;
+            }
+            throw new OciException(-1, "Google登录失败：" + e.getMessage());
+        }
+    }
+
+    @Override
+    public String getGoogleClientId() {
+        String googleLoginJson = getCfgValue(SysCfgEnum.GOOGLE_ONE_CLICK_LOGIN);
+        if (StrUtil.isBlank(googleLoginJson)) {
+            return null;
+        }
+
+        try {
+            GoogleLoginConfigDTO googleConfig = JSONUtil.toBean(googleLoginJson, GoogleLoginConfigDTO.class);
+            // Only return client ID if Google login is enabled
+            if (googleConfig.getEnabled() != null && googleConfig.getEnabled()) {
+                return googleConfig.getClientId();
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("解析Google登录配置失败：{}", e.getMessage());
+            return null;
         }
     }
 

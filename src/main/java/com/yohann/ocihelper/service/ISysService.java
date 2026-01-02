@@ -44,7 +44,22 @@ public interface ISysService {
 
     SysUserDTO getOciUser(String ociCfgId, String region, String compartmentId);
 
-    void checkMfaCode(String mfaCode);
+        void checkMfaCode(String mfaCode);
 
     void updateVersion();
+
+    /**
+     * Google one-click login
+     * 
+     * @param params Google login parameters with credential
+     * @return login response with token and version info
+     */
+    LoginRsp googleLogin(GoogleLoginParams params);
+
+    /**
+     * Get Google Client ID for OAuth configuration
+     * 
+     * @return Google Client ID
+     */
+    String getGoogleClientId();
 }

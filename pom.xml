@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.yohann</groupId>
     <artifactId>oci-helper</artifactId>
-    <version>3.3.4</version>
+    <version>3.3.5</version>
     <name>oci-helper</name>
     <description>oci helper</description>
     <properties>
@@ -105,17 +105,30 @@
             <artifactId>googleauth</artifactId>
             <version>1.5.0</version>
         </dependency>
-             
+
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>core</artifactId>
             <version>3.5.3</version>
         </dependency>
-             
+
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>javase</artifactId>
             <version>3.5.3</version>
+        </dependency>
+
+        <!-- Google API Client for OAuth 2.0 -->
+        <dependency>
+            <groupId>com.google.api-client</groupId>
+            <artifactId>google-api-client</artifactId>
+            <version>2.7.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.auth</groupId>
+            <artifactId>google-auth-library-oauth2-http</artifactId>
+            <version>1.30.1</version>
         </dependency>
 
         <dependency>
@@ -238,30 +251,30 @@
         </resources>
     </build>
 
-<!--    <profiles>-->
-<!--        <profile>-->
-<!--            <id>native</id>-->
-<!--            <build>-->
-<!--                <plugins>-->
-<!--                    <plugin>-->
-<!--                        <groupId>org.graalvm.buildtools</groupId>-->
-<!--                        <artifactId>native-maven-plugin</artifactId>-->
-<!--                        <version>0.9.28</version>-->
-<!--                        <executions>-->
-<!--                            <execution>-->
-<!--                                <id>build-native</id>-->
-<!--                                <goals>-->
-<!--                                    <goal>compile</goal>-->
-<!--                                </goals>-->
-<!--                                <configuration>-->
-<!--                                    <mainClass>com.yohann.ocihelper.OciHelperApplication</mainClass>-->
-<!--                                </configuration>-->
-<!--                            </execution>-->
-<!--                        </executions>-->
-<!--                    </plugin>-->
-<!--                </plugins>-->
-<!--            </build>-->
-<!--        </profile>-->
-<!--    </profiles>-->
+    <!--    <profiles>-->
+    <!--        <profile>-->
+    <!--            <id>native</id>-->
+    <!--            <build>-->
+    <!--                <plugins>-->
+    <!--                    <plugin>-->
+    <!--                        <groupId>org.graalvm.buildtools</groupId>-->
+    <!--                        <artifactId>native-maven-plugin</artifactId>-->
+    <!--                        <version>0.9.28</version>-->
+    <!--                        <executions>-->
+    <!--                            <execution>-->
+    <!--                                <id>build-native</id>-->
+    <!--                                <goals>-->
+    <!--                                    <goal>compile</goal>-->
+    <!--                                </goals>-->
+    <!--                                <configuration>-->
+    <!--                                    <mainClass>com.yohann.ocihelper.OciHelperApplication</mainClass>-->
+    <!--                                </configuration>-->
+    <!--                            </execution>-->
+    <!--                        </executions>-->
+    <!--                    </plugin>-->
+    <!--                </plugins>-->
+    <!--            </build>-->
+    <!--        </profile>-->
+    <!--    </profiles>-->
 
 </project>

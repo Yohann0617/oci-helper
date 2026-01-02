@@ -26,5 +26,8 @@ public class GetSysCfgRsp {
 
     private String gjAiApi;
     private String bootBroadcastToken;
+    private Boolean enableGoogleLogin;
+    private String googleClientId;
+    private String googleAllowedEmailSuffixes;
 
 }

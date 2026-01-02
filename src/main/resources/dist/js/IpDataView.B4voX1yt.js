@@ -1,1 +1,0 @@
-import{_ as a}from"./index.BIFCcWVS.js";import{c as t,a as o,o as r}from"./chunk-vendors.YhVR2Zm-.js";const s={},c={class:"container"};function n(_,e){return r(),t("div",c,e[0]||(e[0]=[o("iframe",{src:"/IpData.html"},null,-1)]))}const i=a(s,[["render",n],["__scopeId","data-v-0f9c86ad"]]);export{i as default};

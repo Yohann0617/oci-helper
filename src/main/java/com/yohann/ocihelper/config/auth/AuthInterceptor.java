@@ -25,7 +25,9 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     List<String> noTokenList = Arrays.asList(
             "/api/sys/login",
-            "/api/sys/getEnableMfa"
+            "/api/sys/getEnableMfa",
+            "/api/sys/googleLogin",
+            "/api/sys/getGoogleClientId"
     );
 
 

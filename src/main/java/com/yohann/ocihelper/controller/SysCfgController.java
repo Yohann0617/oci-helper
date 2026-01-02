@@ -45,7 +45,7 @@ public class SysCfgController {
 
     @PostMapping(path = "/getSysCfg")
     public ResponseData<GetSysCfgRsp> getSysCfg() {
-        return ResponseData.successData(sysService.getSysCfg(),"获取系统配置成功");
+        return ResponseData.successData(sysService.getSysCfg(), "获取系统配置成功");
     }
 
     @PostMapping(path = "/updateSysCfg")
@@ -79,6 +79,16 @@ public class SysCfgController {
 
     @GetMapping(path = "/glance")
     public ResponseData<GetGlanceRsp> glance() {
-        return ResponseData.successData(sysService.glance(),"获取仪表盘数据成功");
+        return ResponseData.successData(sysService.glance(), "获取仪表盘数据成功");
+    }
+
+    @PostMapping(path = "/googleLogin")
+    public ResponseData<LoginRsp> googleLogin(@Validated @RequestBody GoogleLoginParams params) {
+        return ResponseData.successData(sysService.googleLogin(params), "Google登录成功");
+    }
+
+    @PostMapping(path = "/getGoogleClientId")
+    public ResponseData<String> getGoogleClientId() {
+        return ResponseData.successData(sysService.getGoogleClientId(), "获取Google Client ID成功");
     }
 }
