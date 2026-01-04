@@ -110,9 +110,9 @@ class SshSetupHandler extends AbstractCallbackHandler {
         
         String text = "🔧 *配置 SSH 连接*\n\n" +
                      "请按以下格式发送连接信息：\n\n" +
-                     "/ssh_config host port username password\n\n" +
+                     "/ssh\\_config host port username password\n\n" +
                      "📝 示例：\n" +
-                     "/ssh_config 192.168.1.100 22 root mypassword\n\n" +
+                     "/ssh\\_config 192.168.1.100 22 root mypassword\n\n" +
                      "⚠️ 注意：\n" +
                      "• 参数之间用空格分隔\n" +
                      "• 端口号默认为 22\n" +

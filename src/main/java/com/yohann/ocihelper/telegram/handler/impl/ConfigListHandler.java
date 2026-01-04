@@ -93,7 +93,7 @@ public class ConfigListHandler extends AbstractCallbackHandler {
         keyboard.add(KeyboardBuilder.buildCancelRow());
         
         String message = String.format(
-                "【配置列表】\n\n共 %d 个配置，当前第 %d/%d 页\n请选择需要开机的配置：", 
+                "【配置列表】\n\n共 %d 个配置，当前第 %d/%d 页\n请选择需要操作的配置：",
                 userList.size(), 
                 currentPage + 1, 
                 totalPages
