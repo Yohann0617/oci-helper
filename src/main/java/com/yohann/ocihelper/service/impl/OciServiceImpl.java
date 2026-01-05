@@ -605,6 +605,7 @@ public class OciServiceImpl implements IOciService {
             try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(ociUser)) {
                 fetcher.getAvailabilityDomains();
             } catch (Exception e) {
+                log.error("配置：[{}] 测活失败", ociUser.getUsername(), e);
                 return true;
             }
             return false;
