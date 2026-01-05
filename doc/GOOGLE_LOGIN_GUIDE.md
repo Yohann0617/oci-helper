@@ -54,6 +54,8 @@
      ```
    - 点击"创建"
 
+![google_login_config](../img/google-login-config.png)
+
 5. **保存客户端 ID**（格式类似：`123456789-abcdefg.apps.googleusercontent.com`）
 
 ### 步骤 5: 在系统中配置
@@ -83,8 +85,8 @@
 
 ![block_one_login](../img/block_one_login.png)
 
-### Q3: 登录失败，提示"该 Google 账号不在允许的域名列表中"
-**A**: 检查系统配置中的"允许登录的 Google 账号后缀"是否包含您的邮箱后缀
+### Q3: 登录失败，提示"该 Google 账号不在允许的列表中"
+**A**: 检查系统配置中的"允许登录的 Google 账号"是否包含您的邮箱
 
 ### Q4: 开发环境提示"Access blocked: This app's request is invalid"
 **A**: 
@@ -99,10 +101,10 @@
 3. 服务器时间是否准确
 
 ### Q6: 如何限制只允许企业邮箱登录？
-**A**: 在系统配置的"允许登录的 Google 账号后缀"中填写：`@yourcompany.com`
+**A**: 在系统配置的"允许登录的 Google 账号"中填写：`abc@yourcompany.com`
 
 ### Q7: 可以配置多个允许的域名吗？
-**A**: 可以，使用逗号分隔，例如：`@gmail.com,@company1.com,@company2.com`
+**A**: 可以，使用英文逗号分隔，例如：`abc@gmail.com,aaa@company1.com,bbb@company2.com`
 
 ---
 

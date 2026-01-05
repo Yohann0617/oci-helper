@@ -214,7 +214,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 > TG操作
 
-![image.png](./img/9-tg-bot-1.jpg)
+![image.png](./img/9-tg-bot.jpg)
 
 <details>
     <summary> ☜ 点击查看更多 👨‍💻</summary>
@@ -237,8 +237,7 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 ![image.png](./img/7-backup.png)
 ![image.png](./img/7-cf.png)
 ![image.png](./img/8-inform.png)
-![image.png](./img/9-tg-bot-1.jpg)
-![image.png](./img/9-tg-bot-2.jpg)
+![image.png](./img/9-tg-bot.jpg)
 
 </details>
 
