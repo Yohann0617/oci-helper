@@ -181,11 +181,15 @@ public class OciServiceImpl implements IOciService {
                     .tenancyId(sysUserDTO.getOciCfg().getTenantId())
                     .build()).getTenancy();
             ociUser.setTenantName(tenancy.getName());
-            ociUser.setTenantCreateTime(LocalDateTime.parse(fetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
+            try {
+                ociUser.setTenantCreateTime(LocalDateTime.parse(fetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
+            } catch (Exception ignored) {
+
+            }
         } catch (Exception e) {
             log.error("配置:[{}],区域:[{}],不生效,错误信息:[{}]",
                     ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
-            throw new OciException(-1, "配置不生效，请检查密钥与配置项是否准确无误");
+            throw new OciException(-1, "配置不生效，请检查密钥与配置项是否准确无误，注意：新生成的API需要等待10分钟左右生效");
         }
         userService.save(ociUser);
     }
