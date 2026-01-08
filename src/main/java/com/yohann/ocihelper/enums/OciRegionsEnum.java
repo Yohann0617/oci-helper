@@ -1,7 +1,9 @@
 package com.yohann.ocihelper.enums;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * @author Yohann
@@ -106,5 +108,16 @@ public enum OciRegionsEnum {
                 .filter(r -> r.id.equalsIgnoreCase(id))
                 .map(OciRegionsEnum::getName)
                 .findFirst();
+    }
+
+    public static List<String> getBroadcastAmdRegions() {
+        return Arrays.asList(
+                AP_SINGAPORE_1,
+                EU_MADRID_1,
+                EU_MADRID_3,
+                AF_JOHANNESBURG_1,
+                MX_QUERETARO_1,
+                EU_PARIS_1
+        ).parallelStream().map(OciRegionsEnum::getId).collect(Collectors.toList());
     }
 }

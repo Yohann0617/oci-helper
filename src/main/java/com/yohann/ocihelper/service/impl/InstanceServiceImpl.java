@@ -180,7 +180,7 @@ public class InstanceServiceImpl implements IInstanceService {
                         try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
                                 .form("region", OciRegionsEnum.getKeyById(instanceDetail.getRegion()))
                                 .form("arch", arch)
-                                .form("token", bootBroadcastTokenCfg.getValue())
+                                .form("token", bootBroadcastTokenCfg == null ? null : bootBroadcastTokenCfg.getValue())
                                 .timeout(20_000)
                                 .execute()) {
 
@@ -202,30 +202,32 @@ public class InstanceServiceImpl implements IInstanceService {
 
                     // TG 频道消息推送
                     if (fetcher.getUser().isJoinChannelBroadcast()) {
-                        String channelMsg = String.format(CHANNEL_MESSAGE_TEMPLATE,
-                                LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                                instanceDetail.getRegion(),
-                                OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
-                                instanceDetail.getArchitecture(),
-                                instanceDetail.getOcpus().longValue(),
-                                instanceDetail.getMemory().longValue(),
-                                instanceDetail.getDisk(),
-                                currentCount,
-                                createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()));
-                        try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
-                                .form("text", channelMsg)
-                                .timeout(20_000)
-                                .execute()) {
-                            int status = response.getStatus();
-                            String body = response.body();
+                        if (isCanBroadcast(instanceDetail, currentCount)) {
+                            String channelMsg = String.format(CHANNEL_MESSAGE_TEMPLATE,
+                                    LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                                    instanceDetail.getRegion(),
+                                    OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
+                                    instanceDetail.getArchitecture(),
+                                    instanceDetail.getOcpus().longValue(),
+                                    instanceDetail.getMemory().longValue(),
+                                    instanceDetail.getDisk(),
+                                    currentCount,
+                                    createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()));
+                            try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
+                                    .form("text", channelMsg)
+                                    .timeout(20_000)
+                                    .execute()) {
+                                int status = response.getStatus();
+                                String body = response.body();
 
-                            if (status == 200) {
-                                log.info("频道放货信息推送成功");
-                            } else {
-                                log.warn("频道放货推送失败,status:{},body:{}", status, body);
+                                if (status == 200) {
+                                    log.info("频道放货信息推送成功");
+                                } else {
+                                    log.warn("频道放货推送失败,status:{},body:{}", status, body);
+                                }
+                            } catch (Exception e) {
+                                log.error("频道放货推送异常", e);
                             }
-                        } catch (Exception e) {
-                            log.error("频道放货推送异常", e);
                         }
                     }
                 });
@@ -234,6 +236,21 @@ public class InstanceServiceImpl implements IInstanceService {
         }
 
         return new CreateInstanceDTO(instanceList);
+    }
+
+    private static boolean isCanBroadcast(InstanceDetailDTO instanceDetail, Long currentCount) {
+        boolean canBroadcast = false;
+        if (("AMD".equals(instanceDetail.getArchitecture()) || ArchitectureEnum.AMD.getShapeDetail().equals(instanceDetail.getArchitecture()))
+                && OciRegionsEnum.getBroadcastAmdRegions().contains(instanceDetail.getRegion())) {
+            canBroadcast = true;
+        }
+        if ("ARM".equals(instanceDetail.getArchitecture()) || ArchitectureEnum.ARM.getShapeDetail().equals(instanceDetail.getArchitecture())) {
+            canBroadcast = true;
+        }
+        if (currentCount == 1) {
+            canBroadcast = false;
+        }
+        return canBroadcast;
     }
 
     @Override
