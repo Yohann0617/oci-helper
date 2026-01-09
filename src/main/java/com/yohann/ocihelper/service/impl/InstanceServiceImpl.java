@@ -242,14 +242,13 @@ public class InstanceServiceImpl implements IInstanceService {
         boolean canBroadcast = false;
         if ((ArchitectureEnum.AMD.getType().equals(instanceDetail.getArchitecture()) ||
                 ArchitectureEnum.AMD.getShapeDetail().equals(instanceDetail.getArchitecture()))) {
-            canBroadcast = true;
+            canBroadcast = currentCount != 1;
         }
         if (ArchitectureEnum.ARM.getType().equals(instanceDetail.getArchitecture()) ||
                 ArchitectureEnum.ARM.getShapeDetail().equals(instanceDetail.getArchitecture())) {
-            canBroadcast = true;
-        }
-        if (currentCount == 1) {
-            canBroadcast = false;
+            canBroadcast = currentCount != 1;
+            // todo 免费号开机次数=1
+
         }
         return canBroadcast;
     }
