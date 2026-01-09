@@ -240,11 +240,12 @@ public class InstanceServiceImpl implements IInstanceService {
 
     private static boolean isCanBroadcast(InstanceDetailDTO instanceDetail, Long currentCount) {
         boolean canBroadcast = false;
-        if (("AMD".equals(instanceDetail.getArchitecture()) || ArchitectureEnum.AMD.getShapeDetail().equals(instanceDetail.getArchitecture()))
-                && OciRegionsEnum.getBroadcastAmdRegions().contains(instanceDetail.getRegion())) {
+        if ((ArchitectureEnum.AMD.getType().equals(instanceDetail.getArchitecture()) ||
+                ArchitectureEnum.AMD.getShapeDetail().equals(instanceDetail.getArchitecture()))) {
             canBroadcast = true;
         }
-        if ("ARM".equals(instanceDetail.getArchitecture()) || ArchitectureEnum.ARM.getShapeDetail().equals(instanceDetail.getArchitecture())) {
+        if (ArchitectureEnum.ARM.getType().equals(instanceDetail.getArchitecture()) ||
+                ArchitectureEnum.ARM.getShapeDetail().equals(instanceDetail.getArchitecture())) {
             canBroadcast = true;
         }
         if (currentCount == 1) {
