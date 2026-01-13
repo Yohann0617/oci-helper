@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @ClassName VirtualThreadConfig
@@ -15,7 +16,9 @@ import java.util.concurrent.Executors;
 @Configuration
 public class VirtualThreadConfig {
 
-    public final static ExecutorService VIRTUAL_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
+    public final static ExecutorService VIRTUAL_EXECUTOR = Executors.newThreadPerTaskExecutor(Thread.ofVirtual()
+            .name("virtual-thread-", new AtomicInteger(0).incrementAndGet())
+            .factory());
 
     @Bean(destroyMethod = "close")
     public ExecutorService virtualThreadExecutor() {
