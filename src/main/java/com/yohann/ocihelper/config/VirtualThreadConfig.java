@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class VirtualThreadConfig {
 
     public final static ExecutorService VIRTUAL_EXECUTOR = Executors.newThreadPerTaskExecutor(Thread.ofVirtual()
-            .name("virtual-thread-", new AtomicInteger(0).incrementAndGet())
+            .name("virtual-thread")
             .factory());
 
     @Bean(destroyMethod = "close")
