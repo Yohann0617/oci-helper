@@ -56,24 +56,36 @@ public class IpDataServiceImpl extends ServiceImpl<IpDataMapper, IpData> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void add(AddIpDataParams params) {
-        String jsonStr = HttpUtil.get(String.format("https://ipapi.co/%s/json", params.getIp()));
-        JSONObject json = JSONUtil.parseObj(jsonStr);
-        IpData ipData = new IpData();
-        ipData.setId(IdUtil.getSnowflakeNextIdStr());
-        ipData.setIp(json.getStr("ip"));
-        ipData.setCountry(json.getStr("country"));
-        ipData.setArea(json.getStr("region"));
-        ipData.setCity(json.getStr("city"));
-        ipData.setOrg(json.getStr("org"));
-        ipData.setAsn(json.getStr("asn"));
-        ipData.setLat(Double.valueOf(json.getStr("latitude")));
-        ipData.setLng(Double.valueOf(json.getStr("longitude")));
-        List<IpData> ipDataList = this.list(new LambdaQueryWrapper<IpData>()
-                .eq(IpData::getIp, json.getStr("ip")));
-        if (CollectionUtil.isNotEmpty(ipDataList)) {
-            this.remove(new LambdaQueryWrapper<IpData>().eq(IpData::getIp, json.getStr("ip")));
+        try {
+            String jsonStr = HttpUtil.get(String.format("http://ip-api.com/json/%s?fields=status,message,country,regionName,city,lat,lon,org,as,query", params.getIp()));
+            JSONObject json = JSONUtil.parseObj(jsonStr);
+
+            // Check API response status
+            if (!"success".equals(json.getStr("status"))) {
+                throw new OciException(-1, "IP查询失败: " + json.getStr("message"));
+            }
+
+            IpData ipData = new IpData();
+            ipData.setId(IdUtil.getSnowflakeNextIdStr());
+            ipData.setIp(json.getStr("query"));
+            ipData.setCountry(json.getStr("country"));
+            ipData.setArea(json.getStr("regionName"));
+            ipData.setCity(json.getStr("city"));
+            ipData.setOrg(json.getStr("org"));
+            ipData.setAsn(json.getStr("as"));
+            ipData.setLat(json.getDouble("lat"));
+            ipData.setLng(json.getDouble("lon"));
+
+            List<IpData> ipDataList = this.list(new LambdaQueryWrapper<IpData>()
+                    .eq(IpData::getIp, json.getStr("query")));
+            if (CollectionUtil.isNotEmpty(ipDataList)) {
+                this.remove(new LambdaQueryWrapper<IpData>().eq(IpData::getIp, json.getStr("query")));
+            }
+            this.save(ipData);
+        } catch (Exception e) {
+            log.error("Failed to add IP data for: {}", params.getIp(), e);
+            throw new OciException(-1, "IP数据添加失败: " + e.getMessage());
         }
-        this.save(ipData);
     }
 
     @Override
@@ -102,18 +114,25 @@ public class IpDataServiceImpl extends ServiceImpl<IpDataMapper, IpData> impleme
                         }
                         for (String z : y.getPublicIp()) {
                             try {
-                                String jsonStr = HttpUtil.get(String.format("https://ipapi.co/%s/json", z));
+                                String jsonStr = HttpUtil.get(String.format("http://ip-api.com/json/%s?fields=status,message,country,regionName,city,lat,lon,org,as,query", z));
                                 JSONObject json = JSONUtil.parseObj(jsonStr);
+
+                                // Check API response status
+                                if (!"success".equals(json.getStr("status"))) {
+                                    log.warn("IP查询失败: IP={}, message={}", z, json.getStr("message"));
+                                    continue;
+                                }
+
                                 IpData ipData = new IpData();
                                 ipData.setId(IdUtil.getSnowflakeNextIdStr());
-                                ipData.setIp(json.getStr("ip"));
+                                ipData.setIp(json.getStr("query"));
                                 ipData.setCountry(json.getStr("country"));
-                                ipData.setArea(json.getStr("region"));
+                                ipData.setArea(json.getStr("regionName"));
                                 ipData.setCity(json.getStr("city"));
                                 ipData.setOrg(json.getStr("org"));
-                                ipData.setAsn(json.getStr("asn"));
-                                ipData.setLat(json.getDouble("latitude"));
-                                ipData.setLng(json.getDouble("longitude"));
+                                ipData.setAsn(json.getStr("as"));
+                                ipData.setLat(json.getDouble("lat"));
+                                ipData.setLng(json.getDouble("lon"));
                                 ipData.setType(IpDataTypeEnum.IP_DATA_ORACLE.getCode());
                                 if (this.save(ipData)) {
                                     log.info("oci配置：[{}]，区域：[{}]，IP地址：[{}] 已添加至地图IP数据", ociUser.getUsername(), ociUser.getOciCfg().getRegion(), z);
@@ -133,17 +152,28 @@ public class IpDataServiceImpl extends ServiceImpl<IpDataMapper, IpData> impleme
     @Transactional(rollbackFor = Exception.class)
     public void updateIpData(UpdateIpDataParams params) {
         IpData ipData = Optional.ofNullable(this.getById(params.getId())).orElseThrow(() -> new OciException(-1, "当前记录不存在"));
-        String jsonStr = HttpUtil.get(String.format("https://ipapi.co/%s/json", ipData.getIp()));
-        JSONObject json = JSONUtil.parseObj(jsonStr);
-        this.update(new LambdaUpdateWrapper<IpData>().eq(IpData::getId, params.getId())
-                .set(IpData::getIp, json.getStr("ip"))
-                .set(IpData::getCountry, json.getStr("country"))
-                .set(IpData::getArea, json.getStr("region"))
-                .set(IpData::getCity, json.getStr("city"))
-                .set(IpData::getOrg, json.getStr("org"))
-                .set(IpData::getAsn, json.getStr("asn"))
-                .set(IpData::getLat, json.getDouble("latitude"))
-                .set(IpData::getLng, json.getDouble("longitude")));
+        try {
+            String jsonStr = HttpUtil.get(String.format("http://ip-api.com/json/%s?fields=status,message,country,regionName,city,lat,lon,org,as,query", ipData.getIp()));
+            JSONObject json = JSONUtil.parseObj(jsonStr);
+
+            // Check API response status
+            if (!"success".equals(json.getStr("status"))) {
+                throw new OciException(-1, "IP查询失败: " + json.getStr("message"));
+            }
+
+            this.update(new LambdaUpdateWrapper<IpData>().eq(IpData::getId, params.getId())
+                    .set(IpData::getIp, json.getStr("query"))
+                    .set(IpData::getCountry, json.getStr("country"))
+                    .set(IpData::getArea, json.getStr("regionName"))
+                    .set(IpData::getCity, json.getStr("city"))
+                    .set(IpData::getOrg, json.getStr("org"))
+                    .set(IpData::getAsn, json.getStr("as"))
+                    .set(IpData::getLat, json.getDouble("lat"))
+                    .set(IpData::getLng, json.getDouble("lon")));
+        } catch (Exception e) {
+            log.error("Failed to update IP data for: {}", ipData.getIp(), e);
+            throw new OciException(-1, "IP数据更新失败: " + e.getMessage());
+        }
     }
 
     @Override

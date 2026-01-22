@@ -10,24 +10,24 @@ import java.util.Optional;
 
 /**
  * 回调处理器工厂
- * 
+ *
  * @author yohann
  */
 @Slf4j
 @Component
 public class CallbackHandlerFactory {
-    
+
     private final List<CallbackHandler> handlers;
-    
+
     @Autowired
     public CallbackHandlerFactory(List<CallbackHandler> handlers) {
         this.handlers = handlers;
         log.info("已加载 {} 个回调处理器", handlers.size());
     }
-    
+
     /**
      * 根据回调数据获取处理器
-     * 
+     *
      * @param callbackData 回调数据
      * @return 处理器
      */

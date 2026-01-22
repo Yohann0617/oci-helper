@@ -59,7 +59,7 @@ public class KeyboardBuilder {
                                 .callbackData("ssh_management")
                                 .build(),
                         InlineKeyboardButton.builder()
-                                .text("\uD83D\uDEE1\uFE0F 版本信息")
+                                .text("\uD83C\uDFF7\uFE0F 版本信息")
                                 .callbackData("version_info")
                                 .build()
                 ),
@@ -75,6 +75,16 @@ public class KeyboardBuilder {
                         InlineKeyboardButton.builder()
                                 .text("\uD83D\uDCE6 备份恢复")
                                 .callbackData("backup_restore")
+                                .build()
+                ),
+                new InlineKeyboardRow(
+                        InlineKeyboardButton.builder()
+                                .text("\uD83D\uDEAB IP黑名单")
+                                .callbackData("ip_blacklist")
+                                .build(),
+                        InlineKeyboardButton.builder()
+                                .text("\uD83D\uDEE1\uFE0F 防御模式")
+                                .callbackData("defense_mode")
                                 .build()
                 ),
                 new InlineKeyboardRow(

@@ -30,14 +30,24 @@ public class ConfigSessionStorage {
         return INSTANCE;
     }
     
+        /**
+     * Start a session with specific type
+     * 
+     * @param chatId chat ID
+     * @param type session type
+     */
+    public void startSession(long chatId, SessionType type) {
+        SessionState state = new SessionState();
+        state.setType(type);
+        sessions.put(chatId, state);
+        log.debug("Started {} session for chatId: {}", type, chatId);
+    }
+    
     /**
      * Start a VNC configuration session
      */
     public void startVncConfig(long chatId) {
-        SessionState state = new SessionState();
-        state.setType(SessionType.VNC_CONFIG);
-        sessions.put(chatId, state);
-        log.debug("Started VNC config session for chatId: {}", chatId);
+        startSession(chatId, SessionType.VNC_CONFIG);
     }
     
     /**
@@ -108,12 +118,15 @@ public class ConfigSessionStorage {
         private Map<String, Object> data = new ConcurrentHashMap<>();
     }
     
-    /**
+        /**
      * Session type enum
      */
     public enum SessionType {
         VNC_CONFIG,
         BACKUP_PASSWORD,
-        RESTORE_PASSWORD
+        RESTORE_PASSWORD,
+        IP_BLACKLIST_ADD,
+        IP_BLACKLIST_ADD_RANGE,
+        IP_BLACKLIST_REMOVE
     }
 }

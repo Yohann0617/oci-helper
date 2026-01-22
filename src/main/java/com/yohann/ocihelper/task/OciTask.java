@@ -356,27 +356,73 @@ public class OciTask implements ApplicationRunner {
         });
     }
 
-    private void initMapData() {
+        private void initMapData() {
         virtualExecutor.execute(() -> {
-            String jsonStr = HttpUtil.get(String.format("https://ipapi.co/json"));
-            JSONObject json = JSONUtil.parseObj(jsonStr);
-            IpData ipData = new IpData();
-            ipData.setId(IdUtil.getSnowflakeNextIdStr());
-            ipData.setIp(json.getStr("ip"));
-            ipData.setCountry(json.getStr("country"));
-            ipData.setArea(json.getStr("region"));
-            ipData.setCity(json.getStr("city"));
-            ipData.setOrg(json.getStr("org"));
-            ipData.setAsn(json.getStr("asn"));
-            ipData.setLat(Double.valueOf(json.getStr("latitude")));
-            ipData.setLng(Double.valueOf(json.getStr("longitude")));
-            List<IpData> ipDataList = ipDataService.list(new LambdaQueryWrapper<IpData>()
-                    .eq(IpData::getIp, json.getStr("ip")));
-            if (CollectionUtil.isNotEmpty(ipDataList)) {
-                ipDataService.remove(new LambdaQueryWrapper<IpData>().eq(IpData::getIp, json.getStr("ip")));
+            try {
+                // Use ip-api.com - free, no auth required, 45 req/min
+                String jsonStr = HttpUtil.get("http://ip-api.com/json/?fields=status,message,country,regionName,city,lat,lon,org,as,query");
+                
+                // Validate response
+                if (StrUtil.isBlank(jsonStr)) {
+                    log.warn("Failed to get IP data: empty response");
+                    return;
+                }
+                
+                // Check if response is valid JSON (not XML or error page)
+                if (!jsonStr.trim().startsWith("{")) {
+                    log.warn("Failed to get IP data: invalid JSON response");
+                    return;
+                }
+                
+                JSONObject json = JSONUtil.parseObj(jsonStr);
+                
+                // Check if API request was successful
+                String status = json.getStr("status");
+                if (!"success".equals(status)) {
+                    log.warn("IP API returned error status: {}, message: {}", status, json.getStr("message"));
+                    return;
+                }
+                
+                // Validate required fields
+                if (!json.containsKey("query")) {
+                    log.warn("IP API response missing required field 'query'");
+                    return;
+                }
+                
+                String ip = json.getStr("query");
+                
+                IpData ipData = new IpData();
+                ipData.setId(IdUtil.getSnowflakeNextIdStr());
+                ipData.setIp(ip);
+                ipData.setCountry(json.getStr("country"));
+                ipData.setArea(json.getStr("regionName"));
+                ipData.setCity(json.getStr("city"));
+                ipData.setOrg(json.getStr("org"));
+                ipData.setAsn(json.getStr("as"));
+                
+                // Safely parse latitude and longitude
+                try {
+                    Double lat = json.getDouble("lat");
+                    Double lon = json.getDouble("lon");
+                    if (lat != null && lon != null) {
+                        ipData.setLat(lat);
+                        ipData.setLng(lon);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse latitude/longitude: {}", e.getMessage());
+                }
+                
+                List<IpData> ipDataList = ipDataService.list(new LambdaQueryWrapper<IpData>()
+                        .eq(IpData::getIp, ip));
+                if (CollectionUtil.isNotEmpty(ipDataList)) {
+                    ipDataService.remove(new LambdaQueryWrapper<IpData>().eq(IpData::getIp, ip));
+                }
+                ipDataService.save(ipData);
+                log.info("新增地图IP数据：{} 成功", ipData.getIp());
+                
+            } catch (Exception e) {
+                log.error("初始化地图IP数据失败", e);
             }
-            ipDataService.save(ipData);
-            log.info("新增地图IP数据：{} 成功", ipData.getIp());
         });
     }
 }

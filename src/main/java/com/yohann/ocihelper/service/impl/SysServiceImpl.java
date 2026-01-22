@@ -102,6 +102,8 @@ public class SysServiceImpl implements ISysService {
     @Resource
     private IOciKvService kvService;
     @Resource
+    private IpSecurityService ipSecurityService;
+    @Resource
     @Lazy
     private IIpDataService ipDataService;
     @Resource
@@ -131,25 +133,110 @@ public class SysServiceImpl implements ISysService {
     @Override
     public LoginRsp login(LoginParams params) {
         String clientIp = CommonUtils.getClientIP(request);
+
+        // Check if IP is already blacklisted - skip all processing if blocked
+        boolean alreadyBlacklisted = ipSecurityService.isIpBlacklisted(clientIp);
+        if (alreadyBlacklisted) {
+            log.warn("请求IP：{} 登录失败（IP已在黑名单中）", clientIp);
+            throw new OciException(-1, "账号或密码不正确");
+        }
+
+        // Check account first - don't send notification for wrong account
+        if (!params.getAccount().equals(account)) {
+            log.error("请求IP：{} 登录失败（账号错误）", clientIp);
+            // Record login failure but don't send message for wrong account
+            boolean autoBlacklisted = ipSecurityService.recordLoginFailure(clientIp);
+            if (autoBlacklisted) {
+                sendMessage(String.format("⚠️ IP: %s 因登录失败次数过多已被自动拉黑！", clientIp));
+            }
+            throw new OciException(-1, "账号或密码不正确");
+        }
+
+        // Account is correct, check MFA and password - send detailed notifications
         if (getEnableMfa()) {
             if (params.getMfaCode() == null) {
-                log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
-                sendMessage(String.format("请求IP：%s 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp));
+                log.error("请求IP：{} 登录失败（账号正确但MFA验证码为空）", clientIp);
+                boolean autoBlacklisted = ipSecurityService.recordLoginFailure(clientIp);
+                if (autoBlacklisted) {
+                    // IP just got blacklisted, only send blacklist notification
+                    sendMessage(String.format("⚠️ IP: %s 因登录失败次数过多已被自动拉黑！", clientIp));
+                } else {
+                    // Not blacklisted yet, send detailed warning
+                    sendMessage(String.format(
+                            "⚠️ 登录失败警告\n\n" +
+                                    "IP: %s\n" +
+                                    "账号: %s\n" +
+                                    "密码: %s\n" +
+                                    "原因: MFA验证码为空\n" +
+                                    "时间: %s\n\n" +
+                                    "如果不是本人操作，可能存在被攻击的风险！",
+                            clientIp,
+                            params.getAccount(),
+                            maskPassword(params.getPassword()),
+                            LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)
+                    ));
+                }
                 throw new OciException(-1, "验证码不能为空");
             }
             OciKv mfa = kvService.getOne(new LambdaQueryWrapper<OciKv>()
                     .eq(OciKv::getCode, SysCfgEnum.SYS_MFA_SECRET.getCode()));
             if (!CommonUtils.verifyMfaCode(mfa.getValue(), params.getMfaCode())) {
-                log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
-                sendMessage(String.format("请求IP：%s 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp));
+                log.error("请求IP：{} 登录失败（账号正确但MFA验证码错误）", clientIp);
+                boolean autoBlacklisted = ipSecurityService.recordLoginFailure(clientIp);
+                if (autoBlacklisted) {
+                    // IP just got blacklisted, only send blacklist notification
+                    sendMessage(String.format("⚠️ IP: %s 因登录失败次数过多已被自动拉黑！", clientIp));
+                } else {
+                    // Not blacklisted yet, send detailed warning
+                    sendMessage(String.format(
+                            "⚠️ 登录失败警告\n\n" +
+                                    "IP: %s\n" +
+                                    "账号: %s\n" +
+                                    "密码: %s\n" +
+                                    "MFA验证码: %s\n" +
+                                    "原因: MFA验证码错误\n" +
+                                    "时间: %s\n\n" +
+                                    "如果不是本人操作，可能存在被攻击的风险！",
+                            clientIp,
+                            params.getAccount(),
+                            maskPassword(params.getPassword()),
+                            params.getMfaCode(),
+                            LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)
+                    ));
+                }
                 throw new OciException(-1, "无效的验证码");
             }
         }
-        if (!params.getAccount().equals(account) || !params.getPassword().equals(password)) {
-            log.error("请求IP：{} 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp);
-            sendMessage(String.format("请求IP：%s 登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp));
+
+        // Check password (account already verified as correct)
+        if (!params.getPassword().equals(password)) {
+            log.error("请求IP：{} 登录失败（账号正确但密码错误）", clientIp);
+            boolean autoBlacklisted = ipSecurityService.recordLoginFailure(clientIp);
+            if (autoBlacklisted) {
+                // IP just got blacklisted, only send blacklist notification
+                sendMessage(String.format("⚠️ IP: %s 因登录失败次数过多已被自动拉黑！", clientIp));
+            } else {
+                // Not blacklisted yet, send detailed warning
+                sendMessage(String.format(
+                        "⚠️ 登录失败警告\n\n" +
+                                "IP: %s\n" +
+                                "账号: %s\n" +
+                                "密码: %s\n" +
+                                "原因: 密码错误\n" +
+                                "时间: %s\n\n" +
+                                "如果不是本人操作，可能存在被攻击的风险！",
+                        clientIp,
+                        params.getAccount(),
+                        maskPassword(params.getPassword()),
+                        LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)
+                ));
+            }
             throw new OciException(-1, "账号或密码不正确");
         }
+
+        // Clear login failures on successful login
+        ipSecurityService.clearLoginFailures(clientIp);
+
         Map<String, Object> payload = new HashMap<>(1);
         payload.put("account", CommonUtils.getMD5(account));
         String token = CommonUtils.genToken(payload, password);
@@ -159,7 +246,8 @@ public class SysServiceImpl implements ISysService {
                 .eq(OciKv::getCode, SysCfgEnum.SYS_INFO_VERSION.getCode())
                 .eq(OciKv::getType, SysCfgTypeEnum.SYS_INFO.getCode())
                 .select(OciKv::getValue), String::valueOf);
-        sendMessage(String.format("请求IP：%s 登录成功，时间：%s", clientIp, LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)));
+        sendMessage(String.format("✅ 登录成功\n\nIP: %s\n账号: %s\n时间: %s",
+                clientIp, params.getAccount(), LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)));
         LoginRsp rsp = new LoginRsp();
         rsp.setToken(token);
         rsp.setCurrentVersion(currentVersion);
@@ -749,6 +837,14 @@ public class SysServiceImpl implements ISysService {
     @Override
     public LoginRsp googleLogin(GoogleLoginParams params) {
         String clientIp = CommonUtils.getClientIP(request);
+
+        // Check if IP is already blacklisted - skip all processing if blocked
+        boolean alreadyBlacklisted = ipSecurityService.isIpBlacklisted(clientIp);
+        if (alreadyBlacklisted) {
+            log.warn("请求IP：{} Google登录失败（IP已在黑名单中）", clientIp);
+            throw new OciException(-1, "Google登录失败");
+        }
+
         log.info("收到Google登录请求，IP: {}, credential长度: {}", clientIp,
                 params.getCredential() != null ? params.getCredential().length() : 0);
         try {
@@ -928,6 +1024,9 @@ public class SysServiceImpl implements ISysService {
             sendMessage(String.format("Google用户 [%s] 从IP：%s 登录成功，时间：%s",
                     email, clientIp, LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)));
 
+            // Clear login failures on successful login
+            ipSecurityService.clearLoginFailures(clientIp);
+
             LoginRsp rsp = new LoginRsp();
             rsp.setToken(token);
             rsp.setCurrentVersion(currentVersion);
@@ -935,7 +1034,26 @@ public class SysServiceImpl implements ISysService {
             return rsp;
         } catch (Exception e) {
             log.error("请求IP：{} Google登录失败，错误信息：{}", clientIp, e.getMessage(), e);
-            sendMessage(String.format("请求IP：%s Google登录失败，如果不是本人操作，可能存在被攻击的风险", clientIp));
+
+            // Record login failure and check if should blacklist
+            boolean autoBlacklisted = ipSecurityService.recordLoginFailure(clientIp);
+            if (autoBlacklisted) {
+                // IP just got blacklisted, only send blacklist notification
+                sendMessage(String.format("⚠️ IP: %s 因Google登录失败次数过多已被自动拉黑！", clientIp));
+            } else {
+                // Not blacklisted yet, send detailed warning
+                sendMessage(String.format(
+                        "⚠️ Google登录失败警告\n\n" +
+                                "IP: %s\n" +
+                                "错误: %s\n" +
+                                "时间: %s\n\n" +
+                                "如果不是本人操作，可能存在被攻击的风险！",
+                        clientIp,
+                        e.getMessage(),
+                        LocalDateTime.now().format(CommonUtils.DATETIME_FMT_NORM)
+                ));
+            }
+
             if (e instanceof OciException) {
                 throw (OciException) e;
             }
@@ -966,6 +1084,23 @@ public class SysServiceImpl implements ISysService {
     private String getCfgValue(SysCfgEnum sysCfgEnum) {
         OciKv cfg = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, sysCfgEnum.getCode()));
         return cfg == null ? null : cfg.getValue();
+    }
+
+    /**
+     * Mask password for security logging
+     * Shows first 3 and last 3 characters, masks the middle
+     */
+    private String maskPassword(String pwd) {
+        if (pwd == null || pwd.isEmpty()) {
+            return "(empty)";
+        }
+        if (pwd.length() <= 3) {
+            return "***";
+        }
+        if (pwd.length() <= 6) {
+            return pwd.charAt(0) + "***" + pwd.charAt(pwd.length() - 1);
+        }
+        return pwd.substring(0, 3) + "***" + pwd.substring(pwd.length() - 3);
     }
 
     private void cleanAndRestartTask() {

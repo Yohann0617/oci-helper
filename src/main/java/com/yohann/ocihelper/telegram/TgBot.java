@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Telegram Bot 主类
  * 使用命令模式重构的模块化架构
- * 
+ * <p>
  * 性能优化：
  * - 所有消息处理使用 Java 21 虚拟线程（Virtual Threads）
  * - 避免阻塞主线程，显著提升响应速度和并发处理能力
@@ -99,17 +99,23 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             return;
         }
 
-        // 检查是否正在配置 VNC/备份等（使用新的会话管理）
+        // Check if configuring VNC/Backup etc. (using new session management)
         ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
         if (configStorage.hasActiveSession(chatId)) {
             ConfigSessionStorage.SessionType sessionType = configStorage.getSessionType(chatId);
-            
+
             if (sessionType == ConfigSessionStorage.SessionType.VNC_CONFIG) {
                 handleVncUrlInput(chatId, messageText);
             } else if (sessionType == ConfigSessionStorage.SessionType.BACKUP_PASSWORD) {
                 handleBackupPasswordInput(chatId, messageText);
             } else if (sessionType == ConfigSessionStorage.SessionType.RESTORE_PASSWORD) {
                 handleRestorePasswordInput(chatId, messageText);
+            } else if (sessionType == ConfigSessionStorage.SessionType.IP_BLACKLIST_ADD) {
+                handleIpBlacklistAddInput(chatId, messageText);
+            } else if (sessionType == ConfigSessionStorage.SessionType.IP_BLACKLIST_ADD_RANGE) {
+                handleIpBlacklistAddRangeInput(chatId, messageText);
+            } else if (sessionType == ConfigSessionStorage.SessionType.IP_BLACKLIST_REMOVE) {
+                handleIpBlacklistRemoveInput(chatId, messageText);
             }
             return;
         }
@@ -150,7 +156,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
      */
     private void handleCancelCommand(long chatId) {
         ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
-        
+
         if (configStorage.hasActiveSession(chatId)) {
             configStorage.clearSession(chatId);
             sendMessage(chatId, "✅ 已取消配置操作");
@@ -164,39 +170,39 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
      */
     private void handleVncUrlInput(long chatId, String url) {
         ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
-        
+
         try {
             // Validate URL format
             url = url.trim();
-            
+
             if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                sendMessage(chatId, 
-                    "❌ URL 格式错误\n\n" +
-                    "必须以 http:// 或 https:// 开头\n\n" +
-                    "示例：\n" +
-                    "• http://192.168.1.100:6080\n" +
-                    "• https://vnc.example.com\n\n" +
-                    "请重新输入或发送 /cancel 取消配置"
+                sendMessage(chatId,
+                        "❌ URL 格式错误\n\n" +
+                                "必须以 http:// 或 https:// 开头\n\n" +
+                                "示例：\n" +
+                                "• http://192.168.1.100:6080\n" +
+                                "• https://vnc.example.com\n\n" +
+                                "请重新输入或发送 /cancel 取消配置"
                 );
                 return;
             }
-            
+
             // Remove trailing slash
             if (url.endsWith("/")) {
                 url = url.substring(0, url.length() - 1);
             }
-            
+
             // Save to database
-            com.yohann.ocihelper.service.IOciKvService kvService = 
-                SpringUtil.getBean(com.yohann.ocihelper.service.IOciKvService.class);
-            
-            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.yohann.ocihelper.bean.entity.OciKv> wrapper = 
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
-            wrapper.eq(com.yohann.ocihelper.bean.entity.OciKv::getCode, 
-                com.yohann.ocihelper.enums.SysCfgEnum.SYS_VNC.getCode());
-            
+            com.yohann.ocihelper.service.IOciKvService kvService =
+                    SpringUtil.getBean(com.yohann.ocihelper.service.IOciKvService.class);
+
+            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.yohann.ocihelper.bean.entity.OciKv> wrapper =
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+            wrapper.eq(com.yohann.ocihelper.bean.entity.OciKv::getCode,
+                    com.yohann.ocihelper.enums.SysCfgEnum.SYS_VNC.getCode());
+
             com.yohann.ocihelper.bean.entity.OciKv vncConfig = kvService.getOne(wrapper);
-            
+
             if (vncConfig != null) {
                 // Update existing
                 vncConfig.setValue(url);
@@ -210,28 +216,28 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                 vncConfig.setType(com.yohann.ocihelper.enums.SysCfgTypeEnum.SYS_INIT_CFG.getCode());
                 kvService.save(vncConfig);
             }
-            
+
             // Stop configuring
             configStorage.clearSession(chatId);
-            
+
             // Send success message
             sendMessage(chatId,
-                String.format(
-                    "✅ *VNC URL 配置成功*\n\n" +
-                    "配置的 URL: %s\n\n" +
-                    "💡 使用说明：\n" +
-                    "在实例管理中选择单个实例，\n" +
-                    "点击 \"开启VNC连接\" 按钮即可使用此 URL。\n\n" +
-                    "⚠️ 注意：\n" +
-                    "• 请确保 VNC 代理服务已正确配置\n" +
-                    "• 确保相应端口已开放或配置了反向代理",
-                    url
-                ),
-                true
+                    String.format(
+                            "✅ *VNC URL 配置成功*\n\n" +
+                                    "配置的 URL: %s\n\n" +
+                                    "💡 使用说明：\n" +
+                                    "在实例管理中选择单个实例，\n" +
+                                    "点击 \"开启VNC连接\" 按钮即可使用此 URL。\n\n" +
+                                    "⚠️ 注意：\n" +
+                                    "• 请确保 VNC 代理服务已正确配置\n" +
+                                    "• 确保相应端口已开放或配置了反向代理",
+                            url
+                    ),
+                    true
             );
-            
+
             log.info("VNC URL configured: chatId={}, url={}", chatId, url);
-            
+
         } catch (Exception e) {
             log.error("Failed to save VNC URL", e);
             sendMessage(chatId, "❌ 保存 VNC URL 失败: " + e.getMessage());
@@ -244,79 +250,79 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
      */
     private void handleBackupPasswordInput(long chatId, String password) {
         ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
-        
+
         try {
             // Validate password
             password = password.trim();
-            
+
             if (password.length() < 6) {
                 sendMessage(chatId,
-                    "❌ 密码太短\n\n" +
-                    "建议密码至少 8 位字符\n\n" +
-                    "请重新输入或发送 /cancel 取消操作"
+                        "❌ 密码太短\n\n" +
+                                "建议密码至少 8 位字符\n\n" +
+                                "请重新输入或发送 /cancel 取消操作"
                 );
                 return;
             }
-            
+
             // Send processing message
             sendMessage(chatId, "⏳ 正在创建加密备份...\n\n请稍候，这可能需要几秒钟。");
-            
+
             // Execute encrypted backup using the new method
-            com.yohann.ocihelper.service.ISysService sysService = 
-                SpringUtil.getBean(com.yohann.ocihelper.service.ISysService.class);
-            
-            com.yohann.ocihelper.bean.params.sys.BackupParams params = 
-                new com.yohann.ocihelper.bean.params.sys.BackupParams();
+            com.yohann.ocihelper.service.ISysService sysService =
+                    SpringUtil.getBean(com.yohann.ocihelper.service.ISysService.class);
+
+            com.yohann.ocihelper.bean.params.sys.BackupParams params =
+                    new com.yohann.ocihelper.bean.params.sys.BackupParams();
             params.setEnableEnc(true);
             params.setPassword(password);
-            
+
             String backupFilePath = sysService.createBackupFile(params);
-            
+
             log.info("Encrypted backup created: chatId={}, file={}", chatId, backupFilePath);
-            
+
             // Send backup file via Telegram
             java.io.File backupFile = new java.io.File(backupFilePath);
             if (backupFile.exists()) {
-                org.telegram.telegrambots.meta.api.methods.send.SendDocument sendDocument = 
-                    org.telegram.telegrambots.meta.api.methods.send.SendDocument.builder()
-                        .chatId(chatId)
-                        .document(new org.telegram.telegrambots.meta.api.objects.InputFile(backupFile))
-                        .caption(
-                            "📦 *备份文件*\n\n" +
-                            "✅ 备份类型：加密备份\n" +
-                            "📅 创建时间：" + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "\n\n" +
-                            "💡 说明：\n" +
-                            "• 此备份文件已加密\n" +
-                            "• 恢复时需要输入密码\n" +
-                            "• 请妥善保管密码和文件\n\n" +
-                            "⚠️ 重要：\n" +
-                            "• 文件已发送到聊天窗口\n" +
-                            "• 服务器副本将在发送后删除\n" +
-                            "• 请牢记您设置的密码"
-                        )
-                        .parseMode("Markdown")
-                        .build();
-                
+                org.telegram.telegrambots.meta.api.methods.send.SendDocument sendDocument =
+                        org.telegram.telegrambots.meta.api.methods.send.SendDocument.builder()
+                                .chatId(chatId)
+                                .document(new org.telegram.telegrambots.meta.api.objects.InputFile(backupFile))
+                                .caption(
+                                        "📦 *备份文件*\n\n" +
+                                                "✅ 备份类型：加密备份\n" +
+                                                "📅 创建时间：" + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + "\n\n" +
+                                                "💡 说明：\n" +
+                                                "• 此备份文件已加密\n" +
+                                                "• 恢复时需要输入密码\n" +
+                                                "• 请妥善保管密码和文件\n\n" +
+                                                "⚠️ 重要：\n" +
+                                                "• 文件已发送到聊天窗口\n" +
+                                                "• 服务器副本将在发送后删除\n" +
+                                                "• 请牢记您设置的密码"
+                                )
+                                .parseMode("Markdown")
+                                .build();
+
                 try {
                     telegramClient.execute(sendDocument);
                     log.info("Encrypted backup file sent to chatId: {}", chatId);
-                    
+
                     // Delete backup file from server after sending
                     cn.hutool.core.io.FileUtil.del(backupFile);
                     log.info("Backup file deleted from server: {}", backupFilePath);
-                    
+
                     // Send success message
                     sendMessage(chatId,
-                        "✅ *加密备份创建成功*\n\n" +
-                        "备份文件已发送到聊天窗口。\n\n" +
-                        "💡 提示：\n" +
-                        "• 请保存备份文件到安全位置\n" +
-                        "• 服务器不会保留备份副本\n" +
-                        "• 需要时可随时创建新备份\n" +
-                        "• 请务必记住您的密码",
-                        true
+                            "✅ *加密备份创建成功*\n\n" +
+                                    "备份文件已发送到聊天窗口。\n\n" +
+                                    "💡 提示：\n" +
+                                    "• 请保存备份文件到安全位置\n" +
+                                    "• 服务器不会保留备份副本\n" +
+                                    "• 需要时可随时创建新备份\n" +
+                                    "• 请务必记住您的密码",
+                            true
                     );
-                    
+
                 } catch (Exception e) {
                     log.error("Failed to send encrypted backup file", e);
                     throw new Exception("发送备份文件失败：" + e.getMessage());
@@ -324,10 +330,10 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             } else {
                 throw new Exception("备份文件不存在：" + backupFilePath);
             }
-            
+
             // Clean up session
             configStorage.clearSession(chatId);
-            
+
         } catch (Exception e) {
             log.error("Failed to create encrypted backup", e);
             sendMessage(chatId, "❌ 创建加密备份失败: " + e.getMessage());
@@ -341,37 +347,37 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
     private void handleRestorePasswordInput(long chatId, String password) {
         ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
         ConfigSessionStorage.SessionState state = configStorage.getSessionState(chatId);
-        
+
         if (state == null || state.getData().get("backupFilePath") == null) {
             sendMessage(chatId, "❌ 会话已过期，请重新上传备份文件");
             configStorage.clearSession(chatId);
             return;
         }
-        
+
         String backupFilePath = (String) state.getData().get("backupFilePath");
         password = password.trim();
-        
+
         // 验证文件是否存在
         java.io.File backupFile = new java.io.File(backupFilePath);
         if (!backupFile.exists()) {
             log.error("Backup file not found: {}", backupFilePath);
-            sendMessage(chatId, 
-                "❌ 备份文件不存在\n\n" +
-                "文件可能已被删除或移动。\n" +
-                "请重新上传备份文件。"
+            sendMessage(chatId,
+                    "❌ 备份文件不存在\n\n" +
+                            "文件可能已被删除或移动。\n" +
+                            "请重新上传备份文件。"
             );
             configStorage.clearSession(chatId);
             return;
         }
-        
+
         try {
             // Send processing message
             sendMessage(chatId, "⏳ 正在恢复数据...\n\n请稍候，这可能需要几分钟。\n\n⚠️ 恢复过程中请勿关闭程序！");
-            
+
             // Execute restore
-            com.yohann.ocihelper.service.ISysService sysService = 
-                SpringUtil.getBean(com.yohann.ocihelper.service.ISysService.class);
-            
+            com.yohann.ocihelper.service.ISysService sysService =
+                    SpringUtil.getBean(com.yohann.ocihelper.service.ISysService.class);
+
             // Try with password, if it fails and password is simple, try without password
             try {
                 log.info("Attempting restore with password: chatId={}, file={}", chatId, backupFilePath);
@@ -385,9 +391,9 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                     throw e;
                 }
             }
-            
+
             log.info("Data restored successfully: chatId={}, file={}", chatId, backupFilePath);
-            
+
             // Clean up
             configStorage.clearSession(chatId);
             try {
@@ -396,36 +402,36 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             } catch (Exception e) {
                 log.warn("Failed to delete backup file: {}", backupFilePath, e);
             }
-            
+
             // Send success message
             sendMessage(chatId,
-                "✅ *数据恢复成功*\n\n" +
-                "💡 说明：\n" +
-                "数据已成功恢复，系统正在重新初始化。\n\n" +
-                "⚠️ 重要提示：\n" +
-                "• 建议重启服务以确保所有配置生效\n" +
-                "• 恢复后请检查配置是否正常\n" +
-                "• 如有问题，请查看系统日志",
-                true
+                    "✅ *数据恢复成功*\n\n" +
+                            "💡 说明：\n" +
+                            "数据已成功恢复，系统正在重新初始化。\n\n" +
+                            "⚠️ 重要提示：\n" +
+                            "• 建议重启服务以确保所有配置生效\n" +
+                            "• 恢复后请检查配置是否正常\n" +
+                            "• 如有问题，请查看系统日志",
+                    true
             );
-            
+
         } catch (Exception e) {
             log.error("Failed to restore data: chatId={}, file={}", chatId, backupFilePath, e);
-            
+
             // Clean up file on error
             try {
                 cn.hutool.core.io.FileUtil.del(backupFile);
             } catch (Exception ex) {
                 log.warn("Failed to delete backup file after error: {}", backupFilePath, ex);
             }
-            sendMessage(chatId, 
-                "❌ *数据恢复失败*\n\n" +
-                "错误信息：" + e.getMessage() + "\n\n" +
-                "💡 可能原因：\n" +
-                "• 密码错误（加密备份）\n" +
-                "• 备份文件损坏\n" +
-                "• 备份文件不匹配",
-                true
+            sendMessage(chatId,
+                    "❌ *数据恢复失败*\n\n" +
+                            "错误信息：" + e.getMessage() + "\n\n" +
+                            "💡 可能原因：\n" +
+                            "• 密码错误（加密备份）\n" +
+                            "• 备份文件损坏\n" +
+                            "• 备份文件不匹配",
+                    true
             );
             configStorage.clearSession(chatId);
             cn.hutool.core.io.FileUtil.del(backupFilePath);
@@ -437,76 +443,76 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
      */
     private void handleDocumentMessage(Update update) {
         long chatId = update.getMessage().getChatId();
-        
+
         // 检查权限
         if (!isAuthorized(chatId)) {
             sendUnauthorizedMessage(chatId);
             return;
         }
-        
+
         ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
-        
+
         // 检查是否处于恢复模式
-        if (!configStorage.hasActiveSession(chatId) || 
-            configStorage.getSessionType(chatId) != ConfigSessionStorage.SessionType.RESTORE_PASSWORD) {
+        if (!configStorage.hasActiveSession(chatId) ||
+                configStorage.getSessionType(chatId) != ConfigSessionStorage.SessionType.RESTORE_PASSWORD) {
             sendMessage(chatId, "❌ 请先在备份恢复菜单中点击「开始恢复」按钮");
             return;
         }
-        
+
         try {
             org.telegram.telegrambots.meta.api.objects.Document document = update.getMessage().getDocument();
             String fileName = document.getFileName();
-            
+
             // 验证文件类型
             if (!fileName.toLowerCase().endsWith(".zip")) {
-                sendMessage(chatId, 
-                    "❌ 文件格式错误\n\n" +
-                    "只支持 ZIP 格式的备份文件\n\n" +
-                    "请重新上传或发送 /cancel 取消操作"
+                sendMessage(chatId,
+                        "❌ 文件格式错误\n\n" +
+                                "只支持 ZIP 格式的备份文件\n\n" +
+                                "请重新上传或发送 /cancel 取消操作"
                 );
                 return;
             }
-            
+
             // Send downloading message
             sendMessage(chatId, "⏳ 正在下载备份文件...\n\n请稍候。");
-            
+
             // Download file from Telegram
             String fileId = document.getFileId();
-            org.telegram.telegrambots.meta.api.methods.GetFile getFile = 
-                new org.telegram.telegrambots.meta.api.methods.GetFile(fileId);
+            org.telegram.telegrambots.meta.api.methods.GetFile getFile =
+                    new org.telegram.telegrambots.meta.api.methods.GetFile(fileId);
             org.telegram.telegrambots.meta.api.objects.File tgFile = telegramClient.execute(getFile);
-            
+
             // Download file to temp directory
             String basicDirPath = System.getProperty("user.dir") + java.io.File.separator;
             String tempFilePath = basicDirPath + "temp_restore_" + System.currentTimeMillis() + ".zip";
             java.io.File localFile = new java.io.File(tempFilePath);
-            
+
             // Download file content
             java.io.File downloadedFile = telegramClient.downloadFile(tgFile);
-            
+
             // Copy to our temp location
             cn.hutool.core.io.FileUtil.copy(downloadedFile, localFile, true);
 
             log.info("Backup file downloaded: chatId={}, file={}", chatId, tempFilePath);
-            
+
             // Store file path in session
             ConfigSessionStorage.SessionState state = configStorage.getSessionState(chatId);
             if (state != null) {
                 state.getData().put("backupFilePath", tempFilePath);
             }
-            
+
             // Ask for password (even for unencrypted backups, we'll try without password first)
             sendMessage(chatId,
-                "✅ *文件上传成功*\n\n" +
-                "文件名：" + fileName + "\n\n" +
-                "请发送解密密码：\n\n" +
-                "💡 提示：\n" +
-                "• 如果是普通备份，发送任意字符即可\n" +
-                "• 如果是加密备份，请输入正确的密码\n" +
-                "• 发送 /cancel 可取消操作",
-                true
+                    "✅ *文件上传成功*\n\n" +
+                            "文件名：" + fileName + "\n\n" +
+                            "请发送解密密码：\n\n" +
+                            "💡 提示：\n" +
+                            "• 如果是普通备份，发送任意字符即可\n" +
+                            "• 如果是加密备份，请输入正确的密码\n" +
+                            "• 发送 /cancel 可取消操作",
+                    true
             );
-            
+
         } catch (Exception e) {
             log.error("Failed to handle document upload", e);
             sendMessage(chatId, "❌ 文件上传失败: " + e.getMessage());
@@ -522,7 +528,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
             // Format: /ssh_config host port username password
             // Note: password can contain spaces and special characters, so we only split the first 3 parameters
             String configString = command.substring(12).trim();
-            
+
             if (configString.isEmpty()) {
                 sendMessage(chatId,
                         "❌ 参数不足\n\n" +
@@ -531,7 +537,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                 );
                 return;
             }
-            
+
             // Split into maximum 4 parts: host, port, username, and the rest as password
             String[] parts = configString.split("\\s+", 4);
 
@@ -558,7 +564,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
                 try {
                     SshService sshService = SpringUtil.getBean(SshService.class);
                     boolean connected = sshService.testConnection(host, port, username, password);
-                    
+
                     if (connected) {
                         SshConnectionStorage.getInstance().saveConnection(chatId, host, port, username, password);
                         sendMessage(chatId,
@@ -817,5 +823,144 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
      */
     private void sendMessage(long chatId, String text) {
         sendMessage(chatId, text, false);
+    }
+
+    /**
+     * Handle IP blacklist add input
+     */
+    private void handleIpBlacklistAddInput(long chatId, String ip) {
+        ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
+        com.yohann.ocihelper.service.IpSecurityService ipSecurityService =
+                SpringUtil.getBean(com.yohann.ocihelper.service.IpSecurityService.class);
+
+        try {
+            ip = ip.trim();
+
+            // Add to blacklist
+            boolean success = ipSecurityService.addToBlacklist(ip);
+
+            if (success) {
+                sendMessage(chatId,
+                        String.format(
+                                "✅ *IP已添加到黑名单*\n\n" +
+                                        "IP地址：`%s`\n\n" +
+                                        "💡 提示：\n" +
+                                        "• 该IP已无法访问系统\n" +
+                                        "• 可在黑名单管理中查看\n" +
+                                        "• 需要时可随时删除",
+                                ip
+                        ),
+                        true
+                );
+                log.info("IP added to blacklist: chatId={}, ip={}", chatId, ip);
+            } else {
+                sendMessage(chatId,
+                        "❌ *添加失败*\n\n" +
+                                "IP格式不正确\n\n" +
+                                "正确格式：192.168.1.100\n\n" +
+                                "请重新输入或发送 /cancel 取消操作",
+                        true
+                );
+            }
+
+            configStorage.clearSession(chatId);
+
+        } catch (Exception e) {
+            log.error("Failed to add IP to blacklist", e);
+            sendMessage(chatId, "❌ 添加失败: " + e.getMessage());
+            configStorage.clearSession(chatId);
+        }
+    }
+
+    /**
+     * Handle IP blacklist add range input
+     */
+    private void handleIpBlacklistAddRangeInput(long chatId, String ipRange) {
+        ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
+        com.yohann.ocihelper.service.IpSecurityService ipSecurityService =
+                SpringUtil.getBean(com.yohann.ocihelper.service.IpSecurityService.class);
+
+        try {
+            ipRange = ipRange.trim();
+
+            // Add to blacklist
+            boolean success = ipSecurityService.addToBlacklist(ipRange);
+
+            if (success) {
+                sendMessage(chatId,
+                        String.format(
+                                "✅ *IP段已添加到黑名单*\n\n" +
+                                        "IP段：`%s`\n\n" +
+                                        "💡 提示：\n" +
+                                        "• 该IP段内所有IP已无法访问\n" +
+                                        "• 可在黑名单管理中查看\n" +
+                                        "• 需要时可随时删除",
+                                ipRange
+                        ),
+                        true
+                );
+                log.info("IP range added to blacklist: chatId={}, range={}", chatId, ipRange);
+            } else {
+                sendMessage(chatId,
+                        "❌ *添加失败*\n\n" +
+                                "CIDR格式不正确\n\n" +
+                                "正确格式：192.168.1.0/24\n\n" +
+                                "请重新输入或发送 /cancel 取消操作",
+                        true
+                );
+            }
+
+            configStorage.clearSession(chatId);
+
+        } catch (Exception e) {
+            log.error("Failed to add IP range to blacklist", e);
+            sendMessage(chatId, "❌ 添加失败: " + e.getMessage());
+            configStorage.clearSession(chatId);
+        }
+    }
+
+    /**
+     * Handle IP blacklist remove input
+     */
+    private void handleIpBlacklistRemoveInput(long chatId, String ipOrRange) {
+        ConfigSessionStorage configStorage = ConfigSessionStorage.getInstance();
+        com.yohann.ocihelper.service.IpSecurityService ipSecurityService =
+                SpringUtil.getBean(com.yohann.ocihelper.service.IpSecurityService.class);
+
+        try {
+            ipOrRange = ipOrRange.trim();
+
+            // Remove from blacklist
+            boolean success = ipSecurityService.removeFromBlacklist(ipOrRange);
+
+            if (success) {
+                sendMessage(chatId,
+                        String.format(
+                                "✅ *已从黑名单删除*\n\n" +
+                                        "IP/IP段：`%s`\n\n" +
+                                        "💡 提示：\n" +
+                                        "• 该IP/IP段已可以访问系统\n" +
+                                        "• 如需再次禁止请重新添加",
+                                ipOrRange
+                        ),
+                        true
+                );
+                log.info("IP/Range removed from blacklist: chatId={}, entry={}", chatId, ipOrRange);
+            } else {
+                sendMessage(chatId,
+                        "⚠️ *删除完成*\n\n" +
+                                "注意：如果该IP不在黑名单中，" +
+                                "此操作无实际影响。",
+                        true
+                );
+            }
+
+            configStorage.clearSession(chatId);
+
+        } catch (Exception e) {
+            log.error("Failed to remove IP from blacklist", e);
+            sendMessage(chatId, "❌ 删除失败: " + e.getMessage());
+            configStorage.clearSession(chatId);
+        }
     }
 }
