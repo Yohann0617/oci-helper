@@ -248,11 +248,12 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 ## 🙏 特别鸣谢
 
 <p align="left">
-  <a href="https://dartnode.com" title="Powered by DartNode - Free VPS for Open Source"><img src="https://cdn.nodeimage.com/i/1QvkwdBg0Tm9ATn4WG0s6jXnH0KXCF0B.webp" alt="DartNode" height="70"></a>
-  <a href="https://zmto.com" title="Powered by ZMTO"><img src="https://cdn.nodeimage.com/i/4zeL2hJbVLGmFwbAfXlr63WnTLAtXGAc.webp" alt="ZMTO" height="70"></a>
-  <a href="https://yxvm.com/" title="Powered by YxVM"><img src="https://cdn.nodeimage.com/i/586XdeDMwqemcrC8Qw7d6ITJIUYQgjJs.webp" alt="YxVM" height="70"></a>
+  <a href="https://dartnode.com?aff=FunkyDuckling896" title="Powered by DartNode - Free VPS for Open Source"><img src="https://cdn.nodeimage.com/i/1QvkwdBg0Tm9ATn4WG0s6jXnH0KXCF0B.webp" alt="DartNode" height="70"></a>
+  <a href="https://console.zmto.com/?affid=1600" title="Powered by ZMTO"><img src="https://cdn.nodeimage.com/i/4zeL2hJbVLGmFwbAfXlr63WnTLAtXGAc.webp" alt="ZMTO" height="70"></a>
+  <a href="https://yxvm.com/aff.php?aff=829" title="Powered by YxVM"><img src="https://cdn.nodeimage.com/i/586XdeDMwqemcrC8Qw7d6ITJIUYQgjJs.webp" alt="YxVM" height="70"></a>
   <a href="https://www.nodeseek.com/" title="Powered by NodeSeek"><img src="https://cdn.nodeimage.com/i/xq07HPt3MvpzeKT2Du6o0KDoWcWlcYSY.webp" alt="NodeSeek" height="70"></a>
 </p>
+
 
 
 
