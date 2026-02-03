@@ -23,6 +23,7 @@ public enum OciRegionsEnum {
     AP_SINGAPORE_2("ap-singapore-2", "新加坡西部", "Singapore", "XSP"),
     AP_SEOUL_1("ap-seoul-1", "韩国中部（首尔）", "Seoul, South Korea", "ICN"),
     AP_CHUNCHEON_1("ap-chuncheon-1", "韩国北部（春川）", "Chuncheon, South Korea", "YNY"),
+    AP_KULAI_2("ap-kulai-2", "马来西亚西部（古来）", "Kulai, Malaya", "JBP"),
 
     // Americas
     SA_SAOPAULO_1("sa-saopaulo-1", "巴西东部（圣保罗）", "Sao Paulo, Brazil", "GRU"),
