@@ -41,7 +41,7 @@
 12. 支持类似于甲骨文云 **Cloud Shell** 控制台功能，方便使用 netboot 救砖。⭐⭐
 13. 支持IP信息查询（部署成功后访问 http://ip:8818/ip-info ）以及首页显示全球服务器地图（可精确到街道的店铺），点亮全球。
 14. 支持 AI 聊天助手，基于 [硅基流动](https://cloud.siliconflow.cn/i/4ooSnEuY) 免费API，可免费无限次调用。
-15. 支持 Google 账号一键登录，如何配置请参考：[如何配置 Google 账号一键登录](./doc/GOOGLE_LOGIN_GUIDE.md)
+15. 支持 Google 账号一键登录，如何配置请参考：[如何配置 Google 账号一键登录](./doc/GOOGLE_LOGIN_GUIDE.md) ⭐
 ## 💻一键 docker-compose 部署或更新
 
 ```bash
