@@ -61,7 +61,8 @@ public enum OciRegionsEnum {
     ME_JEDDAH_1("me-jeddah-1", "沙特阿拉伯西部（吉达）", "Jeddah, Saudi Arabia", "JED"),
     AF_JOHANNESBURG_1("af-johannesburg-1", "南非中部（约翰内斯堡）", "Johannesburg, South Africa", "JNB"),
     ME_ABUDHABI_1("me-abudhabi-1", "阿联酋中部（阿布扎比）", "Abu Dhabi, UAE", "AUH"),
-    ME_DUBAI_1("me-dubai-1", "阿联酋东部（迪拜）", "Dubai, UAE", "DXB");
+    ME_DUBAI_1("me-dubai-1", "阿联酋东部（迪拜）", "Dubai, UAE", "DXB"),
+    AF_CASABLANCA_1("af-casablanca-1", "摩洛哥西部（卡萨布兰卡）", "Casablanca, Morocco", "LEJ");
 
     private final String id;
     private final String name;
