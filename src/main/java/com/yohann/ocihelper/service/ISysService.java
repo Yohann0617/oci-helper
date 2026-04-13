@@ -22,7 +22,7 @@ public interface ISysService {
 
     /**
      * Create backup file and return the file path (for Telegram Bot use)
-     * 
+     *
      * @param params backup parameters
      * @return backup file path
      */
@@ -32,9 +32,9 @@ public interface ISysService {
 
     /**
      * Recover from backup file (for Telegram Bot use)
-     * 
+     *
      * @param backupFilePath backup file path
-     * @param password decryption password (can be null for unencrypted backups)
+     * @param password       decryption password (can be null for unencrypted backups)
      */
     void recoverFromFile(String backupFilePath, String password);
 
@@ -44,13 +44,13 @@ public interface ISysService {
 
     SysUserDTO getOciUser(String ociCfgId, String region, String compartmentId);
 
-        void checkMfaCode(String mfaCode);
+    void checkMfaCode(String mfaCode);
 
     void updateVersion();
 
     /**
      * Google one-click login
-     * 
+     *
      * @param params Google login parameters with credential
      * @return login response with token and version info
      */
@@ -58,7 +58,7 @@ public interface ISysService {
 
     /**
      * Get Google Client ID for OAuth configuration
-     * 
+     *
      * @return Google Client ID
      */
     String getGoogleClientId();

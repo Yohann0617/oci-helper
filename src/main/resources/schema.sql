@@ -10,6 +10,7 @@ create table if not exists `oci_user`
     oci_fingerprint    varchar(64)                                     not null,
     oci_region         varchar(32)                                     not null,
     oci_key_path       varchar(256)                                    not null,
+    plan_type          varchar(32)                                     null,
     create_time        datetime default (datetime('now', 'localtime')) not null,
     primary key ("id")
 );

@@ -17,14 +17,19 @@ import com.oracle.bmc.identity.model.*;
 import com.oracle.bmc.identity.requests.*;
 import com.oracle.bmc.identity.responses.*;
 import com.oracle.bmc.identitydomains.IdentityDomainsClient;
-import com.oracle.bmc.identitydomains.model.UserPasswordChanger;
 import com.oracle.bmc.identitydomains.model.Users;
 import com.oracle.bmc.identitydomains.requests.ListUsersRequest;
-import com.oracle.bmc.identitydomains.requests.PutUserPasswordChangerRequest;
 import com.oracle.bmc.identitydomains.responses.ListUsersResponse;
 import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.monitoring.MonitoringClient;
 import com.oracle.bmc.networkloadbalancer.NetworkLoadBalancerClient;
+import com.oracle.bmc.ospgateway.SubscriptionServiceClient;
+import com.oracle.bmc.ospgateway.model.Subscription;
+import com.oracle.bmc.ospgateway.model.SubscriptionSummary;
+import com.oracle.bmc.ospgateway.requests.GetSubscriptionRequest;
+import com.oracle.bmc.ospgateway.requests.ListSubscriptionsRequest;
+import com.oracle.bmc.ospgateway.responses.GetSubscriptionResponse;
+import com.oracle.bmc.ospgateway.responses.ListSubscriptionsResponse;
 import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
@@ -132,25 +137,49 @@ public class OracleInstanceFetcher implements Closeable {
         return client;
     }
 
-            /**
-     * Reset the console (UI) password for the given user by:
-     * 1. Resolving the Classic OCID to an Identity Domain SCIM UUID via a filtered ListUsers call.
-     * 2. Generating a new random password.
-     * 3. Calling PutUserPasswordChanger to forcibly set the new password.
+    /**
+     * Reset the console (UI) password for the given user.
      *
-     * <p><b>Prerequisites:</b> the API Key owner must have the
-     * {@code Identity Domain User Administrator} role in the target domain.
-     * Grant it at: Identity &gt; Domains &gt; default domain &gt; Oracle Cloud Services &gt;
-     * IAM &gt; Application Roles &gt; User Administrator.
+     * <p>Strategy:
+     * <ol>
+     *   <li>Try the classic Identity API {@code CreateOrResetUIPassword} first.
+     *       This works for <b>classic (non-federated) IAM users</b> and only requires a
+     *       standard tenant-administrator API Key.</li>
+     *   <li>If the classic API returns 404 (user not found in classic IAM, i.e. the account
+     *       is a pure Identity Domain user), fall back to the Identity Domains
+     *       {@code PutUserPasswordChanger} SCIM endpoint, which requires the API Key owner to
+     *       hold the <b>User Administrator</b> application role in the Identity Domain.</li>
+     * </ol>
      *
      * @param classicUserId the Classic Identity OCID of the target user (ocid1.user.oc1..)
      * @return the newly generated password
      */
     public String resetUserPassword(String classicUserId) {
+        // --- Attempt 1: classic IAM API (works for non-Identity-Domain users) ---
+        try {
+            CreateOrResetUIPasswordResponse response = identityClient.createOrResetUIPassword(
+                    CreateOrResetUIPasswordRequest.builder()
+                            .userId(classicUserId)
+                            .build());
+            String newPassword = response.getUIPassword().getPassword();
+            log.info("用户:[{}],区域:[{}],成功通过经典 API 重置用户:[{}]的登录密码",
+                    user.getUsername(), user.getOciCfg().getRegion(), classicUserId);
+            return newPassword;
+        } catch (com.oracle.bmc.model.BmcException e) {
+            // 404 means the user exists only in Identity Domains (new-style tenancy)
+            // 400 with "notSupported" also indicates an Identity Domain-only user
+            if (e.getStatusCode() != 404 && e.getStatusCode() != 400) {
+                throw e;
+            }
+            log.info("用户:[{}],区域:[{}],经典 API 不支持该用户,尝试 Identity Domains API...",
+                    user.getUsername(), user.getOciCfg().getRegion());
+        }
+
+        // --- Attempt 2: Identity Domains SCIM API (new-style tenancy users) ---
         String tenantId = user.getOciCfg().getTenantId();
         String domainUrl = com.yohann.ocihelper.utils.OciUtils.getDomain(identityClient, tenantId);
         if (StrUtil.isBlank(domainUrl)) {
-            throw new OciException(-1, "No active Identity Domain found for tenant: " + tenantId);
+            throw new OciException(-1, "未找到活跃的 Identity Domain，无法重置密码");
         }
         try (IdentityDomainsClient domainsClient = newIdentityDomainsClient(domainUrl)) {
             // Step 1: resolve Classic OCID -> Identity Domain SCIM UUID
@@ -163,39 +192,37 @@ public class OracleInstanceFetcher implements Closeable {
             Users usersWrapper = listResp.getUsers();
             if (usersWrapper == null || usersWrapper.getResources() == null
                     || usersWrapper.getResources().isEmpty()) {
-                throw new OciException(-1, "User not found in Identity Domain: " + classicUserId);
+                throw new OciException(-1, "在 Identity Domain 中未找到该用户: " + classicUserId);
             }
             String scimUserId = usersWrapper.getResources().get(0).getId();
 
-            // Step 2: generate a new password (12 chars, mixed)
+            // Step 2: generate a new password and force-set it
             String newPassword = com.yohann.ocihelper.utils.CommonUtils.generateRandomPassword();
-
-            // Step 3: force-set the new password via PutUserPasswordChanger
-            UserPasswordChanger body = UserPasswordChanger.builder()
-                    .schemas(Collections.singletonList(
-                            "urn:ietf:params:scim:schemas:oracle:idcs:UserPasswordChanger"))
-                    .password(newPassword)
-                    .bypassNotification(true)
-                    .build();
+            com.oracle.bmc.identitydomains.model.UserPasswordChanger body =
+                    com.oracle.bmc.identitydomains.model.UserPasswordChanger.builder()
+                            .schemas(Collections.singletonList(
+                                    "urn:ietf:params:scim:schemas:oracle:idcs:UserPasswordChanger"))
+                            .password(newPassword)
+                            .bypassNotification(true)
+                            .build();
             try {
                 domainsClient.putUserPasswordChanger(
-                        PutUserPasswordChangerRequest.builder()
+                        com.oracle.bmc.identitydomains.requests.PutUserPasswordChangerRequest.builder()
                                 .userPasswordChangerId(scimUserId)
                                 .userPasswordChanger(body)
                                 .build());
             } catch (com.oracle.bmc.model.BmcException bmcEx) {
-                if (bmcEx.getStatusCode() == 401) {
+                if (bmcEx.getStatusCode() == 401 || bmcEx.getStatusCode() == 403) {
                     throw new OciException(-1,
-                            "重置密码失败：API Key 对应用户权限不足。" +
-                            "请到『身份证明』→『域』→default 域→" +
-                            "『Oracle Cloud Services』→IAM→『应用程序角色』→" +
-                            "User Administrator，将当前 API Key 所属用户添加为该角色成员后重试。");
+                            "重置密码失败：API Key 对应用户权限不足。\n" +
+                            "请前往 OCI 控制台完成以下授权（一次性操作）：\n" +
+                            "身份证明 → 域 → Default 域 → 【管理员】标签页 → " +
+                            "找到「用户管理员（User Administrator）」→ 添加当前 API Key 所属用户为成员，然后重试。");
                 }
                 throw bmcEx;
             }
-
-            log.info("用户:[{}],区域:[{}],成功重置登录密码",
-                    user.getUsername(), user.getOciCfg().getRegion());
+            log.info("用户:[{}],区域:[{}],成功通过 Identity Domains API 重置用户:[{}]的登录密码",
+                    user.getUsername(), user.getOciCfg().getRegion(), classicUserId);
             return newPassword;
         }
     }
@@ -481,6 +508,58 @@ public class OracleInstanceFetcher implements Closeable {
         log.info("用户:[{}],区域:[{}],成功创建/重置登录密码,新密码:【 {} 】",
                 user.getUsername(), user.getOciCfg().getRegion(), password);
         return password;
+    }
+
+    /**
+     * Query the tenant's subscription info via OSP Gateway.
+     * Requires the home region endpoint; returns null if unavailable or unauthorized.
+     *
+     * @return {@link Subscription} or null
+     */
+    public Subscription getSubscriptionInfo() {
+        String tenantId = user.getOciCfg().getTenantId();
+        // Resolve the home region name from the subscribed regions list
+        String homeRegion = identityClient.listRegionSubscriptions(
+                        ListRegionSubscriptionsRequest.builder()
+                                .tenancyId(tenantId)
+                                .build()).getItems().stream()
+                .filter(r -> Boolean.TRUE.equals(r.getIsHomeRegion()))
+                .map(RegionSubscription::getRegionName)
+                .findFirst()
+                .orElse(null);
+        if (homeRegion == null) {
+            log.warn("用户:[{}] 无法获取 home region，跳过订阅信息查询", user.getUsername());
+            return null;
+        }
+        try (SubscriptionServiceClient client = SubscriptionServiceClient.builder().build(provider)) {
+            // OSP Gateway must use the home region endpoint
+            client.setRegion(homeRegion);
+            ListSubscriptionsResponse listResp = client.listSubscriptions(
+                    ListSubscriptionsRequest.builder()
+                            .compartmentId(tenantId)
+                            .ospHomeRegion(homeRegion)
+                            .build());
+            List<SubscriptionSummary> items = listResp.getSubscriptionCollection().getItems();
+            if (CollectionUtil.isEmpty(items)) {
+                log.warn("用户:[{}] 订阅列表为空", user.getUsername());
+                return null;
+            }
+            String subscriptionId = items.get(0).getId();
+            GetSubscriptionResponse getResp = client.getSubscription(
+                    GetSubscriptionRequest.builder()
+                            .subscriptionId(subscriptionId)
+                            .compartmentId(tenantId)
+                            .ospHomeRegion(homeRegion)
+                            .build());
+            Subscription subscription = getResp.getSubscription();
+            log.debug("用户:[{}],区域:[{}],订阅类型:[{}],账户类型:[{}]",
+                    user.getUsername(), homeRegion,
+                    subscription.getPlanType(), subscription.getAccountType());
+            return subscription;
+        } catch (BmcException e) {
+            log.warn("用户:[{}] 获取订阅信息失败 ({}): {}", user.getUsername(), e.getStatusCode(), e.getMessage());
+            return null;
+        }
     }
 
     public List<Instance> listInstances() {

@@ -17,6 +17,7 @@ import com.oracle.bmc.networkloadbalancer.requests.CreateNetworkLoadBalancerRequ
 import com.oracle.bmc.networkloadbalancer.requests.DeleteNetworkLoadBalancerRequest;
 import com.oracle.bmc.networkloadbalancer.requests.GetNetworkLoadBalancerRequest;
 import com.oracle.bmc.networkloadbalancer.requests.ListNetworkLoadBalancersRequest;
+import com.oracle.bmc.ospgateway.model.Subscription;
 import com.yohann.ocihelper.bean.Tuple2;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.CreateInstanceDTO;
@@ -107,7 +108,8 @@ public class InstanceServiceImpl implements IInstanceService {
                     "内存（GB）： %s\n" +
                     "磁盘大小（GB）： %s\n" +
                     "开机次数：%s\n" +
-                    "开机时长：%s";
+                    "开机时长：%s\n" +
+                    "账户类型：%s";
 
     @Override
     public List<SysUserDTO.CloudInstance> listRunningInstances(SysUserDTO sysUserDTO) {
@@ -202,6 +204,11 @@ public class InstanceServiceImpl implements IInstanceService {
 
                     // TG 频道消息推送
                     if (isCanBroadcast(instanceDetail, currentCount)) {
+                        String planType = fetcher.getUser().getPlanType();
+                        Subscription.PlanType planTypeEnum = planType != null
+                                ? Subscription.PlanType.create(planType) : null;
+                        String accountTypeLabel = Subscription.PlanType.Payg.equals(planTypeEnum) ? "升级号"
+                                : Subscription.PlanType.FreeTier.equals(planTypeEnum) ? "免费号" : "未知";
                         String channelMsg = String.format(CHANNEL_MESSAGE_TEMPLATE,
                                 LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
                                 instanceDetail.getRegion(),
@@ -211,7 +218,8 @@ public class InstanceServiceImpl implements IInstanceService {
                                 instanceDetail.getMemory().longValue(),
                                 instanceDetail.getDisk(),
                                 currentCount,
-                                createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()));
+                                createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()),
+                                accountTypeLabel);
                         try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
                                 .form("text", channelMsg)
                                 .timeout(20_000)

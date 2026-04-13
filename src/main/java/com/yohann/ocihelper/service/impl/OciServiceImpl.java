@@ -184,7 +184,14 @@ public class OciServiceImpl implements IOciService {
             try {
                 ociUser.setTenantCreateTime(LocalDateTime.parse(fetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
             } catch (Exception ignored) {
-
+            }
+            // Query subscription plan type; null if insufficient permissions (low-privilege API key)
+            try {
+                com.oracle.bmc.ospgateway.model.Subscription sub = fetcher.getSubscriptionInfo();
+                if (sub != null && sub.getPlanType() != null) {
+                    ociUser.setPlanType(sub.getPlanType().getValue());
+                }
+            } catch (Exception ignored) {
             }
         } catch (Exception e) {
             log.error("配置:[{}],区域:[{}],不生效,错误信息:[{}]",
@@ -234,6 +241,7 @@ public class OciServiceImpl implements IOciService {
                         .build())
                 .taskId(taskId)
                 .username(ociUser.getUsername())
+                .planType(ociUser.getPlanType())
                 .ocpus(Float.parseFloat(params.getOcpus()))
                 .memory(Float.parseFloat(params.getMemory()))
                 .disk(params.getDisk().equals(50) ? null : Long.valueOf(params.getDisk()))
@@ -484,7 +492,17 @@ public class OciServiceImpl implements IOciService {
                                 .tenancyId(sysUserDTO.getOciCfg().getTenantId())
                                 .build()).getTenancy();
                         ociUser.setTenantName(tenancy.getName());
-                        ociUser.setTenantCreateTime(LocalDateTime.parse(ociFetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
+                        try {
+                            ociUser.setTenantCreateTime(LocalDateTime.parse(ociFetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
+                        } catch (Exception ignored) {
+                        }
+                        try {
+                            com.oracle.bmc.ospgateway.model.Subscription sub = ociFetcher.getSubscriptionInfo();
+                            if (sub != null && sub.getPlanType() != null) {
+                                ociUser.setPlanType(sub.getPlanType().getValue());
+                            }
+                        } catch (Exception ignored) {
+                        }
                     } catch (Exception e) {
                         log.error("配置:[{}],区域:[{}]不生效,请检查密钥与配置项是否准确无误,错误信息:{}",
                                 ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
@@ -833,6 +851,7 @@ public class OciServiceImpl implements IOciService {
                                 .privateKeyPath(sysUserDTO.getOciCfg().getPrivateKeyPath())
                                 .build())
                         .username(sysUserDTO.getUsername())
+                        .planType(sysUserDTO.getPlanType())
                         .ocpus(1.0F)
                         .memory(1.0F)
                         .architecture(ArchitectureEnum.AMD.getType())
@@ -943,6 +962,7 @@ public class OciServiceImpl implements IOciService {
                         .privateKeyPath(ociUser.getOciKeyPath())
                         .build())
                 .username(ociUser.getUsername())
+                .planType(ociUser.getPlanType())
                 .build();
     }
 

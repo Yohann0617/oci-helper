@@ -20,6 +20,7 @@ public class SysUserDTO {
     private String taskId;
     private OciCfg ociCfg;
     private String username;
+    private String planType;
     private float ocpus = 1F;
     private float memory = 6F;
     private Long disk;

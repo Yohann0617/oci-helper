@@ -41,6 +41,8 @@ public class OciUser implements Serializable {
 
     private String ociKeyPath;
 
+    private String planType;
+
     private LocalDateTime createTime;
 
     @TableField(exist = false)

@@ -20,4 +20,5 @@ public class OciUserListRsp {
     private String regionName;
     private String createTime;
     private Integer enableCreate;
+    private String planType;
 }

@@ -768,7 +768,7 @@ public class SysServiceImpl implements ISysService {
     }
 
     @Override
-    public SysUserDTO getOciUser(String ociCfgId) {
+        public SysUserDTO getOciUser(String ociCfgId) {
         OciUser ociUser = userService.getById(ociCfgId);
         return SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
@@ -779,11 +779,12 @@ public class SysServiceImpl implements ISysService {
                         .privateKeyPath(ociUser.getOciKeyPath())
                         .build())
                 .username(ociUser.getUsername())
+                .planType(ociUser.getPlanType())
                 .build();
     }
 
     @Override
-    public SysUserDTO getOciUser(String ociCfgId, String region, String compartmentId) {
+        public SysUserDTO getOciUser(String ociCfgId, String region, String compartmentId) {
         OciUser ociUser = userService.getById(ociCfgId);
         return SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
@@ -795,6 +796,7 @@ public class SysServiceImpl implements ISysService {
                         .compartmentId(compartmentId)
                         .build())
                 .username(ociUser.getUsername())
+                .planType(ociUser.getPlanType())
                 .build();
     }
 
@@ -1126,6 +1128,7 @@ public class SysServiceImpl implements ISysService {
                                     .build())
                             .taskId(task.getId())
                             .username(ociUser.getUsername())
+                            .planType(ociUser.getPlanType())
                             .ocpus(task.getOcpus())
                             .memory(task.getMemory())
                             .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))

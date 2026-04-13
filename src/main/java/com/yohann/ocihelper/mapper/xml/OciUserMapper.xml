@@ -11,6 +11,7 @@
         t1.tenant_name,
         t1.oci_region AS region,
         t1.tenant_create_time as createTime,
+        t1.plan_type as planType,
         CASE
         WHEN MAX(t2.id) IS NOT NULL THEN 1
         ELSE 0

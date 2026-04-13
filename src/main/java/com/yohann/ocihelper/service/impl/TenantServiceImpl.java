@@ -11,6 +11,7 @@ import com.oracle.bmc.identity.requests.GetTenancyRequest;
 import com.oracle.bmc.identity.requests.ListRegionSubscriptionsRequest;
 import com.oracle.bmc.identity.requests.ListUsersRequest;
 import com.oracle.bmc.identitydomains.model.PasswordPolicy;
+import com.oracle.bmc.ospgateway.model.Subscription;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
@@ -148,9 +149,17 @@ public class TenantServiceImpl implements ITenantService {
                         return null;
                     });
 
-            CompletableFuture.allOf(userListTask, regionsTask, pwdExpTask, createTimeTask, notificationTask).join();
+            CompletableFuture<Subscription> subscriptionTask = CompletableFuture.supplyAsync(
+                            fetcher::getSubscriptionInfo, virtualExecutor)
+                    .exceptionally(e -> {
+                        log.error("get subscription info error", e);
+                        return null;
+                    });
+
+            CompletableFuture.allOf(userListTask, regionsTask, pwdExpTask, createTimeTask, notificationTask, subscriptionTask).join();
 
             OciUtils.NotificationSettingResult notifResult = CommonUtils.safeJoin(notificationTask, null);
+            Subscription subscription = CommonUtils.safeJoin(subscriptionTask, null);
             rsp.setUserList(CommonUtils.safeJoin(userListTask, Collections.emptyList()));
             rsp.setRegions(CommonUtils.safeJoin(regionsTask, Collections.emptyList()));
             rsp.setPasswordExpiresAfter(CommonUtils.safeJoin(pwdExpTask, PasswordPolicy.builder().build()).getPasswordExpiresAfter());
@@ -161,6 +170,17 @@ public class TenantServiceImpl implements ITenantService {
             } else {
                 rsp.setNotificationRecipients(Collections.emptyList());
                 rsp.setNotificationTestModeEnabled(false);
+            }
+            if (subscription != null) {
+                TenantInfoRsp.SubscriptionInfo info = new TenantInfoRsp.SubscriptionInfo();
+                info.setPlanType(subscription.getPlanType() != null ? subscription.getPlanType().getValue() : null);
+                info.setAccountType(subscription.getAccountType() != null ? subscription.getAccountType().getValue() : null);
+                info.setUpgradeState(subscription.getUpgradeState() != null ? subscription.getUpgradeState().getValue() : null);
+                info.setCurrencyCode(subscription.getCurrencyCode());
+                info.setIsIntentToPay(subscription.getIsIntentToPay());
+                info.setIsCorporateConversionAllowed(subscription.getIsCorporateConversionAllowed());
+                info.setTimeStart(subscription.getTimeStart() != null ? CommonUtils.dateFmt2String(subscription.getTimeStart()) : null);
+                rsp.setSubscriptionInfo(info);
             }
 
             customCache.put(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId(), rsp, 10 * 60 * 1000);

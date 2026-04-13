@@ -133,6 +133,7 @@ public class OciTask implements ApplicationRunner {
         sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_name", "VARCHAR(64) NULL");
         sqLiteHelper.addColumnIfNotExists("oci_create_task", "oci_region", "VARCHAR(64) NULL");
         sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_create_time", "datetime NULL");
+        sqLiteHelper.addColumnIfNotExists("oci_user", "plan_type", "VARCHAR(32) NULL");
         virtualExecutor.execute(() -> {
             List<OciUser> ociUsers = userService.list(new LambdaQueryWrapper<OciUser>()
                     .isNull(OciUser::getTenantCreateTime)
@@ -155,6 +156,26 @@ public class OciTask implements ApplicationRunner {
                     }
                 }).collect(Collectors.toList()));
             }
+        });
+        // Back-fill plan_type for existing rows that have never been filled
+        virtualExecutor.execute(() -> {
+            List<OciUser> needPlanType = userService.list(new LambdaQueryWrapper<OciUser>()
+                    .isNull(OciUser::getPlanType));
+            if (CollectionUtil.isEmpty(needPlanType)) {
+                return;
+            }
+            userService.updateBatchById(needPlanType.parallelStream().peek(x -> {
+                SysUserDTO sysUserDTO = sysService.getOciUser(x.getId());
+                try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+                    com.oracle.bmc.ospgateway.model.Subscription sub = fetcher.getSubscriptionInfo();
+                    if (sub != null && sub.getPlanType() != null) {
+                        x.setPlanType(sub.getPlanType().getValue());
+                        log.info("更新配置:[{}] plan_type 成功", x.getUsername());
+                    }
+                } catch (Exception e) {
+                    log.warn("回填配置:[{}] plan_type 失败: {}", x.getUsername(), e.getMessage());
+                }
+            }).collect(Collectors.toList()));
         });
     }
 
@@ -182,6 +203,7 @@ public class OciTask implements ApplicationRunner {
                                         .build())
                                 .taskId(task.getId())
                                 .username(ociUser.getUsername())
+                                .planType(ociUser.getPlanType())
                                 .ocpus(task.getOcpus())
                                 .memory(task.getMemory())
                                 .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
