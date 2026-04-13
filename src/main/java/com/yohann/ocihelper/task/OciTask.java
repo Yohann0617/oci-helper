@@ -160,42 +160,43 @@ public class OciTask implements ApplicationRunner {
 
     private void cleanAndRestartTask() {
         virtualExecutor.execute(() -> {
-            Random random = new Random();
-            Optional.ofNullable(createTaskService.list())
-                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList)
-                    .forEach(task -> {
-                        // 随机延迟 5~10 秒
-                        int delay = 5 + random.nextInt(6);
-                        CREATE_INSTANCE_POOL.schedule(() -> {
-                            if (task.getCreateNumbers() <= 0) {
-                                createTaskService.removeById(task.getId());
-                            } else {
-                                OciUser ociUser = userService.getById(task.getUserId());
-                                SysUserDTO sysUserDTO = SysUserDTO.builder()
-                                        .ociCfg(SysUserDTO.OciCfg.builder()
-                                                .userId(ociUser.getOciUserId())
-                                                .tenantId(ociUser.getOciTenantId())
-                                                .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
-                                                .fingerprint(ociUser.getOciFingerprint())
-                                                .privateKeyPath(ociUser.getOciKeyPath())
-                                                .build())
-                                        .taskId(task.getId())
-                                        .username(ociUser.getUsername())
-                                        .ocpus(task.getOcpus())
-                                        .memory(task.getMemory())
-                                        .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
-                                        .architecture(task.getArchitecture())
-                                        .interval(Long.valueOf(task.getInterval()))
-                                        .createNumbers(task.getCreateNumbers())
-                                        .operationSystem(task.getOperationSystem())
-                                        .rootPassword(task.getRootPassword())
-                                        .build();
-                                addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
-                                                execCreate(sysUserDTO, sysService, instanceService, createTaskService),
-                                        0, task.getInterval(), TimeUnit.SECONDS);
-                            }
-                        }, delay, TimeUnit.SECONDS);
-                    });
+            List<OciCreateTask> tasks = Optional.ofNullable(createTaskService.list())
+                    .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList);
+            // Stagger task restoration: each task is submitted 5 seconds after the previous one
+            // to avoid a thundering-herd of API calls right after startup / backup restore.
+            for (int i = 0; i < tasks.size(); i++) {
+                OciCreateTask task = tasks.get(i);
+                final long delaySeconds = (long) i * 5;
+                CREATE_INSTANCE_POOL.schedule(() -> {
+                    if (task.getCreateNumbers() <= 0) {
+                        createTaskService.removeById(task.getId());
+                    } else {
+                        OciUser ociUser = userService.getById(task.getUserId());
+                        SysUserDTO sysUserDTO = SysUserDTO.builder()
+                                .ociCfg(SysUserDTO.OciCfg.builder()
+                                        .userId(ociUser.getOciUserId())
+                                        .tenantId(ociUser.getOciTenantId())
+                                        .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
+                                        .fingerprint(ociUser.getOciFingerprint())
+                                        .privateKeyPath(ociUser.getOciKeyPath())
+                                        .build())
+                                .taskId(task.getId())
+                                .username(ociUser.getUsername())
+                                .ocpus(task.getOcpus())
+                                .memory(task.getMemory())
+                                .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
+                                .architecture(task.getArchitecture())
+                                .interval(Long.valueOf(task.getInterval()))
+                                .createNumbers(task.getCreateNumbers())
+                                .operationSystem(task.getOperationSystem())
+                                .rootPassword(task.getRootPassword())
+                                .build();
+                        addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
+                                        execCreate(sysUserDTO, sysService, instanceService, createTaskService),
+                                0, task.getInterval(), TimeUnit.SECONDS);
+                    }
+                }, delaySeconds, TimeUnit.SECONDS);
+            }
         });
     }
 
@@ -356,41 +357,41 @@ public class OciTask implements ApplicationRunner {
         });
     }
 
-        private void initMapData() {
+    private void initMapData() {
         virtualExecutor.execute(() -> {
             try {
                 // Use ip-api.com - free, no auth required, 45 req/min
                 String jsonStr = HttpUtil.get("http://ip-api.com/json/?fields=status,message,country,regionName,city,lat,lon,org,as,query");
-                
+
                 // Validate response
                 if (StrUtil.isBlank(jsonStr)) {
                     log.warn("Failed to get IP data: empty response");
                     return;
                 }
-                
+
                 // Check if response is valid JSON (not XML or error page)
                 if (!jsonStr.trim().startsWith("{")) {
                     log.warn("Failed to get IP data: invalid JSON response");
                     return;
                 }
-                
+
                 JSONObject json = JSONUtil.parseObj(jsonStr);
-                
+
                 // Check if API request was successful
                 String status = json.getStr("status");
                 if (!"success".equals(status)) {
                     log.warn("IP API returned error status: {}, message: {}", status, json.getStr("message"));
                     return;
                 }
-                
+
                 // Validate required fields
                 if (!json.containsKey("query")) {
                     log.warn("IP API response missing required field 'query'");
                     return;
                 }
-                
+
                 String ip = json.getStr("query");
-                
+
                 IpData ipData = new IpData();
                 ipData.setId(IdUtil.getSnowflakeNextIdStr());
                 ipData.setIp(ip);
@@ -399,7 +400,7 @@ public class OciTask implements ApplicationRunner {
                 ipData.setCity(json.getStr("city"));
                 ipData.setOrg(json.getStr("org"));
                 ipData.setAsn(json.getStr("as"));
-                
+
                 // Safely parse latitude and longitude
                 try {
                     Double lat = json.getDouble("lat");
@@ -411,7 +412,7 @@ public class OciTask implements ApplicationRunner {
                 } catch (Exception e) {
                     log.warn("Failed to parse latitude/longitude: {}", e.getMessage());
                 }
-                
+
                 List<IpData> ipDataList = ipDataService.list(new LambdaQueryWrapper<IpData>()
                         .eq(IpData::getIp, ip));
                 if (CollectionUtil.isNotEmpty(ipDataList)) {
@@ -419,7 +420,7 @@ public class OciTask implements ApplicationRunner {
                 }
                 ipDataService.save(ipData);
                 log.info("新增地图IP数据：{} 成功", ipData.getIp());
-                
+
             } catch (Exception e) {
                 log.error("初始化地图IP数据失败", e);
             }

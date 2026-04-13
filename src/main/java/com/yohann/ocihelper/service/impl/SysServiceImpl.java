@@ -1104,43 +1104,44 @@ public class SysServiceImpl implements ISysService {
     }
 
     private void cleanAndRestartTask() {
-        Random random = new Random();
-        Optional.ofNullable(createTaskService.list())
-                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList).stream()
-                .forEach(task -> {
-                    // 随机延迟 5~10 秒
-                    int delay = 5 + random.nextInt(6);
-                    CREATE_INSTANCE_POOL.schedule(() -> {
-                        if (task.getCreateNumbers() <= 0) {
-                            createTaskService.removeById(task.getId());
-                        } else {
-                            OciUser ociUser = userService.getById(task.getUserId());
-                            SysUserDTO sysUserDTO = SysUserDTO.builder()
-                                    .ociCfg(SysUserDTO.OciCfg.builder()
-                                            .userId(ociUser.getOciUserId())
-                                            .tenantId(ociUser.getOciTenantId())
-                                            .region(ociUser.getOciRegion())
-                                            .fingerprint(ociUser.getOciFingerprint())
-                                            .privateKeyPath(ociUser.getOciKeyPath())
-                                            .build())
-                                    .taskId(task.getId())
-                                    .username(ociUser.getUsername())
-                                    .ocpus(task.getOcpus())
-                                    .memory(task.getMemory())
-                                    .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
-                                    .architecture(task.getArchitecture())
-                                    .interval(Long.valueOf(task.getInterval()))
-                                    .createNumbers(task.getCreateNumbers())
-                                    .operationSystem(task.getOperationSystem())
-                                    .rootPassword(task.getRootPassword())
-                                    .build();
-                            stopTask(CommonUtils.CREATE_TASK_PREFIX + task.getId());
-                            addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
-                                            execCreate(sysUserDTO, this, instanceService, createTaskService),
-                                    0, task.getInterval(), TimeUnit.SECONDS);
-                        }
-                    }, delay, TimeUnit.SECONDS);
-                });
+        List<OciCreateTask> tasks = Optional.ofNullable(createTaskService.list())
+                .filter(CollectionUtil::isNotEmpty).orElseGet(Collections::emptyList);
+        // Stagger task restoration: each task is submitted 5 seconds after the previous one
+        // to avoid a thundering-herd of API calls right after startup / backup restore.
+        for (int i = 0; i < tasks.size(); i++) {
+            OciCreateTask task = tasks.get(i);
+            final long delaySeconds = (long) i * 5;
+            CREATE_INSTANCE_POOL.schedule(() -> {
+                if (task.getCreateNumbers() <= 0) {
+                    createTaskService.removeById(task.getId());
+                } else {
+                    OciUser ociUser = userService.getById(task.getUserId());
+                    SysUserDTO sysUserDTO = SysUserDTO.builder()
+                            .ociCfg(SysUserDTO.OciCfg.builder()
+                                    .userId(ociUser.getOciUserId())
+                                    .tenantId(ociUser.getOciTenantId())
+                                    .region(ociUser.getOciRegion())
+                                    .fingerprint(ociUser.getOciFingerprint())
+                                    .privateKeyPath(ociUser.getOciKeyPath())
+                                    .build())
+                            .taskId(task.getId())
+                            .username(ociUser.getUsername())
+                            .ocpus(task.getOcpus())
+                            .memory(task.getMemory())
+                            .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
+                            .architecture(task.getArchitecture())
+                            .interval(Long.valueOf(task.getInterval()))
+                            .createNumbers(task.getCreateNumbers())
+                            .operationSystem(task.getOperationSystem())
+                            .rootPassword(task.getRootPassword())
+                            .build();
+                    stopTask(CommonUtils.CREATE_TASK_PREFIX + task.getId());
+                    addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
+                                    execCreate(sysUserDTO, this, instanceService, createTaskService),
+                            0, task.getInterval(), TimeUnit.SECONDS);
+                }
+            }, delaySeconds, TimeUnit.SECONDS);
+        }
     }
 
     private void initGenMfaPng() {

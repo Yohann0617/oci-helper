@@ -37,27 +37,24 @@ public class OciUtils {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
 
     /**
-     * 统一的返回结果封装
+     * Result DTO returned by {@link #getCurrentRecipients}.
      */
-    public static class Result extends HashMap<String, Object> {
-        public static Result ok(String message) {
-            Result r = new Result();
-            r.put("success", true);
-            r.put("message", message);
-            return r;
-        }
+    @lombok.Value
+    public static class NotificationSettingResult {
+        String domainName;
+        boolean testModeEnabled;
+        List<String> recipients;
+    }
 
-        public static Result fail(String message) {
-            Result r = new Result();
-            r.put("success", false);
-            r.put("message", message);
-            return r;
-        }
-
-        public Result data(String key, Object value) {
-            this.put(key, value);
-            return this;
-        }
+    /**
+     * Result DTO returned by {@link #updateRecipients} and {@link #updateTestMode}.
+     */
+    @lombok.Value
+    public static class NotificationUpdateResult {
+        List<String> updatedDomains;
+        List<String> previousRecipients;
+        List<String> newRecipients;
+        boolean testModeEnabled;
     }
 
     /**
@@ -68,28 +65,89 @@ public class OciUtils {
     }
 
     /**
-     * 获取当前收件人
+     * Get all active domain URLs for the tenant.
+     * According to the Oracle documentation, if there are multiple domains,
+     * the notification settings need to be configured for each domain.
      */
-    public static Result getCurrentRecipients(OracleInstanceFetcher fetcher) {
+    private static List<DomainSummary> getActiveDomains(IdentityClient identityClient, String compartmentId) {
         try {
-            IdentityDomainsClient client = fetcher.getIdentityDomainsClient();
-            NotificationSetting setting = client.getNotificationSetting(
-                    GetNotificationSettingRequest.builder().notificationSettingId(NOTIFICATION_SETTINGS_ID).build()
-            ).getNotificationSetting();
-            List<String> recipients = Optional.ofNullable(setting.getTestRecipients()).orElse(Collections.emptyList());
-            return Result.ok("Recipients retrieved")
-                    .data("recipients", recipients)
-                    .data("totalCount", recipients.size());
+            ListDomainsResponse response = identityClient.listDomains(
+                    ListDomainsRequest.builder().compartmentId(compartmentId).build()
+            );
+            List<DomainSummary> active = new ArrayList<>();
+            for (DomainSummary domain : response.getItems()) {
+                if (domain.getLifecycleState() == DomainSummary.LifecycleState.Active) {
+                    active.add(domain);
+                }
+            }
+            if (active.isEmpty()) {
+                log.warn("No active domain found in compartment: {}", compartmentId);
+            }
+            return active;
         } catch (Exception e) {
-            log.error("getCurrentRecipients error: {}", e.getMessage(), e);
-            return Result.fail(e.getMessage());
+            throw new RuntimeException("Failed to list active domains", e);
         }
     }
 
     /**
-     * 更新收件人
+     * Fetch the NotificationSetting using a dedicated client for the given endpoint.
+     * A new client is created per call to avoid endpoint-state races when multiple
+     * threads share the same {@link OracleInstanceFetcher}.
      */
-    public static Result updateRecipients(OracleInstanceFetcher fetcher, List<String> emails) {
+    private static NotificationSetting fetchNotificationSetting(OracleInstanceFetcher fetcher, String domainUrl) {
+        try (IdentityDomainsClient client = fetcher.newIdentityDomainsClient(domainUrl)) {
+            return client.getNotificationSetting(
+                    GetNotificationSettingRequest.builder()
+                            .notificationSettingId(NOTIFICATION_SETTINGS_ID)
+                            .build()
+            ).getNotificationSetting();
+        }
+    }
+
+    /**
+     * Push the updated NotificationSetting using a dedicated client for the given endpoint.
+     */
+    private static void pushNotificationSetting(OracleInstanceFetcher fetcher, String domainUrl,
+                                                NotificationSetting updated) {
+        try (IdentityDomainsClient client = fetcher.newIdentityDomainsClient(domainUrl)) {
+            client.putNotificationSetting(PutNotificationSettingRequest.builder()
+                    .notificationSettingId(NOTIFICATION_SETTINGS_ID)
+                    .notificationSetting(updated)
+                    .build());
+        }
+    }
+
+    /**
+     * Get the current notification recipients across all active domains.
+     * Reads settings from the first active domain (all domains share the same config).
+     *
+     * @throws RuntimeException if no active domain is found or the API call fails
+     */
+    public static NotificationSettingResult getCurrentRecipients(OracleInstanceFetcher fetcher) {
+        String tenantId = fetcher.getUser().getOciCfg().getTenantId();
+        List<DomainSummary> domains = getActiveDomains(fetcher.getIdentityClient(), tenantId);
+        if (domains.isEmpty()) {
+            throw new RuntimeException("No active domain found for tenant: " + tenantId);
+        }
+
+        DomainSummary domain = domains.get(0);
+        NotificationSetting setting = fetchNotificationSetting(fetcher, domain.getUrl());
+        List<String> recipients = Optional.ofNullable(setting.getTestRecipients()).orElse(Collections.emptyList());
+        return new NotificationSettingResult(
+                domain.getDisplayName(),
+                Boolean.TRUE.equals(setting.getTestModeEnabled()),
+                recipients
+        );
+    }
+
+    /**
+     * Overwrite the recipient list for all active domains and enable test mode.
+     * All notification emails will be redirected to the given recipients.
+     *
+     * @throws IllegalArgumentException if any email is invalid or the list is empty
+     * @throws RuntimeException         if no active domain is found or the API call fails
+     */
+    public static NotificationUpdateResult updateRecipients(OracleInstanceFetcher fetcher, List<String> emails) {
         List<String> valid = new ArrayList<>();
         List<String> invalid = new ArrayList<>();
         for (String email : emails) {
@@ -100,138 +158,126 @@ public class OciUtils {
             }
         }
         if (!invalid.isEmpty()) {
-            return Result.fail("Invalid emails: " + String.join(", ", invalid));
+            throw new IllegalArgumentException("Invalid emails: " + String.join(", ", invalid));
         }
         if (valid.isEmpty()) {
-            return Result.fail("No valid email provided");
+            throw new IllegalArgumentException("No valid email provided");
         }
 
-        try {
-            IdentityDomainsClient client = fetcher.getIdentityDomainsClient();
-            NotificationSetting old = client.getNotificationSetting(
-                    GetNotificationSettingRequest.builder().notificationSettingId(NOTIFICATION_SETTINGS_ID).build()
-            ).getNotificationSetting();
+        String tenantId = fetcher.getUser().getOciCfg().getTenantId();
+        List<DomainSummary> domains = getActiveDomains(fetcher.getIdentityClient(), tenantId);
+        if (domains.isEmpty()) {
+            throw new RuntimeException("No active domain found for tenant: " + tenantId);
+        }
 
+        List<String> updatedDomains = new ArrayList<>();
+        List<String> previousRecipients = Collections.emptyList();
+
+        for (DomainSummary domain : domains) {
+            String domainUrl = domain.getUrl();
+            NotificationSetting old = fetchNotificationSetting(fetcher, domainUrl);
+            if (previousRecipients.isEmpty() && old.getTestRecipients() != null) {
+                previousRecipients = old.getTestRecipients();
+            }
             NotificationSetting updated = NotificationSetting.builder()
                     .copy(old)
                     .testRecipients(valid)
                     .testModeEnabled(true)
                     .schemas(Collections.singletonList(NOTIFICATION_SETTINGS_SCHEMA))
                     .build();
+            pushNotificationSetting(fetcher, domainUrl, updated);
+            updatedDomains.add(domain.getDisplayName());
+            log.info("Updated notification recipients for domain [{}]: {}", domain.getDisplayName(), valid);
+        }
 
-            client.putNotificationSetting(PutNotificationSettingRequest.builder()
-                    .notificationSettingId(NOTIFICATION_SETTINGS_ID)
-                    .notificationSetting(updated)
-                    .build()
+        return new NotificationUpdateResult(updatedDomains, previousRecipients, valid, true);
+    }
+
+    /**
+     * Add recipients to all active domains without removing existing ones.
+     * Skips invalid and duplicate emails silently.
+     *
+     * @return the update result, or {@code null} if there was nothing new to add
+     * @throws RuntimeException if no active domain is found or the API call fails
+     */
+    public static NotificationUpdateResult addRecipients(OracleInstanceFetcher fetcher, List<String> emails) {
+        NotificationSettingResult current = getCurrentRecipients(fetcher);
+        Set<String> merged = new LinkedHashSet<>(current.getRecipients());
+        for (String email : emails) {
+            String lower = email.trim().toLowerCase();
+            if (isValidEmail(lower)) {
+                merged.add(lower);
+            }
+        }
+        if (merged.size() == current.getRecipients().size()) {
+            // nothing new — return a no-op result
+            return new NotificationUpdateResult(
+                    Collections.emptyList(),
+                    current.getRecipients(),
+                    current.getRecipients(),
+                    current.isTestModeEnabled()
             );
-
-            return Result.ok("Recipients updated")
-                    .data("previousRecipients", old.getTestRecipients())
-                    .data("newRecipients", valid)
-                    .data("recipientCount", valid.size());
-        } catch (Exception e) {
-            log.error("updateRecipients error: {}", e.getMessage(), e);
-            return Result.fail(e.getMessage());
         }
+        return updateRecipients(fetcher, new ArrayList<>(merged));
     }
 
     /**
-     * 添加收件人
+     * Remove specific recipients from all active domains.
+     * Emails that are not present are silently ignored.
+     *
+     * @return the update result, or a no-op result when nothing was removed
+     * @throws RuntimeException if no active domain is found or the API call fails
      */
-    public static Result addRecipients(OracleInstanceFetcher fetcher, List<String> emails) {
-        Result currentRes = getCurrentRecipients(fetcher);
-        if (!(boolean) currentRes.get("success")) {
-            return currentRes;
-        }
-
-        List<String> current = (List<String>) currentRes.get("recipients");
-        Set<String> newSet = new HashSet<>(current);
-
-        List<String> added = new ArrayList<>();
-        List<String> duplicates = new ArrayList<>();
+    public static NotificationUpdateResult removeRecipients(OracleInstanceFetcher fetcher, List<String> emails) {
+        NotificationSettingResult current = getCurrentRecipients(fetcher);
+        Set<String> remaining = new LinkedHashSet<>(current.getRecipients());
         for (String email : emails) {
-            String lower = email.trim().toLowerCase();
-            if (!isValidEmail(lower)) {
-                continue;
-            }
-            if (newSet.add(lower)) {
-                added.add(lower);
-            } else {
-                duplicates.add(lower);
-            }
+            remaining.remove(email.trim().toLowerCase());
         }
-
-        if (added.isEmpty()) {
-            return Result.ok("No new recipients added")
-                    .data("duplicateEmails", duplicates)
-                    .data("currentRecipients", current);
+        if (remaining.size() == current.getRecipients().size()) {
+            return new NotificationUpdateResult(
+                    Collections.emptyList(),
+                    current.getRecipients(),
+                    current.getRecipients(),
+                    current.isTestModeEnabled()
+            );
         }
-
-        return updateRecipients(fetcher, new ArrayList<>(newSet))
-                .data("addedRecipients", added)
-                .data("duplicateEmails", duplicates)
-                .data("totalRecipients", newSet.size());
+        return updateRecipients(fetcher, new ArrayList<>(remaining));
     }
 
     /**
-     * 移除收件人
+     * Toggle test mode on/off for all active domains.
+     * When enabled, all notification emails are redirected to the configured test recipients.
+     *
+     * @throws RuntimeException if no active domain is found or the API call fails
      */
-    public static Result removeRecipients(OracleInstanceFetcher fetcher, List<String> emails) {
-        Result currentRes = getCurrentRecipients(fetcher);
-        if (!(boolean) currentRes.get("success")) {
-            return currentRes;
+    public static NotificationUpdateResult updateTestMode(OracleInstanceFetcher fetcher, boolean enable) {
+        String tenantId = fetcher.getUser().getOciCfg().getTenantId();
+        List<DomainSummary> domains = getActiveDomains(fetcher.getIdentityClient(), tenantId);
+        if (domains.isEmpty()) {
+            throw new RuntimeException("No active domain found for tenant: " + tenantId);
         }
 
-        List<String> current = (List<String>) currentRes.get("recipients");
-        Set<String> remaining = new HashSet<>(current);
+        List<String> updatedDomains = new ArrayList<>();
+        List<String> recipients = Collections.emptyList();
 
-        List<String> removed = new ArrayList<>();
-        for (String email : emails) {
-            String lower = email.trim().toLowerCase();
-            if (remaining.remove(lower)) {
-                removed.add(lower);
+        for (DomainSummary domain : domains) {
+            String domainUrl = domain.getUrl();
+            NotificationSetting old = fetchNotificationSetting(fetcher, domainUrl);
+            if (recipients.isEmpty() && old.getTestRecipients() != null) {
+                recipients = old.getTestRecipients();
             }
-        }
-
-        if (removed.isEmpty()) {
-            return Result.ok("No recipients removed")
-                    .data("currentRecipients", current);
-        }
-
-        return updateRecipients(fetcher, new ArrayList<>(remaining))
-                .data("removedRecipients", removed)
-                .data("remainingRecipients", remaining);
-    }
-
-    /**
-     * 更新测试模式开关
-     */
-    public static Result updateTestMode(OracleInstanceFetcher fetcher, boolean enable) {
-        try {
-            IdentityDomainsClient client = fetcher.getIdentityDomainsClient();
-            NotificationSetting old = client.getNotificationSetting(
-                    GetNotificationSettingRequest.builder().notificationSettingId(NOTIFICATION_SETTINGS_ID).build()
-            ).getNotificationSetting();
-
             NotificationSetting updated = NotificationSetting.builder()
                     .copy(old)
                     .testModeEnabled(enable)
                     .schemas(Collections.singletonList(NOTIFICATION_SETTINGS_SCHEMA))
                     .build();
-
-            client.putNotificationSetting(PutNotificationSettingRequest.builder()
-                    .notificationSettingId(NOTIFICATION_SETTINGS_ID)
-                    .notificationSetting(updated)
-                    .build()
-            );
-
-            return Result.ok("Test mode updated")
-                    .data("testMode", enable)
-                    .data("recipients", old.getTestRecipients());
-        } catch (Exception e) {
-            log.error("updateTestMode error: {}", e.getMessage(), e);
-            return Result.fail(e.getMessage());
+            pushNotificationSetting(fetcher, domainUrl, updated);
+            updatedDomains.add(domain.getDisplayName());
+            log.info("Updated testMode={} for domain [{}]", enable, domain.getDisplayName());
         }
+
+        return new NotificationUpdateResult(updatedDomains, recipients, recipients, enable);
     }
 
     /**
@@ -263,51 +309,49 @@ public class OciUtils {
      * 公共方法：更新密码过期策略
      */
     private static boolean updatePasswordExpiration(OracleInstanceFetcher fetcher, int expirationDays) {
-
         try {
             String tenantId = fetcher.getUser().getOciCfg().getTenantId();
             IdentityClient identityClient = fetcher.getIdentityClient();
-            IdentityDomainsClient identityDomainsClient = fetcher.getIdentityDomainsClient();
 
-            // 获取 Domain URL
             String domainUrl = getDomain(identityClient, tenantId);
             if (StringUtils.isBlank(domainUrl)) {
                 log.warn("No active domain found for tenant: {}", tenantId);
                 return false;
             }
-            identityDomainsClient.setEndpoint(domainUrl);
 
-            // 查询当前策略
-            List<PasswordPolicy> policies = listPasswordPolicies(identityDomainsClient);
-            if (policies.isEmpty()) {
-                log.warn("No password policies found for domain: {}", domainUrl);
-                return false;
-            }
-
-            for (com.oracle.bmc.identitydomains.model.PasswordPolicy policy : policies) {
-                log.debug("Current policy: {}", JSONUtil.toJsonStr(policy));
-
-                if (policy.getPasswordStrength() != com.oracle.bmc.identitydomains.model.PasswordPolicy.PasswordStrength.Custom) {
-                    log.warn("Skip non-custom policy: {}", policy.getName());
-                    continue;
+            // Use a dedicated client to avoid endpoint-state races
+            try (IdentityDomainsClient identityDomainsClient = fetcher.newIdentityDomainsClient(domainUrl)) {
+                List<PasswordPolicy> policies = listPasswordPolicies(identityDomainsClient);
+                if (policies.isEmpty()) {
+                    log.warn("No password policies found for domain: {}", domainUrl);
+                    return false;
                 }
 
-                com.oracle.bmc.identitydomains.model.PasswordPolicy updated = com.oracle.bmc.identitydomains.model.PasswordPolicy.builder()
-                        .copy(policy)
-                        .passwordExpiresAfter(expirationDays)  // 0 = 不过期
-                        .forcePasswordReset(false)
-                        .passwordExpireWarning(7)
-                        .build();
+                for (com.oracle.bmc.identitydomains.model.PasswordPolicy policy : policies) {
+                    log.debug("Current policy: {}", JSONUtil.toJsonStr(policy));
 
-                PutPasswordPolicyRequest request = PutPasswordPolicyRequest.builder()
-                        .passwordPolicyId(policy.getId())
-                        .passwordPolicy(updated)
-                        .build();
+                    if (policy.getPasswordStrength() != com.oracle.bmc.identitydomains.model.PasswordPolicy.PasswordStrength.Custom) {
+                        log.warn("Skip non-custom policy: {}", policy.getName());
+                        continue;
+                    }
 
-                PutPasswordPolicyResponse response = identityDomainsClient.putPasswordPolicy(request);
-                if (response.getPasswordPolicy() != null) {
-                    log.info("Updated password policy [{}]: expiresAfter={}",
-                            policy.getName(), expirationDays);
+                    com.oracle.bmc.identitydomains.model.PasswordPolicy updated = com.oracle.bmc.identitydomains.model.PasswordPolicy.builder()
+                            .copy(policy)
+                            .passwordExpiresAfter(expirationDays)  // 0 = 不过期
+                            .forcePasswordReset(false)
+                            .passwordExpireWarning(7)
+                            .build();
+
+                    PutPasswordPolicyRequest request = PutPasswordPolicyRequest.builder()
+                            .passwordPolicyId(policy.getId())
+                            .passwordPolicy(updated)
+                            .build();
+
+                    PutPasswordPolicyResponse response = identityDomainsClient.putPasswordPolicy(request);
+                    if (response.getPasswordPolicy() != null) {
+                        log.info("Updated password policy [{}]: expiresAfter={}",
+                                policy.getName(), expirationDays);
+                    }
                 }
             }
             return true;
@@ -321,19 +365,16 @@ public class OciUtils {
      * 获取当前密码策略
      */
     public static List<com.oracle.bmc.identitydomains.model.PasswordPolicy> getCurrentPasswordPolicy(OracleInstanceFetcher fetcher) {
-
         try {
             String tenantId = fetcher.getUser().getOciCfg().getTenantId();
-            IdentityClient identityClient = fetcher.getIdentityClient();
-            IdentityDomainsClient identityDomainsClient = fetcher.getIdentityDomainsClient();
-
-            String domainUrl = getDomain(identityClient, tenantId);
+            String domainUrl = getDomain(fetcher.getIdentityClient(), tenantId);
             if (StringUtils.isBlank(domainUrl)) {
                 return Collections.emptyList();
             }
-            identityDomainsClient.setEndpoint(domainUrl);
-
-            return listPasswordPolicies(identityDomainsClient);
+            // Use a dedicated client to avoid endpoint-state races
+            try (IdentityDomainsClient identityDomainsClient = fetcher.newIdentityDomainsClient(domainUrl)) {
+                return listPasswordPolicies(identityDomainsClient);
+            }
         } catch (Exception e) {
             log.error("Failed to get password policies: {}", e.getMessage(), e);
             return Collections.emptyList();
@@ -352,23 +393,16 @@ public class OciUtils {
     }
 
     /**
-     * 获取 Domain URL
+     * Get the URL of the first active domain (kept for backward compatibility with password policy methods).
      */
     public static String getDomain(IdentityClient identityClient, String compartmentId) {
-        try {
-            ListDomainsResponse response = identityClient.listDomains(
-                    ListDomainsRequest.builder().compartmentId(compartmentId).build()
-            );
-            for (DomainSummary domain : response.getItems()) {
-                if (domain.getLifecycleState() == DomainSummary.LifecycleState.Active) {
-                    log.debug("Found domain [{}] URL: {}", domain.getDisplayName(), domain.getUrl());
-                    return domain.getUrl();
-                }
-            }
+        List<DomainSummary> domains = getActiveDomains(identityClient, compartmentId);
+        if (domains.isEmpty()) {
             log.error("No active domain found in compartment: {}", compartmentId);
             return "";
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get domain", e);
         }
+        String url = domains.get(0).getUrl();
+        log.debug("Found domain [{}] URL: {}", domains.get(0).getDisplayName(), url);
+        return url;
     }
 }

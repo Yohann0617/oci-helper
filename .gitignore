@@ -33,3 +33,5 @@ build/
 
 ### VS Code ###
 .vscode/
+
+oci-helper.db

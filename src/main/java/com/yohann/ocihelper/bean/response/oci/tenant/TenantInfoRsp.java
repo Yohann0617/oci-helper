@@ -23,6 +23,10 @@ public class TenantInfoRsp {
     private List<TenantUserInfo> userList;
     private String creatTime;
     private Integer passwordExpiresAfter;
+    /** Test-mode recipient emails configured on the Identity Domain notification settings */
+    private List<String> notificationRecipients;
+    /** Whether domain notification test mode is currently enabled */
+    private Boolean notificationTestModeEnabled;
 
     @Data
     public static class TenantUserInfo{

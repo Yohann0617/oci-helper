@@ -252,7 +252,7 @@ public class CommonUtils {
 
     /**
      * Generate current MFA code based on secret key
-     * 
+     *
      * @param secretKey MFA secret key
      * @return current 6-digit MFA code
      */
@@ -675,6 +675,44 @@ public class CommonUtils {
         try (OutputStream out = response.getOutputStream()) {
             IoUtil.copy(inputStream, out);
         }
+    }
+
+    /**
+     * Generates a cryptographically random password suitable for OCI Identity Domains.
+     * Format: 2 uppercase + 4 lowercase + 2 digits + 2 special chars + 2 any, then shuffled.
+     * Length is 12, satisfies OCI's default password policy.
+     */
+    public static String generateRandomPassword() {
+        String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        String lower = "abcdefghjkmnpqrstuvwxyz";
+        String digits = "23456789";
+        String special = "@#$%";
+        String all = upper + lower + digits + special;
+
+        java.security.SecureRandom rng = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder(12);
+        sb.append(upper.charAt(rng.nextInt(upper.length())));
+        sb.append(upper.charAt(rng.nextInt(upper.length())));
+        sb.append(lower.charAt(rng.nextInt(lower.length())));
+        sb.append(lower.charAt(rng.nextInt(lower.length())));
+        sb.append(lower.charAt(rng.nextInt(lower.length())));
+        sb.append(lower.charAt(rng.nextInt(lower.length())));
+        sb.append(digits.charAt(rng.nextInt(digits.length())));
+        sb.append(digits.charAt(rng.nextInt(digits.length())));
+        sb.append(special.charAt(rng.nextInt(special.length())));
+        sb.append(special.charAt(rng.nextInt(special.length())));
+        sb.append(all.charAt(rng.nextInt(all.length())));
+        sb.append(all.charAt(rng.nextInt(all.length())));
+        List<Character> chars = new ArrayList<>();
+        for (char c : sb.toString().toCharArray()) {
+            chars.add(c);
+        }
+        Collections.shuffle(chars, rng);
+        StringBuilder result = new StringBuilder();
+        for (char c : chars) {
+            result.append(c);
+        }
+        return result.toString();
     }
 
     public static String getPwdShell(String passwd) {

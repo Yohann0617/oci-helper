@@ -2,6 +2,7 @@ package com.yohann.ocihelper.controller;
 
 import com.yohann.ocihelper.bean.ResponseData;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
+import com.yohann.ocihelper.bean.params.oci.tenant.UpdateNotificationRecipientsParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdatePwdExpirationPolicyParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserBasicParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserInfoParams;
@@ -52,10 +53,10 @@ public class TenantController {
         return ResponseData.successData("清除所有 API 成功");
     }
 
-    @RequestMapping("resetPassword")
-    public ResponseData<Void> resetPassword(@Validated @RequestBody UpdateUserBasicParams params) {
-        tenantService.resetPassword(params);
-        return ResponseData.successData("重置用户密码成功");
+        @RequestMapping("resetPassword")
+    public ResponseData<String> resetPassword(@Validated @RequestBody UpdateUserBasicParams params) {
+        String newPassword = tenantService.resetPassword(params);
+        return ResponseData.successData(newPassword, "重置用户密码成功");
     }
 
     @RequestMapping("updateUserInfo")
@@ -68,6 +69,12 @@ public class TenantController {
     public ResponseData<Void> updatePwdEx(@Validated @RequestBody UpdatePwdExpirationPolicyParams params) {
         tenantService.updatePwdExpirationPolicy(params);
         return ResponseData.successData("更新密码过期时间成功");
+    }
+
+    @RequestMapping("updateNotificationRecipients")
+    public ResponseData<Void> updateNotificationRecipients(@Validated @RequestBody UpdateNotificationRecipientsParams params) {
+        tenantService.updateNotificationRecipients(params);
+        return ResponseData.successData("更新域通知收件人成功");
     }
 
 }

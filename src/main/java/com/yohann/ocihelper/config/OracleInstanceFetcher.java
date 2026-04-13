@@ -17,6 +17,11 @@ import com.oracle.bmc.identity.model.*;
 import com.oracle.bmc.identity.requests.*;
 import com.oracle.bmc.identity.responses.*;
 import com.oracle.bmc.identitydomains.IdentityDomainsClient;
+import com.oracle.bmc.identitydomains.model.UserPasswordChanger;
+import com.oracle.bmc.identitydomains.model.Users;
+import com.oracle.bmc.identitydomains.requests.ListUsersRequest;
+import com.oracle.bmc.identitydomains.requests.PutUserPasswordChangerRequest;
+import com.oracle.bmc.identitydomains.responses.ListUsersResponse;
 import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.monitoring.MonitoringClient;
 import com.oracle.bmc.networkloadbalancer.NetworkLoadBalancerClient;
@@ -62,6 +67,7 @@ public class OracleInstanceFetcher implements Closeable {
     private final MonitoringClient monitoringClient;
     private final NetworkLoadBalancerClient networkLoadBalancerClient;
     private final IdentityDomainsClient identityDomainsClient;
+    private final SimpleAuthenticationDetailsProvider provider;
     private SysUserDTO user;
     private String compartmentId;
 
@@ -110,7 +116,88 @@ public class OracleInstanceFetcher implements Closeable {
         monitoringClient = MonitoringClient.builder().build(provider);
         networkLoadBalancerClient = NetworkLoadBalancerClient.builder().build(provider);
         identityDomainsClient = IdentityDomainsClient.builder().build(provider);
+        this.provider = provider;
         compartmentId = StrUtil.isBlank(ociCfg.getCompartmentId()) ? findRootCompartment(identityClient, provider.getTenantId()) : ociCfg.getCompartmentId();
+    }
+
+    /**
+     * Creates a new, independent {@link IdentityDomainsClient} bound to the given endpoint.
+     * Callers are responsible for closing the returned client.
+     * Use this instead of {@link #getIdentityDomainsClient()} whenever concurrent access is
+     * possible, to avoid endpoint-state races on the shared client.
+     */
+    public IdentityDomainsClient newIdentityDomainsClient(String endpoint) {
+        IdentityDomainsClient client = IdentityDomainsClient.builder().build(provider);
+        client.setEndpoint(endpoint);
+        return client;
+    }
+
+            /**
+     * Reset the console (UI) password for the given user by:
+     * 1. Resolving the Classic OCID to an Identity Domain SCIM UUID via a filtered ListUsers call.
+     * 2. Generating a new random password.
+     * 3. Calling PutUserPasswordChanger to forcibly set the new password.
+     *
+     * <p><b>Prerequisites:</b> the API Key owner must have the
+     * {@code Identity Domain User Administrator} role in the target domain.
+     * Grant it at: Identity &gt; Domains &gt; default domain &gt; Oracle Cloud Services &gt;
+     * IAM &gt; Application Roles &gt; User Administrator.
+     *
+     * @param classicUserId the Classic Identity OCID of the target user (ocid1.user.oc1..)
+     * @return the newly generated password
+     */
+    public String resetUserPassword(String classicUserId) {
+        String tenantId = user.getOciCfg().getTenantId();
+        String domainUrl = com.yohann.ocihelper.utils.OciUtils.getDomain(identityClient, tenantId);
+        if (StrUtil.isBlank(domainUrl)) {
+            throw new OciException(-1, "No active Identity Domain found for tenant: " + tenantId);
+        }
+        try (IdentityDomainsClient domainsClient = newIdentityDomainsClient(domainUrl)) {
+            // Step 1: resolve Classic OCID -> Identity Domain SCIM UUID
+            ListUsersResponse listResp = domainsClient.listUsers(
+                    ListUsersRequest.builder()
+                            .filter("ocid eq \"" + classicUserId + "\"")
+                            .attributes("id,ocid,userName")
+                            .count(1)
+                            .build());
+            Users usersWrapper = listResp.getUsers();
+            if (usersWrapper == null || usersWrapper.getResources() == null
+                    || usersWrapper.getResources().isEmpty()) {
+                throw new OciException(-1, "User not found in Identity Domain: " + classicUserId);
+            }
+            String scimUserId = usersWrapper.getResources().get(0).getId();
+
+            // Step 2: generate a new password (12 chars, mixed)
+            String newPassword = com.yohann.ocihelper.utils.CommonUtils.generateRandomPassword();
+
+            // Step 3: force-set the new password via PutUserPasswordChanger
+            UserPasswordChanger body = UserPasswordChanger.builder()
+                    .schemas(Collections.singletonList(
+                            "urn:ietf:params:scim:schemas:oracle:idcs:UserPasswordChanger"))
+                    .password(newPassword)
+                    .bypassNotification(true)
+                    .build();
+            try {
+                domainsClient.putUserPasswordChanger(
+                        PutUserPasswordChangerRequest.builder()
+                                .userPasswordChangerId(scimUserId)
+                                .userPasswordChanger(body)
+                                .build());
+            } catch (com.oracle.bmc.model.BmcException bmcEx) {
+                if (bmcEx.getStatusCode() == 401) {
+                    throw new OciException(-1,
+                            "重置密码失败：API Key 对应用户权限不足。" +
+                            "请到『身份证明』→『域』→default 域→" +
+                            "『Oracle Cloud Services』→IAM→『应用程序角色』→" +
+                            "User Administrator，将当前 API Key 所属用户添加为该角色成员后重试。");
+                }
+                throw bmcEx;
+            }
+
+            log.info("用户:[{}],区域:[{}],成功重置登录密码",
+                    user.getUsername(), user.getOciCfg().getRegion());
+            return newPassword;
+        }
     }
 
     synchronized public InstanceDetailDTO createInstanceData() {

@@ -14,6 +14,7 @@ import com.oracle.bmc.identitydomains.model.PasswordPolicy;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
+import com.yohann.ocihelper.bean.params.oci.tenant.UpdateNotificationRecipientsParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdatePwdExpirationPolicyParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserBasicParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserInfoParams;
@@ -140,12 +141,27 @@ public class TenantServiceImpl implements ITenantService {
                     });
             ;
 
-            CompletableFuture.allOf(userListTask, regionsTask, pwdExpTask, createTimeTask).join();
+            CompletableFuture<OciUtils.NotificationSettingResult> notificationTask = CompletableFuture.supplyAsync(() ->
+                            OciUtils.getCurrentRecipients(fetcher), virtualExecutor)
+                    .exceptionally(e -> {
+                        log.error("get notification recipients error", e);
+                        return null;
+                    });
 
+            CompletableFuture.allOf(userListTask, regionsTask, pwdExpTask, createTimeTask, notificationTask).join();
+
+            OciUtils.NotificationSettingResult notifResult = CommonUtils.safeJoin(notificationTask, null);
             rsp.setUserList(CommonUtils.safeJoin(userListTask, Collections.emptyList()));
             rsp.setRegions(CommonUtils.safeJoin(regionsTask, Collections.emptyList()));
             rsp.setPasswordExpiresAfter(CommonUtils.safeJoin(pwdExpTask, PasswordPolicy.builder().build()).getPasswordExpiresAfter());
             rsp.setCreatTime(CommonUtils.safeJoin(createTimeTask, null));
+            if (notifResult != null) {
+                rsp.setNotificationRecipients(notifResult.getRecipients());
+                rsp.setNotificationTestModeEnabled(notifResult.isTestModeEnabled());
+            } else {
+                rsp.setNotificationRecipients(Collections.emptyList());
+                rsp.setNotificationTestModeEnabled(false);
+            }
 
             customCache.put(CacheConstant.PREFIX_TENANT_INFO + params.getOciCfgId(), rsp, 10 * 60 * 1000);
             return rsp;
@@ -190,19 +206,18 @@ public class TenantServiceImpl implements ITenantService {
     }
 
     @Override
-    public void resetPassword(UpdateUserBasicParams params) {
+    public String resetPassword(UpdateUserBasicParams params) {
         SysUserDTO sysUserDTO = sysService.getOciUser(params.getOciCfgId());
-        if (StrUtil.isNotBlank(params.getUserId())) {
-            SysUserDTO.OciCfg ociCfg = sysUserDTO.getOciCfg();
-            ociCfg.setUserId(params.getUserId());
-            sysUserDTO.setOciCfg(ociCfg);
-        }
-
+        // The userId to reset must be the Identity Domain user OCID passed from the front-end.
+        // Fall back to the configured user only if not explicitly provided.
+        String targetUserId = StrUtil.isNotBlank(params.getUserId())
+                ? params.getUserId()
+                : sysUserDTO.getOciCfg().getUserId();
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
-            fetcher.createOrResetUIPassword();
+            return fetcher.resetUserPassword(targetUserId);
         } catch (Exception e) {
             log.error("重置用户密码失败", e);
-            throw new OciException(-1, "重置用户密码失败", e);
+            throw new OciException(-1, "重置用户密码失败: " + e.getMessage(), e);
         }
     }
 
@@ -254,6 +269,19 @@ public class TenantServiceImpl implements ITenantService {
         } catch (Exception e) {
             log.error("更新密码策略失败", e);
             throw new OciException(-1, "更新密码策略失败");
+        }
+    }
+
+    @Override
+    public void updateNotificationRecipients(UpdateNotificationRecipientsParams params) {
+        SysUserDTO sysUserDTO = sysService.getOciUser(params.getCfgId());
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            OciUtils.updateRecipients(fetcher, params.getRecipients());
+        } catch (IllegalArgumentException e) {
+            throw new OciException(-1, e.getMessage());
+        } catch (Exception e) {
+            log.error("更新域通知收件人失败", e);
+            throw new OciException(-1, "更新域通知收件人失败: " + e.getMessage());
         }
     }
 }

@@ -419,7 +419,6 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void createInstanceBatch(CreateInstanceBatchParams params) {
         List<CreateInstanceParams> list = params.getUserIds().stream().map(userId -> {
             CreateInstanceParams instanceParams = new CreateInstanceParams();
@@ -428,20 +427,19 @@ public class OciServiceImpl implements IOciService {
             return instanceParams;
         }).collect(Collectors.toList());
 
-        Random random = new Random();
-
-        list.forEach(item -> {
-            // 随机延迟 5~10 秒
-            int delay = 5 + random.nextInt(6);
-
+        // Stagger task submission: each task is submitted 5 seconds after the previous one,
+        // preventing all tasks from hitting the API simultaneously.
+        for (int i = 0; i < list.size(); i++) {
+            final CreateInstanceParams item = list.get(i);
+            final long delaySeconds = (long) i * 5;
             CREATE_INSTANCE_POOL.schedule(() -> {
                 try {
                     createInstance(item);
                 } catch (Exception e) {
                     throw new OciException(-1, "创建开机任务失败");
                 }
-            }, delay, TimeUnit.SECONDS);
-        });
+            }, delaySeconds, TimeUnit.SECONDS);
+        }
     }
 
     @Override

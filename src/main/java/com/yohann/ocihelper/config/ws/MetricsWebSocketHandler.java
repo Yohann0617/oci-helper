@@ -41,6 +41,11 @@ public class MetricsWebSocketHandler {
     private static final ConcurrentHashMap<String, Session> SESSION_MAP = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Boolean> IS_OPEN_MAP = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Future<?>> FUTURE_MAP = new ConcurrentHashMap<>();
+    /**
+     * Reused across calls so CPU tick-delta is meaningful
+     */
+    private CentralProcessor processor;
+    private long[] prevCpuTicks;
     Map<String, Object> metrics = new HashMap<>();
     List<String> timestamps = new LinkedList<>();
     List<Double> inRates = new LinkedList<>();
@@ -109,25 +114,28 @@ public class MetricsWebSocketHandler {
     }
 
     private void genCpuMemData(String token) {
-        SystemInfo systemInfo = new SystemInfo();
-
-        // 获取 CPU 使用率
-        HardwareAbstractionLayer hardware = systemInfo.getHardware();
-        CentralProcessor processor = hardware.getProcessor();
-        long[] systemCpuLoadTicks = processor.getSystemCpuLoadTicks();
-        double cpu = processor.getSystemCpuLoadBetweenTicks(systemCpuLoadTicks) * 100;
+        // --- CPU ---
+        // processor is initialised once per connection (in execGenTrafficData) so that
+        // prevCpuTicks and the current ticks are separated by a real time interval.
+        double cpu = 0.0;
+        if (processor != null && prevCpuTicks != null) {
+            cpu = processor.getSystemCpuLoadBetweenTicks(prevCpuTicks) * 100;
+        }
+        // Take the next baseline snapshot immediately after reading
+        if (processor != null) {
+            prevCpuTicks = processor.getSystemCpuLoadTicks();
+        }
         String cpuUsage = String.format("%.2f", cpu);
         metrics.put("cpuUsage", MapUtil.builder()
                 .put("used", cpuUsage)
-                .put("free", String.valueOf(100 - Double.parseDouble(cpuUsage)))
+                .put("free", String.format("%.2f", 100 - Double.parseDouble(cpuUsage)))
                 .build());
 
-        // 获取内存使用情况
-        GlobalMemory memory = systemInfo.getHardware().getMemory();
+        // --- Memory ---
+        GlobalMemory memory = new SystemInfo().getHardware().getMemory();
         long totalMemory = memory.getTotal();
         long availableMemory = memory.getAvailable();
         long usedMemory = totalMemory - availableMemory;
-        // 计算内存使用率百分比
         double usedMemoryPercentage = ((double) usedMemory / totalMemory) * 100;
         double freeMemoryPercentage = ((double) availableMemory / totalMemory) * 100;
 
@@ -136,19 +144,12 @@ public class MetricsWebSocketHandler {
                 .put("free", String.format("%.2f", freeMemoryPercentage))
                 .build());
 
-        timestamps.sort((t1, t2) -> {
-            LocalTime time1 = LocalTime.parse(t1);
-            LocalTime time2 = LocalTime.parse(t2);
-            return time1.compareTo(time2);
-        });
-
         metrics.put("trafficData", MapUtil.builder()
                 .put("timestamps", timestamps)
                 .put("inbound", inRates)
                 .put("outbound", outRates)
                 .build());
 
-        // 发送消息时使用对应的 session
         Session userSession = SESSION_MAP.get(token);
         if (userSession != null && userSession.isOpen()) {
             sendOneMessage(userSession, JSONUtil.toJsonStr(metrics));
@@ -158,67 +159,60 @@ public class MetricsWebSocketHandler {
     private void execGenTrafficData(String token) {
         Future<?> future = Executors.newSingleThreadExecutor().submit(() -> {
             SystemInfo systemInfo = new SystemInfo();
-            List<NetworkIF> networkIFs = systemInfo.getHardware().getNetworkIFs();
+            HardwareAbstractionLayer hardware = systemInfo.getHardware();
 
+            // Initialise the shared CPU processor and take the first tick baseline.
+            // The first genCpuMemData() call (interval seconds later) will then have
+            // a meaningful delta to calculate real CPU usage.
+            processor = hardware.getProcessor();
+            prevCpuTicks = processor.getSystemCpuLoadTicks();
+
+            List<NetworkIF> networkIFs = hardware.getNetworkIFs();
             NetworkIF networkIF = networkIFs.stream()
-                    .filter(NetworkIF::isConnectorPresent) // 必须是有物理连接
-                    .filter(iface -> !Arrays.asList(iface.getIPv4addr()).isEmpty() || !Arrays.asList(iface.getIPv6addr()).isEmpty()) // 必须有 IP 地址
+                    .filter(NetworkIF::isConnectorPresent)
+                    .filter(iface -> !Arrays.asList(iface.getIPv4addr()).isEmpty() || !Arrays.asList(iface.getIPv6addr()).isEmpty())
                     .filter(iface -> iface.getName().startsWith("e"))
-                    .min((a, b) -> Long.compare(b.getSpeed(), a.getSpeed())) // 找到第一个匹配的网卡
-                    .orElse(null); // 如果没有匹配，返回 null
+                    .min((a, b) -> Long.compare(b.getSpeed(), a.getSpeed()))
+                    .orElse(null);
 
             if (null != networkIF) {
+                // First snapshot — raw bytes, no division yet
                 networkIF.updateAttributes();
-                double previousRxBytes = networkIF.getBytesRecv();
-                double previousTxBytes = networkIF.getBytesSent();
-
-                double currentRxBytes = networkIF.getBytesRecv() / 1024.0;
-                double currentTxBytes = networkIF.getBytesSent() / 1024.0;
-
-                // 计算当前秒的流量速率（单位：KB/s）
-                double rxRate = (currentRxBytes - previousRxBytes) / 1024.0;
-                double txRate = (currentTxBytes - previousTxBytes) / 1024.0;
-
-                // 更新上一秒的字节数
-                previousRxBytes = currentRxBytes;
-                previousTxBytes = currentTxBytes;
+                long previousRxBytes = networkIF.getBytesRecv();
+                long previousTxBytes = networkIF.getBytesSent();
 
                 while (IS_OPEN_MAP.getOrDefault(token, false)) {
-                    Calendar calendar = Calendar.getInstance();
-
                     try {
-                        Thread.sleep(interval * 1000L); // 每秒更新一次
+                        Thread.sleep(interval * 1000L);
                     } catch (InterruptedException e) {
-
+                        Thread.currentThread().interrupt();
+                        break;
                     }
+
+                    // Record the timestamp right after waking up
+                    LocalTime now = LocalTime.now();
+                    String timestamp = String.format("%02d:%02d:%02d",
+                            now.getHour(), now.getMinute(), now.getSecond());
+
                     networkIF.updateAttributes();
+                    long currentRxBytes = networkIF.getBytesRecv();
+                    long currentTxBytes = networkIF.getBytesSent();
 
-                    currentRxBytes = networkIF.getBytesRecv() / 1024.0;
-                    currentTxBytes = networkIF.getBytesSent() / 1024.0;
+                    // Rate in KB/s: delta bytes / interval seconds / 1024
+                    double rxRate = (currentRxBytes - previousRxBytes) / (double) interval / 1024.0;
+                    double txRate = (currentTxBytes - previousTxBytes) / (double) interval / 1024.0;
 
-                    // 计算当前秒的流量速率（单位：KB/s）
-                    rxRate = (currentRxBytes - previousRxBytes) / 1024.0;
-                    txRate = (currentTxBytes - previousTxBytes) / 1024.0;
-
-                    // 更新上一秒的字节数
                     previousRxBytes = currentRxBytes;
                     previousTxBytes = currentTxBytes;
 
-                    // 维护队列大小为10
-                    if (inRates.size() == size) {
-                        inRates.remove(0);
-                    }
-                    if (outRates.size() == size) {
-                        outRates.remove(0);
-                    }
-                    if (timestamps.size() == size) {
-                        timestamps.remove(0);
-                    }
-                    inRates.add(Double.valueOf(String.format("%.2f", rxRate)));
-                    outRates.add(Double.valueOf(String.format("%.2f", txRate)));
-                    timestamps.add(String.format("%02d:%02d:%02d",
-                            calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), calendar.get(Calendar.SECOND)));
-                    calendar.add(Calendar.SECOND, -interval);
+                    // Keep sliding window
+                    if (inRates.size() == size) inRates.remove(0);
+                    if (outRates.size() == size) outRates.remove(0);
+                    if (timestamps.size() == size) timestamps.remove(0);
+
+                    inRates.add(Double.parseDouble(String.format("%.2f", rxRate)));
+                    outRates.add(Double.parseDouble(String.format("%.2f", txRate)));
+                    timestamps.add(timestamp);
 
                     genCpuMemData(token);
                 }

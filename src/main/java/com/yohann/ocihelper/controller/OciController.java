@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.annotation.Resource;
 
+import java.util.concurrent.ExecutorService;
+
 /**
  * <p>
  * OciController
@@ -42,6 +44,8 @@ public class OciController {
     private IOciService ociService;
     @Resource
     private IInstanceService instanceService;
+    @Resource
+    private ExecutorService virtualExecutor;
 
     @PostMapping(path = "/userPage")
     public ResponseData<Page<OciUserListRsp>> userPage(@Validated @RequestBody GetOciUserListParams params) {
@@ -114,8 +118,10 @@ public class OciController {
 
     @PostMapping(path = "/createInstanceBatch")
     public ResponseData<Void> createInstanceBatch(@Validated @RequestBody CreateInstanceBatchParams params) {
-        ociService.createInstanceBatch(params);
-        return ResponseData.successData("批量创建开机任务成功");
+        // Submit asynchronously so the client gets an immediate response
+        // regardless of how many tasks are being scheduled.
+        virtualExecutor.execute(() -> ociService.createInstanceBatch(params));
+        return ResponseData.successData("批量开机任务已提交，正在逐步创建中…");
     }
 
     @PostMapping(path = "/updateInstanceState")
