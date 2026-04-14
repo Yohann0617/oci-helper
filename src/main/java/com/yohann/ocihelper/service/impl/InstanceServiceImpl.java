@@ -26,6 +26,7 @@ import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
 import com.yohann.ocihelper.bean.entity.OciCreateTask;
 import com.yohann.ocihelper.bean.entity.OciKv;
+import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.params.oci.instance.Close500MParams;
 import com.yohann.ocihelper.bean.params.oci.instance.CreateNetworkLoadBalancerParams;
 import com.yohann.ocihelper.bean.params.oci.instance.UpdateShapeParams;
@@ -34,10 +35,7 @@ import com.yohann.ocihelper.enums.ArchitectureEnum;
 import com.yohann.ocihelper.enums.OciRegionsEnum;
 import com.yohann.ocihelper.enums.SysCfgEnum;
 import com.yohann.ocihelper.exception.OciException;
-import com.yohann.ocihelper.service.IInstanceService;
-import com.yohann.ocihelper.service.IOciCreateTaskService;
-import com.yohann.ocihelper.service.IOciKvService;
-import com.yohann.ocihelper.service.ISysService;
+import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +71,8 @@ public class InstanceServiceImpl implements IInstanceService {
     private ISysService sysService;
     @Resource
     private IOciCreateTaskService createTaskService;
+    @Resource
+    private IOciUserService userService;
     @Resource
     private IOciKvService kvService;
     @Resource
@@ -205,6 +205,12 @@ public class InstanceServiceImpl implements IInstanceService {
                     // TG 频道消息推送
                     if (isCanBroadcast(instanceDetail, currentCount)) {
                         String planType = fetcher.getUser().getPlanType();
+                        if (StrUtil.isBlank(planType)){
+                            OciCreateTask task = createTaskService.getById(fetcher.getUser().getTaskId());
+                            OciUser ociUser = userService.getById(task.getUserId());
+                            planType = ociUser.getPlanType();
+                        }
+
                         Subscription.PlanType planTypeEnum = planType != null
                                 ? Subscription.PlanType.create(planType) : null;
                         String accountTypeLabel = Subscription.PlanType.Payg.equals(planTypeEnum) ? "升级号"
