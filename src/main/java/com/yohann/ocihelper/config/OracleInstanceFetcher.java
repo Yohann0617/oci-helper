@@ -21,6 +21,19 @@ import com.oracle.bmc.identitydomains.model.Users;
 import com.oracle.bmc.identitydomains.requests.ListUsersRequest;
 import com.oracle.bmc.identitydomains.responses.ListUsersResponse;
 import com.oracle.bmc.model.BmcException;
+import com.oracle.bmc.limits.LimitsClient;
+import com.oracle.bmc.limits.model.LimitDefinitionSummary;
+import com.oracle.bmc.limits.model.LimitValueSummary;
+import com.oracle.bmc.limits.model.ResourceAvailability;
+import com.oracle.bmc.limits.requests.GetResourceAvailabilityRequest;
+import com.oracle.bmc.limits.requests.ListLimitDefinitionsRequest;
+import com.oracle.bmc.limits.requests.ListLimitValuesRequest;
+import com.oracle.bmc.limits.responses.GetResourceAvailabilityResponse;
+import com.oracle.bmc.limits.responses.ListLimitDefinitionsResponse;
+import com.oracle.bmc.limits.model.ServiceSummary;
+import com.oracle.bmc.limits.requests.ListServicesRequest;
+import com.oracle.bmc.limits.responses.ListLimitValuesResponse;
+import com.oracle.bmc.limits.responses.ListServicesResponse;
 import com.oracle.bmc.monitoring.MonitoringClient;
 import com.oracle.bmc.networkloadbalancer.NetworkLoadBalancerClient;
 import com.oracle.bmc.ospgateway.SubscriptionServiceClient;
@@ -72,6 +85,7 @@ public class OracleInstanceFetcher implements Closeable {
     private final MonitoringClient monitoringClient;
     private final NetworkLoadBalancerClient networkLoadBalancerClient;
     private final IdentityDomainsClient identityDomainsClient;
+    private final LimitsClient limitsClient;
     private final SimpleAuthenticationDetailsProvider provider;
     private SysUserDTO user;
     private String compartmentId;
@@ -88,6 +102,7 @@ public class OracleInstanceFetcher implements Closeable {
         monitoringClient.close();
         networkLoadBalancerClient.close();
         identityDomainsClient.close();
+        limitsClient.close();
     }
 
     public OracleInstanceFetcher(SysUserDTO user) {
@@ -121,6 +136,7 @@ public class OracleInstanceFetcher implements Closeable {
         monitoringClient = MonitoringClient.builder().build(provider);
         networkLoadBalancerClient = NetworkLoadBalancerClient.builder().build(provider);
         identityDomainsClient = IdentityDomainsClient.builder().build(provider);
+        limitsClient = LimitsClient.builder().build(provider);
         this.provider = provider;
         compartmentId = StrUtil.isBlank(ociCfg.getCompartmentId()) ? findRootCompartment(identityClient, provider.getTenantId()) : ociCfg.getCompartmentId();
     }
@@ -2147,5 +2163,99 @@ public class OracleInstanceFetcher implements Closeable {
                         .egressSecurityRules(egressSecurityRuleList)
                         .build())
                 .build());
+    }
+
+    /**
+     * List all limit definitions and their current values / availability for the given compartment.
+     * Optionally filter by service name.
+     *
+     * @param serviceName optional service name filter, e.g. "compute"; null or blank means all services
+     * @return list of LimitDefinitionSummary objects
+     */
+    public List<LimitDefinitionSummary> listLimitDefinitions(String serviceName) {
+        List<LimitDefinitionSummary> result = new ArrayList<>();
+        String nextPageToken = null;
+        ListLimitDefinitionsRequest.Builder builder = ListLimitDefinitionsRequest.builder()
+                .compartmentId(compartmentId);
+        if (serviceName != null && !serviceName.isBlank()) {
+            builder.serviceName(serviceName);
+        }
+        do {
+            if (nextPageToken != null) {
+                builder.page(nextPageToken);
+            }
+            ListLimitDefinitionsResponse response = limitsClient.listLimitDefinitions(builder.build());
+            result.addAll(response.getItems());
+            nextPageToken = response.getOpcNextPage();
+        } while (nextPageToken != null);
+        return result;
+    }
+
+    /**
+     * Get the current limit value for a specific limit name and scope.
+     *
+     * @param serviceName service name, e.g. "compute"
+     * @param limitName   limit name, e.g. "vm-standard-e4-flex-ocpus"
+     * @return list of LimitValueSummary (may contain multiple items for AD-scoped limits)
+     */
+    public List<LimitValueSummary> listLimitValues(String serviceName, String limitName) {
+        List<LimitValueSummary> result = new ArrayList<>();
+        String nextPageToken = null;
+        ListLimitValuesRequest.Builder builder = ListLimitValuesRequest.builder()
+                .compartmentId(compartmentId)
+                .serviceName(serviceName)
+                .name(limitName);
+        do {
+            if (nextPageToken != null) {
+                builder.page(nextPageToken);
+            }
+            ListLimitValuesResponse response = limitsClient.listLimitValues(builder.build());
+            result.addAll(response.getItems());
+            nextPageToken = response.getOpcNextPage();
+        } while (nextPageToken != null);
+        return result;
+    }
+
+    /**
+     * Get the resource availability (used + available) for a specific limit.
+     *
+     * @param serviceName          service name
+     * @param limitName            limit name
+     * @param availabilityDomain   availability domain name; may be null for REGION or GLOBAL scope
+     * @return ResourceAvailability containing used and available counts
+     */
+    public ResourceAvailability getResourceAvailability(String serviceName, String limitName,
+                                                        String availabilityDomain) {
+        GetResourceAvailabilityRequest.Builder builder = GetResourceAvailabilityRequest.builder()
+                .compartmentId(compartmentId)
+                .serviceName(serviceName)
+                .limitName(limitName);
+        if (availabilityDomain != null && !availabilityDomain.isBlank()) {
+            builder.availabilityDomain(availabilityDomain);
+        }
+        GetResourceAvailabilityResponse response = limitsClient.getResourceAvailability(builder.build());
+        return response.getResourceAvailability();
+    }
+
+    /**
+     * List all available service names (e.g. "compute", "vcn", "object-storage") for the current
+     * compartment.  The returned list can be used to populate a service-name filter drop-down.
+     *
+     * @return list of ServiceSummary objects
+     */
+    public List<ServiceSummary> listServices() {
+        List<ServiceSummary> result = new ArrayList<>();
+        String nextPageToken = null;
+        ListServicesRequest.Builder builder = ListServicesRequest.builder()
+                .compartmentId(compartmentId);
+        do {
+            if (nextPageToken != null) {
+                builder.page(nextPageToken);
+            }
+            ListServicesResponse response = limitsClient.listServices(builder.build());
+            result.addAll(response.getItems());
+            nextPageToken = response.getOpcNextPage();
+        } while (nextPageToken != null);
+        return result;
     }
 }
