@@ -439,48 +439,54 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void resumeCreateBatch(PauseCreateParams params) {
-        // Re-schedule tasks from DB and clear paused flag
-        List<OciCreateTask> tasks = createTaskService.listByIds(params.getIdList());
-        tasks.forEach(task -> {
-            if (task.getCreateNumbers() <= 0) {
-                createTaskService.removeById(task.getId());
-                return;
-            }
-            OciUser ociUser = userService.getById(task.getUserId());
-            if (ociUser == null) {
-                log.warn("[Resume Task] ociUser not found for task {}", task.getId());
-                return;
-            }
-            SysUserDTO sysUserDTO = SysUserDTO.builder()
-                    .ociCfg(SysUserDTO.OciCfg.builder()
-                            .userId(ociUser.getOciUserId())
-                            .tenantId(ociUser.getOciTenantId())
-                            .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
-                            .fingerprint(ociUser.getOciFingerprint())
-                            .privateKeyPath(ociUser.getOciKeyPath())
-                            .build())
-                    .taskId(task.getId())
-                    .username(ociUser.getUsername())
-                    .planType(ociUser.getPlanType())
-                    .ocpus(task.getOcpus())
-                    .memory(task.getMemory())
-                    .disk(Integer.valueOf(50).equals(task.getDisk()) ? null : Long.valueOf(task.getDisk()))
-                    .architecture(task.getArchitecture())
-                    .interval(Long.valueOf(task.getInterval()))
-                    .createNumbers(task.getCreateNumbers())
-                    .operationSystem(task.getOperationSystem())
-                    .rootPassword(task.getRootPassword())
-                    .build();
-            addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(),
-                    () -> execCreate(sysUserDTO, sysService, instanceService, createTaskService),
-                    0, task.getInterval(), TimeUnit.SECONDS);
-        });
+        // 先标记所有任务为运行中，这样状态立刻保持一致
         createTaskService.update(new LambdaUpdateWrapper<OciCreateTask>()
                 .in(OciCreateTask::getId, params.getIdList())
                 .set(OciCreateTask::getPaused, 0));
-        log.info("[Resume Task] resumed tasks: {}", params.getIdList());
+
+        List<OciCreateTask> tasks = createTaskService.listByIds(params.getIdList());
+        // 错开任务恢复：每个任务在上一个任务后5秒提交，防止所有任务同时进入 OCI API。
+        for (int i = 0; i < tasks.size(); i++) {
+            final OciCreateTask task = tasks.get(i);
+            final long delaySeconds = (long) i * 5;
+            CREATE_INSTANCE_POOL.schedule(() -> {
+                if (task.getCreateNumbers() <= 0) {
+                    createTaskService.removeById(task.getId());
+                    return;
+                }
+                OciUser ociUser = userService.getById(task.getUserId());
+                if (ociUser == null) {
+                    log.warn("[Resume Task] ociUser not found for task {}", task.getId());
+                    return;
+                }
+                SysUserDTO sysUserDTO = SysUserDTO.builder()
+                        .ociCfg(SysUserDTO.OciCfg.builder()
+                                .userId(ociUser.getOciUserId())
+                                .tenantId(ociUser.getOciTenantId())
+                                .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
+                                .fingerprint(ociUser.getOciFingerprint())
+                                .privateKeyPath(ociUser.getOciKeyPath())
+                                .build())
+                        .taskId(task.getId())
+                        .username(ociUser.getUsername())
+                        .planType(ociUser.getPlanType())
+                        .ocpus(task.getOcpus())
+                        .memory(task.getMemory())
+                        .disk(Integer.valueOf(50).equals(task.getDisk()) ? null : Long.valueOf(task.getDisk()))
+                        .architecture(task.getArchitecture())
+                        .interval(Long.valueOf(task.getInterval()))
+                        .createNumbers(task.getCreateNumbers())
+                        .operationSystem(task.getOperationSystem())
+                        .rootPassword(task.getRootPassword())
+                        .build();
+                addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(),
+                        () -> execCreate(sysUserDTO, sysService, instanceService, createTaskService),
+                        0, task.getInterval(), TimeUnit.SECONDS);
+                log.info("[Resume Task] task [{}] scheduled with {}s delay", task.getId(), delaySeconds);
+            }, delaySeconds, TimeUnit.SECONDS);
+        }
+        log.info("[Resume Task] {} tasks queued for resumption", tasks.size());
     }
 
     @Override
