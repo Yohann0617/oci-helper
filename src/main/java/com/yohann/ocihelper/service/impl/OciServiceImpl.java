@@ -41,6 +41,7 @@ import com.yohann.ocihelper.bean.params.oci.cfg.*;
 import com.yohann.ocihelper.bean.params.oci.instance.*;
 import com.yohann.ocihelper.bean.params.oci.securityrule.ReleaseSecurityRuleParams;
 import com.yohann.ocihelper.bean.params.oci.task.CreateTaskPageParams;
+import com.yohann.ocihelper.bean.params.oci.task.PauseCreateParams;
 import com.yohann.ocihelper.bean.params.oci.task.StopChangeIpParams;
 import com.yohann.ocihelper.bean.params.oci.task.StopCreateParams;
 import com.yohann.ocihelper.bean.params.oci.volume.UpdateBootVolumeCfgParams;
@@ -427,6 +428,62 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void pauseCreateBatch(PauseCreateParams params) {
+        // Cancel the scheduled futures but keep the DB records with paused=1
+        params.getIdList().forEach(taskId -> stopTask(CommonUtils.CREATE_TASK_PREFIX + taskId));
+        createTaskService.update(new LambdaUpdateWrapper<OciCreateTask>()
+                .in(OciCreateTask::getId, params.getIdList())
+                .set(OciCreateTask::getPaused, 1));
+        log.info("[Pause Task] paused tasks: {}", params.getIdList());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void resumeCreateBatch(PauseCreateParams params) {
+        // Re-schedule tasks from DB and clear paused flag
+        List<OciCreateTask> tasks = createTaskService.listByIds(params.getIdList());
+        tasks.forEach(task -> {
+            if (task.getCreateNumbers() <= 0) {
+                createTaskService.removeById(task.getId());
+                return;
+            }
+            OciUser ociUser = userService.getById(task.getUserId());
+            if (ociUser == null) {
+                log.warn("[Resume Task] ociUser not found for task {}", task.getId());
+                return;
+            }
+            SysUserDTO sysUserDTO = SysUserDTO.builder()
+                    .ociCfg(SysUserDTO.OciCfg.builder()
+                            .userId(ociUser.getOciUserId())
+                            .tenantId(ociUser.getOciTenantId())
+                            .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
+                            .fingerprint(ociUser.getOciFingerprint())
+                            .privateKeyPath(ociUser.getOciKeyPath())
+                            .build())
+                    .taskId(task.getId())
+                    .username(ociUser.getUsername())
+                    .planType(ociUser.getPlanType())
+                    .ocpus(task.getOcpus())
+                    .memory(task.getMemory())
+                    .disk(Integer.valueOf(50).equals(task.getDisk()) ? null : Long.valueOf(task.getDisk()))
+                    .architecture(task.getArchitecture())
+                    .interval(Long.valueOf(task.getInterval()))
+                    .createNumbers(task.getCreateNumbers())
+                    .operationSystem(task.getOperationSystem())
+                    .rootPassword(task.getRootPassword())
+                    .build();
+            addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(),
+                    () -> execCreate(sysUserDTO, sysService, instanceService, createTaskService),
+                    0, task.getInterval(), TimeUnit.SECONDS);
+        });
+        createTaskService.update(new LambdaUpdateWrapper<OciCreateTask>()
+                .in(OciCreateTask::getId, params.getIdList())
+                .set(OciCreateTask::getPaused, 0));
+        log.info("[Resume Task] resumed tasks: {}", params.getIdList());
+    }
+
+    @Override
     public void createInstanceBatch(CreateInstanceBatchParams params) {
         List<CreateInstanceParams> list = params.getUserIds().stream().map(userId -> {
             CreateInstanceParams instanceParams = new CreateInstanceParams();
@@ -649,6 +706,26 @@ public class OciServiceImpl implements IOciService {
         userService.update(new LambdaUpdateWrapper<OciUser>()
                 .eq(OciUser::getId, params.getCfgId())
                 .set(OciUser::getUsername, params.getUpdateCfgName()));
+    }
+
+    @Override
+    public void refreshPlanTypeBatch(IdListParams params) {
+        List<OciUser> users = userService.listByIds(params.getIdList());
+        List<OciUser> toUpdate = users.parallelStream().map(ociUser -> {
+            SysUserDTO sysUserDTO = getOciUser(ociUser.getId());
+            try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+                com.oracle.bmc.ospgateway.model.Subscription sub = fetcher.getSubscriptionInfo();
+                if (sub != null && sub.getPlanType() != null) {
+                    ociUser.setPlanType(sub.getPlanType().getValue());
+                    log.info("[RefreshPlanType] user:[{}] updated planType to [{}]",
+                            ociUser.getUsername(), sub.getPlanType().getValue());
+                }
+            } catch (Exception e) {
+                log.warn("[RefreshPlanType] user:[{}] failed: {}", ociUser.getUsername(), e.getMessage());
+            }
+            return ociUser;
+        }).collect(Collectors.toList());
+        userService.updateBatchById(toUpdate);
     }
 
     @Override

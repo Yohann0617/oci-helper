@@ -1116,6 +1116,9 @@ public class SysServiceImpl implements ISysService {
             CREATE_INSTANCE_POOL.schedule(() -> {
                 if (task.getCreateNumbers() <= 0) {
                     createTaskService.removeById(task.getId());
+                } else if (task.getPaused() != null && task.getPaused() == 1) {
+                    // Skip paused tasks — keep them in DB but don't schedule execution
+                    log.info("【开机任务】任务 [{}] 处于暂停状态，跳过启动", task.getId());
                 } else {
                     OciUser ociUser = userService.getById(task.getUserId());
                     SysUserDTO sysUserDTO = SysUserDTO.builder()

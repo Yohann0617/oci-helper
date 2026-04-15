@@ -134,6 +134,7 @@ public class OciTask implements ApplicationRunner {
         sqLiteHelper.addColumnIfNotExists("oci_create_task", "oci_region", "VARCHAR(64) NULL");
         sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_create_time", "datetime NULL");
         sqLiteHelper.addColumnIfNotExists("oci_user", "plan_type", "VARCHAR(32) NULL");
+        sqLiteHelper.addColumnIfNotExists("oci_create_task", "paused", "INTEGER DEFAULT 0");
         virtualExecutor.execute(() -> {
             List<OciUser> ociUsers = userService.list(new LambdaQueryWrapper<OciUser>()
                     .isNull(OciUser::getTenantCreateTime)
@@ -191,6 +192,9 @@ public class OciTask implements ApplicationRunner {
                 CREATE_INSTANCE_POOL.schedule(() -> {
                     if (task.getCreateNumbers() <= 0) {
                         createTaskService.removeById(task.getId());
+                    } else if (task.getPaused() != null && task.getPaused() == 1) {
+                        // Skip paused tasks — keep them in DB but don't schedule execution
+                        log.info("【开机任务】任务 [{}] 处于暂停状态，跳过启动", task.getId());
                     } else {
                         OciUser ociUser = userService.getById(task.getUserId());
                         SysUserDTO sysUserDTO = SysUserDTO.builder()

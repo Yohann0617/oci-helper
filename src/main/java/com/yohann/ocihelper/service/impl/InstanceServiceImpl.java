@@ -131,6 +131,7 @@ public class InstanceServiceImpl implements IInstanceService {
 
     @Override
     public CreateInstanceDTO createInstance(OracleInstanceFetcher fetcher) {
+        SysUserDTO sysUserDTO = fetcher.getUser();
         Long currentCount = (Long) TEMP_MAP.compute(
                 CommonUtils.CREATE_COUNTS_PREFIX + fetcher.getUser().getTaskId(),
                 (key, value) -> value == null ? 1L : Long.parseLong(String.valueOf(value)) + 1
@@ -143,6 +144,9 @@ public class InstanceServiceImpl implements IInstanceService {
                 .eq(OciKv::getCode, SysCfgEnum.BOOT_BROADCAST_TOKEN.getCode()));
         OciCreateTask createTask = createTaskService.getById(fetcher.getUser().getTaskId());
         List<InstanceDetailDTO> instanceList = new ArrayList<>();
+        // 收集本轮所有成功实例;频道广播在循环后发送一次
+        List<InstanceDetailDTO> successList = new ArrayList<>();
+
         for (int i = 0; i < fetcher.getUser().getCreateNumbers(); i++) {
             InstanceDetailDTO instanceDetail = fetcher.createInstanceData();
             if (instanceDetail.isTooManyReq()) {
@@ -172,11 +176,11 @@ public class InstanceServiceImpl implements IInstanceService {
                         currentCount,
                         createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime())
                 );
-
                 sysService.sendMessage(message);
+                successList.add(instanceDetail);
 
+                // Legacy broadcast push (per-instance, unchanged)
                 virtualExecutor.execute(() -> {
-                    // 放货推送
                     if (Arrays.asList("ARM", "AMD").contains(instanceDetail.getArchitecture())) {
                         String arch = instanceDetail.getArchitecture().toLowerCase();
                         try (HttpResponse response = HttpRequest.get(bootBroadcastUrl)
@@ -185,66 +189,67 @@ public class InstanceServiceImpl implements IInstanceService {
                                 .form("token", bootBroadcastTokenCfg == null ? null : bootBroadcastTokenCfg.getValue())
                                 .timeout(20_000)
                                 .execute()) {
-
                             int status = response.getStatus();
                             String body = response.body();
-
                             if (status == 200) {
-//                                log.info("放货推送成功,status:{}", status);
-//                                log.info("放货推送成功,body:{}", body);
                                 log.info("放货信息推送成功");
                             } else {
                                 log.warn("放货推送失败,status:{},body:{}", status, body);
                             }
-
                         } catch (Exception e) {
                             log.error("放货推送异常", e);
                         }
                     }
-
-                    // TG 频道消息推送
-                    if (isCanBroadcast(instanceDetail, currentCount)) {
-                        String planType = fetcher.getUser().getPlanType();
-                        if (StrUtil.isBlank(planType)){
-                            OciCreateTask task = createTaskService.getById(fetcher.getUser().getTaskId());
-                            OciUser ociUser = userService.getById(task.getUserId());
-                            planType = ociUser.getPlanType();
-                        }
-
-                        Subscription.PlanType planTypeEnum = planType != null
-                                ? Subscription.PlanType.create(planType) : null;
-                        String accountTypeLabel = Subscription.PlanType.Payg.equals(planTypeEnum) ? "升级号"
-                                : Subscription.PlanType.FreeTier.equals(planTypeEnum) ? "免费号" : "未知";
-                        String channelMsg = String.format(CHANNEL_MESSAGE_TEMPLATE,
-                                LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                                instanceDetail.getRegion(),
-                                OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
-                                instanceDetail.getArchitecture(),
-                                instanceDetail.getOcpus().longValue(),
-                                instanceDetail.getMemory().longValue(),
-                                instanceDetail.getDisk(),
-                                currentCount,
-                                createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()),
-                                accountTypeLabel);
-                        try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
-                                .form("text", channelMsg)
-                                .timeout(20_000)
-                                .execute()) {
-                            int status = response.getStatus();
-                            String body = response.body();
-
-                            if (status == 200) {
-                                log.info("频道放货信息推送成功");
-                            } else {
-                                log.warn("频道放货推送失败,status:{},body:{}", status, body);
-                            }
-                        } catch (Exception e) {
-                            log.error("频道放货推送异常", e);
-                        }
-                    }
                 });
-
             }
+        }
+
+        // TG通道广播：每执行轮仅发送一次，所有成功实例
+        if (!successList.isEmpty() && isCanBroadcast(successList.get(0), currentCount)) {
+            virtualExecutor.execute(() -> {
+
+                // 通过OCI API实时获取账户类型
+                String accountTypeLabel;
+                try (OracleInstanceFetcher instanceFetcher = new OracleInstanceFetcher(sysUserDTO)) {
+                    Subscription sub = instanceFetcher.getSubscriptionInfo();
+                    Subscription.PlanType planTypeEnum = (sub != null) ? sub.getPlanType() : null;
+                    accountTypeLabel = Subscription.PlanType.Payg.equals(planTypeEnum) ? "升级号"
+                            : Subscription.PlanType.FreeTier.equals(planTypeEnum) ? "免费号" : "未知";
+                } catch (Exception e) {
+                    log.warn("[ChannelBroadcast] 无法获取账户类型 [{}]: {}", sysUserDTO.getUsername(), e.getMessage());
+                    accountTypeLabel = "未知";
+                }
+
+                // 构建一个涵盖本轮所有成功案例的综合消息
+                StringBuilder channelMsg = new StringBuilder();
+                for (InstanceDetailDTO instanceDetail : successList) {
+                    channelMsg.append(String.format(CHANNEL_MESSAGE_TEMPLATE,
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                            instanceDetail.getRegion(),
+                            OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
+                            instanceDetail.getArchitecture(),
+                            instanceDetail.getOcpus().longValue(),
+                            instanceDetail.getMemory().longValue(),
+                            instanceDetail.getDisk(),
+                            currentCount,
+                            createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()),
+                            accountTypeLabel));
+                }
+
+                try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
+                        .form("text", channelMsg.toString())
+                        .timeout(20_000)
+                        .execute()) {
+                    int status = response.getStatus();
+                    if (status == 200) {
+                        log.info("频道放货信息推送成功（本轮 {} 台）", successList.size());
+                    } else {
+                        log.warn("频道放货推送失败,status:{},body:{}", status, response.body());
+                    }
+                } catch (Exception e) {
+                    log.error("频道放货推送异常", e);
+                }
+            });
         }
 
         return new CreateInstanceDTO(instanceList);

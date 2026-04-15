@@ -8,6 +8,7 @@ import com.yohann.ocihelper.bean.params.oci.cfg.*;
 import com.yohann.ocihelper.bean.params.oci.instance.*;
 import com.yohann.ocihelper.bean.params.oci.securityrule.ReleaseSecurityRuleParams;
 import com.yohann.ocihelper.bean.params.oci.task.CreateTaskPageParams;
+import com.yohann.ocihelper.bean.params.oci.task.PauseCreateParams;
 import com.yohann.ocihelper.bean.params.oci.task.StopChangeIpParams;
 import com.yohann.ocihelper.bean.params.oci.task.StopCreateParams;
 import com.yohann.ocihelper.bean.params.oci.volume.UpdateBootVolumeCfgParams;
@@ -116,6 +117,18 @@ public class OciController {
         return ResponseData.successData("停止开机任务成功");
     }
 
+    @PostMapping(path = "/pauseCreateBatch")
+    public ResponseData<Void> pauseCreateBatch(@Validated @RequestBody PauseCreateParams params) {
+        ociService.pauseCreateBatch(params);
+        return ResponseData.successData("暂停开机任务成功");
+    }
+
+    @PostMapping(path = "/resumeCreateBatch")
+    public ResponseData<Void> resumeCreateBatch(@Validated @RequestBody PauseCreateParams params) {
+        ociService.resumeCreateBatch(params);
+        return ResponseData.successData("恢复开机任务成功");
+    }
+
     @PostMapping(path = "/createInstanceBatch")
     public ResponseData<Void> createInstanceBatch(@Validated @RequestBody CreateInstanceBatchParams params) {
         // Submit asynchronously so the client gets an immediate response
@@ -180,6 +193,12 @@ public class OciController {
     @PostMapping(path = "/checkAlive")
     public ResponseData<Void> checkAlive() {
         return ResponseData.successData(ociService.checkAlive());
+    }
+
+    @PostMapping(path = "/refreshPlanTypeBatch")
+    public ResponseData<Void> refreshPlanTypeBatch(@Validated @RequestBody IdListParams params) {
+        ociService.refreshPlanTypeBatch(params);
+        return ResponseData.successData("套餐类型刷新成功");
     }
 
     @PostMapping(path = "/startVnc")

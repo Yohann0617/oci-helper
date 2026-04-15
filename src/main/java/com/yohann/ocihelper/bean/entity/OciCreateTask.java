@@ -47,6 +47,11 @@ public class OciCreateTask implements Serializable {
 
     private LocalDateTime createTime;
 
+    /**
+     * Task paused flag: 0 = running, 1 = paused
+     */
+    private Integer paused;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

@@ -15,6 +15,7 @@
         oct.create_numbers,
         oct.operation_system,
         oct.create_time,
+        oct.paused,
         ou.username
         from oci_create_task oct
         left join oci_user ou on oct.user_id = ou.id

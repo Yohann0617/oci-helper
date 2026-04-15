@@ -30,6 +30,7 @@ create table if not exists `oci_create_task`
     create_numbers   INTEGER     DEFAULT 1,
     root_password    varchar(64),
     operation_system varchar(64) DEFAULT 'Ubuntu',
+    paused           INTEGER     DEFAULT 0,
     create_time      datetime    default (datetime('now', 'localtime')) not null,
     primary key ("id")
 );

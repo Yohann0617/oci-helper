@@ -2,6 +2,7 @@ package com.yohann.ocihelper.telegram.handler.impl;
 
 import cn.hutool.extra.spring.SpringUtil;
 import com.yohann.ocihelper.bean.entity.OciUser;
+import com.yohann.ocihelper.enums.OperationSystemEnum;
 import com.yohann.ocihelper.service.IOciUserService;
 import com.yohann.ocihelper.telegram.builder.KeyboardBuilder;
 import com.yohann.ocihelper.telegram.handler.AbstractCallbackHandler;
@@ -192,7 +193,7 @@ public class CreateInstanceHandler extends AbstractCallbackHandler {
                     .memory(1)
                     .disk(50)
                     .architecture("AMD")
-                    .operationSystem("Ubuntu")
+                    .operationSystem(OperationSystemEnum.UBUNTU_22_04.getType())
                     .interval(80)
                     .createNumbers(1)
                     .build();
@@ -203,7 +204,7 @@ public class CreateInstanceHandler extends AbstractCallbackHandler {
                     .memory(6)
                     .disk(50)
                     .architecture("ARM")
-                    .operationSystem("Ubuntu")
+                    .operationSystem(OperationSystemEnum.UBUNTU_22_04.getType())
                     .interval(80)
                     .createNumbers(1)
                     .build();
