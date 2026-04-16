@@ -102,7 +102,7 @@ public class OciTask implements ApplicationRunner {
         initMapData();
     }
 
-    private void startTgBog() {
+        private void startTgBog() {
         virtualExecutor.execute(() -> {
             OciKv tgToken = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_BOT_TOKEN.getCode()));
             OciKv tgChatId = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_TG_CHAT_ID.getCode()));
@@ -112,7 +112,10 @@ public class OciTask implements ApplicationRunner {
             if (StrUtil.isNotBlank(tgToken.getValue()) && StrUtil.isNotBlank(tgChatId.getValue())) {
                 botsApplication = new TelegramBotsLongPollingApplication();
                 try {
-                    botsApplication.registerBot(tgToken.getValue(), new TgBot(tgToken.getValue(), tgChatId.getValue()));
+                    // 获取全局代理配置
+                    OciKv proxyKv = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_PROXY.getCode()));
+                    String globalProxy = proxyKv != null ? proxyKv.getValue() : null;
+                    botsApplication.registerBot(tgToken.getValue(), new TgBot(tgToken.getValue(), tgChatId.getValue(), globalProxy));
                     Thread.currentThread().join();
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -135,6 +138,7 @@ public class OciTask implements ApplicationRunner {
         sqLiteHelper.addColumnIfNotExists("oci_user", "tenant_create_time", "datetime NULL");
         sqLiteHelper.addColumnIfNotExists("oci_user", "plan_type", "VARCHAR(32) NULL");
         sqLiteHelper.addColumnIfNotExists("oci_create_task", "paused", "INTEGER DEFAULT 0");
+        sqLiteHelper.addColumnIfNotExists("oci_user", "proxy", "VARCHAR(256) NULL");
         virtualExecutor.execute(() -> {
             List<OciUser> ociUsers = userService.list(new LambdaQueryWrapper<OciUser>()
                     .isNull(OciUser::getTenantCreateTime)
@@ -195,28 +199,21 @@ public class OciTask implements ApplicationRunner {
                     } else if (task.getPaused() != null && task.getPaused() == 1) {
                         // Skip paused tasks — keep them in DB but don't schedule execution
                         log.info("【开机任务】任务 [{}] 处于暂停状态，跳过启动", task.getId());
-                    } else {
-                        OciUser ociUser = userService.getById(task.getUserId());
-                        SysUserDTO sysUserDTO = SysUserDTO.builder()
-                                .ociCfg(SysUserDTO.OciCfg.builder()
-                                        .userId(ociUser.getOciUserId())
-                                        .tenantId(ociUser.getOciTenantId())
-                                        .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
-                                        .fingerprint(ociUser.getOciFingerprint())
-                                        .privateKeyPath(ociUser.getOciKeyPath())
-                                        .build())
-                                .taskId(task.getId())
-                                .username(ociUser.getUsername())
-                                .planType(ociUser.getPlanType())
-                                .ocpus(task.getOcpus())
-                                .memory(task.getMemory())
-                                .disk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()))
-                                .architecture(task.getArchitecture())
-                                .interval(Long.valueOf(task.getInterval()))
-                                .createNumbers(task.getCreateNumbers())
-                                .operationSystem(task.getOperationSystem())
-                                .rootPassword(task.getRootPassword())
-                                .build();
+                                        } else {
+                        SysUserDTO sysUserDTO = sysService.getOciUser(task.getUserId());
+                        // 覆盖任务相关字段，同时保留代理、区域等配置信息
+                        if (StrUtil.isNotBlank(task.getOciRegion())) {
+                            sysUserDTO.getOciCfg().setRegion(task.getOciRegion());
+                        }
+                        sysUserDTO.setTaskId(task.getId());
+                        sysUserDTO.setOcpus(task.getOcpus());
+                        sysUserDTO.setMemory(task.getMemory());
+                        sysUserDTO.setDisk(task.getDisk().equals(50) ? null : Long.valueOf(task.getDisk()));
+                        sysUserDTO.setArchitecture(task.getArchitecture());
+                        sysUserDTO.setInterval(Long.valueOf(task.getInterval()));
+                        sysUserDTO.setCreateNumbers(task.getCreateNumbers());
+                        sysUserDTO.setOperationSystem(task.getOperationSystem());
+                        sysUserDTO.setRootPassword(task.getRootPassword());
                         addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
                                         execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                                 0, task.getInterval(), TimeUnit.SECONDS);

@@ -53,6 +53,9 @@ import com.yohann.ocihelper.bean.response.oci.cfg.OciCfgDetailsRsp;
 import com.yohann.ocihelper.enums.*;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.ProxyUtils;
+import com.oracle.bmc.http.client.StandardClientProperties;
+import com.oracle.bmc.http.client.ProxyConfiguration;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -89,6 +92,8 @@ public class OracleInstanceFetcher implements Closeable {
     private final SimpleAuthenticationDetailsProvider provider;
     private SysUserDTO user;
     private String compartmentId;
+    /** 当前实例使用的代理配置，null 表示直连 */
+    private ProxyConfiguration proxyCfg;
 
     private static final String CIDR_BLOCK = "10.0.0.0/16";
 
@@ -128,27 +133,42 @@ public class OracleInstanceFetcher implements Closeable {
                 .region(Region.valueOf(ociCfg.getRegion()))
                 .build();
 
-        identityClient = IdentityClient.builder().build(provider);
-        computeClient = ComputeClient.builder().build(provider);
-        blockstorageClient = BlockstorageClient.builder().build(provider);
-        workRequestClient = WorkRequestClient.builder().build(provider);
-        virtualNetworkClient = VirtualNetworkClient.builder().build(provider);
-        monitoringClient = MonitoringClient.builder().build(provider);
-        networkLoadBalancerClient = NetworkLoadBalancerClient.builder().build(provider);
-        identityDomainsClient = IdentityDomainsClient.builder().build(provider);
-        limitsClient = LimitsClient.builder().build(provider);
+        // 解析代理配置（仅使用配置专属代理，不使用全局代理）
+        ProxyConfiguration proxyCfg = ProxyUtils.parseProxy(ociCfg.getProxy());
+
+        identityClient = applyProxy(IdentityClient.builder(), proxyCfg).build(provider);
+        computeClient = applyProxy(ComputeClient.builder(), proxyCfg).build(provider);
+        blockstorageClient = applyProxy(BlockstorageClient.builder(), proxyCfg).build(provider);
+        workRequestClient = applyProxy(WorkRequestClient.builder(), proxyCfg).build(provider);
+        virtualNetworkClient = applyProxy(VirtualNetworkClient.builder(), proxyCfg).build(provider);
+        monitoringClient = applyProxy(MonitoringClient.builder(), proxyCfg).build(provider);
+        networkLoadBalancerClient = applyProxy(NetworkLoadBalancerClient.builder(), proxyCfg).build(provider);
+        identityDomainsClient = applyProxy(IdentityDomainsClient.builder(), proxyCfg).build(provider);
+        limitsClient = applyProxy(LimitsClient.builder(), proxyCfg).build(provider);
         this.provider = provider;
+        this.proxyCfg = proxyCfg;
         compartmentId = StrUtil.isBlank(ociCfg.getCompartmentId()) ? findRootCompartment(identityClient, provider.getTenantId()) : ociCfg.getCompartmentId();
     }
 
     /**
-     * Creates a new, independent {@link IdentityDomainsClient} bound to the given endpoint.
-     * Callers are responsible for closing the returned client.
-     * Use this instead of {@link #getIdentityDomainsClient()} whenever concurrent access is
-     * possible, to avoid endpoint-state races on the shared client.
+     * 为 OCI 客户端 Builder 设置代理，proxyCfg 为 null 时直接返回原 builder。
+     */
+    @SuppressWarnings("unchecked")
+    private static <B extends com.oracle.bmc.common.ClientBuilderBase<B, ?>> B applyProxy(B builder, ProxyConfiguration proxyCfg) {
+        if (proxyCfg != null) {
+            builder.clientConfigurator(httpClientBuilder ->
+                    httpClientBuilder.property(StandardClientProperties.PROXY, proxyCfg));
+        }
+        return builder;
+    }
+
+    /**
+     * 创建一个绑定到指定 endpoint 的独立 {@link IdentityDomainsClient}。
+     * 调用方负责关闭返回的客户端。
+     * 并发场景下请使用此方法代替 {@link #getIdentityDomainsClient()}，避免共享客户端的 endpoint 竞争问题。
      */
     public IdentityDomainsClient newIdentityDomainsClient(String endpoint) {
-        IdentityDomainsClient client = IdentityDomainsClient.builder().build(provider);
+        IdentityDomainsClient client = applyProxy(IdentityDomainsClient.builder(), proxyCfg).build(provider);
         client.setEndpoint(endpoint);
         return client;
     }

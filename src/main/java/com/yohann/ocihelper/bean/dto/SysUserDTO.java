@@ -41,6 +41,8 @@ public class SysUserDTO {
         private String privateKeyPath;
         private String region;
         private String compartmentId;
+        /** 代理地址，例如 http://host:port 或 socks5://host:port */
+        private String proxy;
     }
 
     @Builder

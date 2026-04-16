@@ -1,5 +1,6 @@
 package com.yohann.ocihelper.telegram;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import com.yohann.ocihelper.telegram.builder.KeyboardBuilder;
 import com.yohann.ocihelper.telegram.factory.CallbackHandlerFactory;
@@ -20,6 +21,9 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.io.Serializable;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -42,9 +46,65 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
     private final TelegramClient telegramClient;
 
     public TgBot(String botToken, String chatId) {
+        this(botToken, chatId, null);
+    }
+
+    /**
+     * 构造函数，支持代理配置
+     * @param botToken Bot Token
+     * @param chatId Chat ID
+     * @param proxyUrl 代理地址，格式：http://host:port 或 socks5://host:port，为空则不使用代理
+     */
+    public TgBot(String botToken, String chatId, String proxyUrl) {
         BOT_TOKEN = botToken;
         CHAT_ID = chatId;
-        telegramClient = new OkHttpTelegramClient(BOT_TOKEN);
+        telegramClient = createTelegramClient(botToken, proxyUrl);
+    }
+    
+    /**
+     * 创建 Telegram 客户端，并配置代理
+     */
+    private TelegramClient createTelegramClient(String botToken, String proxyUrl) {
+        if (StrUtil.isNotBlank(proxyUrl)) {
+            try {
+                URI uri = new URI(proxyUrl.trim());
+                String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
+                String host = uri.getHost();
+                int port = uri.getPort();
+
+                if (StrUtil.isBlank(host) || port <= 0) {
+                    log.warn("Telegram 代理地址格式不正确，将不使用代理：{}", proxyUrl);
+                    return new OkHttpTelegramClient(botToken);
+                }
+
+                Proxy.Type proxyType;
+                if ("http".equals(scheme) || "https".equals(scheme)) {
+                    proxyType = Proxy.Type.HTTP;
+                } else if (scheme.startsWith("socks")) {
+                    proxyType = Proxy.Type.SOCKS;
+                } else {
+                    log.warn("不支持的 Telegram 代理协议 [{}]，将不使用代理", scheme);
+                    return new OkHttpTelegramClient(botToken);
+                }
+
+                Proxy proxy = new Proxy(proxyType, new InetSocketAddress(host, port));
+
+                // OkHttp 4.x 用 Kotlin 写成，Builder 的所有方法均为 Kotlin internal。
+                // 通过反射直接设置 OkHttpClient 内部的 proxy 字段，绕开这个限制。
+                okhttp3.OkHttpClient baseClient = new okhttp3.OkHttpClient();
+                java.lang.reflect.Field proxyField = okhttp3.OkHttpClient.class.getDeclaredField("proxy");
+                proxyField.setAccessible(true);
+                proxyField.set(baseClient, proxy);
+
+                log.info("Telegram Bot 已配置代理：{}", proxyUrl);
+                return new OkHttpTelegramClient(baseClient, botToken);
+            } catch (Exception e) {
+                log.warn("配置 Telegram 代理失败，将不使用代理：{}", e.getMessage());
+                return new OkHttpTelegramClient(botToken);
+            }
+        } else {
+            return new OkHttpTelegramClient(botToken);
+        }
     }
 
     @Override

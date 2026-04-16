@@ -217,7 +217,6 @@ public class OciServiceImpl implements IOciService {
     @Transactional(rollbackFor = Exception.class)
     public void createInstance(CreateInstanceParams params) {
         String taskId = IdUtil.randomUUID();
-        OciUser ociUser = userService.getById(params.getUserId());
         OciCreateTask ociCreateTask = OciCreateTask.builder()
                 .id(taskId)
                 .userId(params.getUserId())
@@ -232,34 +231,24 @@ public class OciServiceImpl implements IOciService {
                 .operationSystem(params.getOperationSystem())
                 .build();
         createTaskService.save(ociCreateTask);
-        SysUserDTO sysUserDTO = SysUserDTO.builder()
-                .ociCfg(SysUserDTO.OciCfg.builder()
-                        .userId(ociUser.getOciUserId())
-                        .tenantId(ociUser.getOciTenantId())
-                        .region(ociUser.getOciRegion())
-                        .fingerprint(ociUser.getOciFingerprint())
-                        .privateKeyPath(ociUser.getOciKeyPath())
-                        .build())
-                .taskId(taskId)
-                .username(ociUser.getUsername())
-                .planType(ociUser.getPlanType())
-                .ocpus(Float.parseFloat(params.getOcpus()))
-                .memory(Float.parseFloat(params.getMemory()))
-                .disk(params.getDisk().equals(50) ? null : Long.valueOf(params.getDisk()))
-                .architecture(params.getArchitecture())
-                .interval(Long.valueOf(params.getInterval()))
-                .createNumbers(params.getCreateNumbers())
-                .operationSystem(params.getOperationSystem())
-                .rootPassword(params.getRootPassword())
-                .joinChannelBroadcast(params.isJoinChannelBroadcast())
-                .build();
+        SysUserDTO sysUserDTO = sysService.getOciUser(params.getUserId());
+        sysUserDTO.setTaskId(taskId);
+        sysUserDTO.setOcpus(Float.parseFloat(params.getOcpus()));
+        sysUserDTO.setMemory(Float.parseFloat(params.getMemory()));
+        sysUserDTO.setDisk(params.getDisk().equals(50) ? null : Long.valueOf(params.getDisk()));
+        sysUserDTO.setArchitecture(params.getArchitecture());
+        sysUserDTO.setInterval(Long.valueOf(params.getInterval()));
+        sysUserDTO.setCreateNumbers(params.getCreateNumbers());
+        sysUserDTO.setOperationSystem(params.getOperationSystem());
+        sysUserDTO.setRootPassword(params.getRootPassword());
+        sysUserDTO.setJoinChannelBroadcast(params.isJoinChannelBroadcast());
         addTask(CommonUtils.CREATE_TASK_PREFIX + taskId, () ->
                         execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                 0, params.getInterval(), TimeUnit.SECONDS);
         String beginCreateMsg = String.format(CommonUtils.BEGIN_CREATE_MESSAGE_TEMPLATE,
-                ociUser.getUsername(),
+                sysUserDTO.getUsername(),
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                ociUser.getOciRegion(),
+                sysUserDTO.getOciCfg().getRegion(),
                 params.getArchitecture(),
                 Float.parseFloat(params.getOcpus()),
                 Float.parseFloat(params.getMemory()),
@@ -455,31 +444,26 @@ public class OciServiceImpl implements IOciService {
                     createTaskService.removeById(task.getId());
                     return;
                 }
-                OciUser ociUser = userService.getById(task.getUserId());
-                if (ociUser == null) {
-                    log.warn("[Resume Task] ociUser not found for task {}", task.getId());
+                SysUserDTO sysUserDTO;
+                try {
+                    sysUserDTO = sysService.getOciUser(task.getUserId());
+                } catch (Exception e) {
+                    log.warn("[Resume Task] 配置 [{}] 不存在，跳过任务 {}", task.getUserId(), task.getId());
                     return;
                 }
-                SysUserDTO sysUserDTO = SysUserDTO.builder()
-                        .ociCfg(SysUserDTO.OciCfg.builder()
-                                .userId(ociUser.getOciUserId())
-                                .tenantId(ociUser.getOciTenantId())
-                                .region(StrUtil.isBlank(task.getOciRegion()) ? ociUser.getOciRegion() : task.getOciRegion())
-                                .fingerprint(ociUser.getOciFingerprint())
-                                .privateKeyPath(ociUser.getOciKeyPath())
-                                .build())
-                        .taskId(task.getId())
-                        .username(ociUser.getUsername())
-                        .planType(ociUser.getPlanType())
-                        .ocpus(task.getOcpus())
-                        .memory(task.getMemory())
-                        .disk(Integer.valueOf(50).equals(task.getDisk()) ? null : Long.valueOf(task.getDisk()))
-                        .architecture(task.getArchitecture())
-                        .interval(Long.valueOf(task.getInterval()))
-                        .createNumbers(task.getCreateNumbers())
-                        .operationSystem(task.getOperationSystem())
-                        .rootPassword(task.getRootPassword())
-                        .build();
+                // 覆盖任务相关字段，同时保留代理、区域等配置信息
+                if (StrUtil.isNotBlank(task.getOciRegion())) {
+                    sysUserDTO.getOciCfg().setRegion(task.getOciRegion());
+                }
+                sysUserDTO.setTaskId(task.getId());
+                sysUserDTO.setOcpus(task.getOcpus());
+                sysUserDTO.setMemory(task.getMemory());
+                sysUserDTO.setDisk(Integer.valueOf(50).equals(task.getDisk()) ? null : Long.valueOf(task.getDisk()));
+                sysUserDTO.setArchitecture(task.getArchitecture());
+                sysUserDTO.setInterval(Long.valueOf(task.getInterval()));
+                sysUserDTO.setCreateNumbers(task.getCreateNumbers());
+                sysUserDTO.setOperationSystem(task.getOperationSystem());
+                sysUserDTO.setRootPassword(task.getRootPassword());
                 addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(),
                         () -> execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                         0, task.getInterval(), TimeUnit.SECONDS);
@@ -715,6 +699,15 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
+    public void updateCfgProxy(UpdateCfgProxyParams params) {
+        // 批量更新代理地址，传空则清除，将降级使用全局代理
+        userService.update(new LambdaUpdateWrapper<OciUser>()
+                .in(OciUser::getId, params.getIdList())
+                .set(OciUser::getProxy, StrUtil.isBlank(params.getProxy()) ? null : params.getProxy()));
+        log.info("批量更新代理：id数量=[{}]，proxy=[{}]", params.getIdList().size(), params.getProxy());
+    }
+
+    @Override
     public void refreshPlanTypeBatch(IdListParams params) {
         List<OciUser> users = userService.listByIds(params.getIdList());
         List<OciUser> toUpdate = users.parallelStream().map(ociUser -> {
@@ -932,6 +925,7 @@ public class OciServiceImpl implements IOciService {
                                 .region(sysUserDTO.getOciCfg().getRegion())
                                 .fingerprint(sysUserDTO.getOciCfg().getFingerprint())
                                 .privateKeyPath(sysUserDTO.getOciCfg().getPrivateKeyPath())
+                                .proxy(sysUserDTO.getOciCfg().getProxy())
                                 .build())
                         .username(sysUserDTO.getUsername())
                         .planType(sysUserDTO.getPlanType())
@@ -1035,18 +1029,8 @@ public class OciServiceImpl implements IOciService {
     }
 
     public SysUserDTO getOciUser(String ociCfgId) {
-        OciUser ociUser = userService.getById(ociCfgId);
-        return SysUserDTO.builder()
-                .ociCfg(SysUserDTO.OciCfg.builder()
-                        .userId(ociUser.getOciUserId())
-                        .tenantId(ociUser.getOciTenantId())
-                        .region(ociUser.getOciRegion())
-                        .fingerprint(ociUser.getOciFingerprint())
-                        .privateKeyPath(ociUser.getOciKeyPath())
-                        .build())
-                .username(ociUser.getUsername())
-                .planType(ociUser.getPlanType())
-                .build();
+        // 直接委托给 SysServiceImpl，确保代理配置一并填充
+        return sysService.getOciUser(ociCfgId);
     }
 
     public static void addTask(String taskId, Runnable task, long initialDelay, long period, TimeUnit timeUnit) {

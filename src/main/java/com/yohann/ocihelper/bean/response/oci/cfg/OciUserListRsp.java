@@ -21,4 +21,6 @@ public class OciUserListRsp {
     private String createTime;
     private Integer enableCreate;
     private String planType;
+    /** 配置专属代理地址 */
+    private String proxy;
 }

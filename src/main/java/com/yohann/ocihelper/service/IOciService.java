@@ -75,6 +75,9 @@ public interface IOciService {
 
     void updateCfgName(UpdateCfgNameParams params);
 
+    /** 批量更新配置专属代理（传空则清除，降级使用全局代理） */
+    void updateCfgProxy(UpdateCfgProxyParams params);
+
     void refreshPlanTypeBatch(IdListParams params);
 
     String startVnc(StartVncParams params);

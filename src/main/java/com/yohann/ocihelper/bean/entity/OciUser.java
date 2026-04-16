@@ -45,6 +45,9 @@ public class OciUser implements Serializable {
 
     private LocalDateTime createTime;
 
+    /** 单独代理地址，优先级高于全局代理，例如 http://host:port 或 socks5://host:port */
+    private String proxy;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

@@ -65,6 +65,12 @@ public class OciController {
         return ResponseData.successData();
     }
 
+    @PostMapping(path = "/updateCfgProxy")
+    public ResponseData<Void> updateCfgProxy(@Validated @RequestBody UpdateCfgProxyParams params) {
+        ociService.updateCfgProxy(params);
+        return ResponseData.successData("更新代理配置成功");
+    }
+
     @PostMapping(path = "/uploadCfg")
     public ResponseData<Void> uploadCfg(@Validated UploadCfgParams params) {
         ociService.uploadCfg(params);

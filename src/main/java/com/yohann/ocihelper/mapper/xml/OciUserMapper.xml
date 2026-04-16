@@ -12,6 +12,7 @@
         t1.oci_region AS region,
         t1.tenant_create_time as createTime,
         t1.plan_type as planType,
+        t1.proxy,
         CASE
         WHEN MAX(t2.id) IS NOT NULL THEN 1
         ELSE 0
@@ -33,7 +34,7 @@
                 t1.tenant_name like '%' || #{keyword} || '%' )
             </if>
         </where>
-        GROUP BY t1.id, t1.username,t1.tenant_name,t1.oci_region, t1.create_time
+        GROUP BY t1.id, t1.username,t1.tenant_name,t1.oci_region, t1.create_time, t1.proxy
         order by t1.username, t1.create_time DESC limit #{offset}, #{size}
     </select>
     <select id="userPageTotal" resultType="java.lang.Long">

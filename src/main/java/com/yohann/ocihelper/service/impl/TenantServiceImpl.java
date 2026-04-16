@@ -3,6 +3,7 @@ package com.yohann.ocihelper.service.impl;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.oracle.bmc.identity.IdentityClient;
 import com.oracle.bmc.identity.model.RegionSubscription;
 import com.oracle.bmc.identity.model.Tenancy;
@@ -14,6 +15,7 @@ import com.oracle.bmc.identitydomains.model.PasswordPolicy;
 import com.oracle.bmc.ospgateway.model.Subscription;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
+import com.yohann.ocihelper.bean.entity.OciUser;
 import com.yohann.ocihelper.bean.params.oci.tenant.GetTenantInfoParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdateNotificationRecipientsParams;
 import com.yohann.ocihelper.bean.params.oci.tenant.UpdatePwdExpirationPolicyParams;
@@ -22,6 +24,7 @@ import com.yohann.ocihelper.bean.params.oci.tenant.UpdateUserInfoParams;
 import com.yohann.ocihelper.bean.response.oci.tenant.TenantInfoRsp;
 import com.yohann.ocihelper.config.OracleInstanceFetcher;
 import com.yohann.ocihelper.exception.OciException;
+import com.yohann.ocihelper.service.IOciUserService;
 import com.yohann.ocihelper.service.ISysService;
 import com.yohann.ocihelper.service.ITenantService;
 import com.yohann.ocihelper.utils.CommonUtils;
@@ -53,6 +56,8 @@ public class TenantServiceImpl implements ITenantService {
 
     @Resource
     private ISysService sysService;
+    @Resource
+    private IOciUserService userService;
     @Resource
     private ExecutorService virtualExecutor;
     @Resource
@@ -160,6 +165,27 @@ public class TenantServiceImpl implements ITenantService {
 
             OciUtils.NotificationSettingResult notifResult = CommonUtils.safeJoin(notificationTask, null);
             Subscription subscription = CommonUtils.safeJoin(subscriptionTask, null);
+
+            // 异步更新 plan_type（如果订阅信息与数据库不一致）
+            if (subscription != null && subscription.getPlanType() != null) {
+                String latestPlanType = subscription.getPlanType().getValue();
+                virtualExecutor.execute(() -> {
+                    try {
+                        OciUser ociUser = userService.getById(params.getOciCfgId());
+                        if (ociUser != null && !latestPlanType.equals(ociUser.getPlanType())) {
+                            log.info("检测到配置 [{}] plan_type 不一致，数据库: [{}]，API: [{}]，开始更新",
+                                    ociUser.getUsername(), ociUser.getPlanType(), latestPlanType);
+                            userService.update(new LambdaUpdateWrapper<OciUser>()
+                                    .eq(OciUser::getId, params.getOciCfgId())
+                                    .set(OciUser::getPlanType, latestPlanType));
+                            log.info("配置 [{}] plan_type 已更新为 [{}]", ociUser.getUsername(), latestPlanType);
+                        }
+                    } catch (Exception e) {
+                        log.error("异步更新 plan_type 失败", e);
+                    }
+                });
+            }
+
             rsp.setUserList(CommonUtils.safeJoin(userListTask, Collections.emptyList()));
             rsp.setRegions(CommonUtils.safeJoin(regionsTask, Collections.emptyList()));
             rsp.setPasswordExpiresAfter(CommonUtils.safeJoin(pwdExpTask, PasswordPolicy.builder().build()).getPasswordExpiresAfter());

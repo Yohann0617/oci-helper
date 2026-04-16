@@ -301,6 +301,9 @@ public class SysServiceImpl implements ISysService {
                             googleConfig.setAllowedEmails(params.getAllowedEmails());
                             ociKv.setValue(JSONUtil.toJsonStr(googleConfig));
                             break;
+                        case SYS_PROXY:
+                            ociKv.setValue(params.getProxy());
+                            break;
                         default:
                             break;
                     }
@@ -358,6 +361,7 @@ public class SysServiceImpl implements ISysService {
         rsp.setEnableVersionInform(Boolean.valueOf(null == evunValue ? EnableEnum.ON.getCode() : evunValue));
         rsp.setGjAiApi(getCfgValue(SysCfgEnum.SILICONFLOW_AI_API));
         rsp.setBootBroadcastToken(getCfgValue(SysCfgEnum.BOOT_BROADCAST_TOKEN));
+        rsp.setProxy(getCfgValue(SysCfgEnum.SYS_PROXY));
 
         // Parse Google login configuration from JSON
         String googleLoginJson = getCfgValue(SysCfgEnum.GOOGLE_ONE_CLICK_LOGIN);
@@ -767,9 +771,10 @@ public class SysServiceImpl implements ISysService {
         return rsp;
     }
 
-    @Override
+        @Override
         public SysUserDTO getOciUser(String ociCfgId) {
         OciUser ociUser = userService.getById(ociCfgId);
+        // OCI 配置不使用全局代理，只使用专属代理，无则直连
         return SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
                         .userId(ociUser.getOciUserId())
@@ -777,15 +782,17 @@ public class SysServiceImpl implements ISysService {
                         .region(ociUser.getOciRegion())
                         .fingerprint(ociUser.getOciFingerprint())
                         .privateKeyPath(ociUser.getOciKeyPath())
+                        .proxy(ociUser.getProxy())
                         .build())
                 .username(ociUser.getUsername())
                 .planType(ociUser.getPlanType())
                 .build();
     }
 
-    @Override
+        @Override
         public SysUserDTO getOciUser(String ociCfgId, String region, String compartmentId) {
         OciUser ociUser = userService.getById(ociCfgId);
+        // OCI 配置不使用全局代理，只使用专属代理，无则直连
         return SysUserDTO.builder()
                 .ociCfg(SysUserDTO.OciCfg.builder()
                         .userId(ociUser.getOciUserId())
@@ -794,6 +801,7 @@ public class SysServiceImpl implements ISysService {
                         .fingerprint(ociUser.getOciFingerprint())
                         .privateKeyPath(ociUser.getOciKeyPath())
                         .compartmentId(compartmentId)
+                        .proxy(ociUser.getProxy())
                         .build())
                 .username(ociUser.getUsername())
                 .planType(ociUser.getPlanType())
@@ -1233,7 +1241,8 @@ public class SysServiceImpl implements ISysService {
                 }
                 botsApplication = new TelegramBotsLongPollingApplication();
                 try {
-                    botsApplication.registerBot(botToken, new TgBot(botToken, chatId));
+                    String globalProxy = getCfgValue(SysCfgEnum.SYS_PROXY);
+                    botsApplication.registerBot(botToken, new TgBot(botToken, chatId, globalProxy));
                     Thread.currentThread().join();
                 } catch (Exception e) {
                     throw new RuntimeException(e);

@@ -27,4 +27,6 @@ public class UpdateSysCfgParams {
     private Boolean enableGoogleLogin;
     private String googleClientId;
     private String allowedEmails;
+    /** 全局代理地址，例如 http://host:port 或 socks5://host:port */
+    private String proxy;
 }
