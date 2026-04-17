@@ -374,6 +374,23 @@ public class InstanceServiceImpl implements IInstanceService {
     }
 
     @Override
+    public void updateInstanceRootPassword(SysUserDTO sysUserDTO, String instanceId, String password) {
+        String instanceName = null;
+        try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
+            instanceName = fetcher.getInstanceById(instanceId).getDisplayName();
+            fetcher.updateRootPasswordTag(instanceId, password);
+            String action = StrUtil.isBlank(password) ? "删除" : "更新";
+            log.info("用户:[{}],区域:[{}],实例:[{}] {} root 密码标签成功",
+                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(), instanceName, action);
+        } catch (Exception e) {
+            log.error("用户:[{}],区域:[{}],实例:[{}] 更新 root 密码标签失败,原因:{}",
+                    sysUserDTO.getUsername(), sysUserDTO.getOciCfg().getRegion(),
+                    instanceName, e.getLocalizedMessage(), e);
+            throw new OciException(-1, "更新 root 密码标签失败");
+        }
+    }
+
+    @Override
     public void updateInstanceCfg(SysUserDTO sysUserDTO, String instanceId, float ocpus, float memory) {
         String instanceName = null;
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {

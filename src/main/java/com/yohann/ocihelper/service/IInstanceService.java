@@ -115,6 +115,15 @@ public interface IInstanceService {
     void oneClickClose500M(Close500MParams params);
 
     /**
+     * 更新或删除实例 root 密码标签
+     *
+     * @param sysUserDTO oci配置
+     * @param instanceId 实例Id
+     * @param password   新密码，为 null 或空字符串时删除标签
+     */
+    void updateInstanceRootPassword(SysUserDTO sysUserDTO, String instanceId, String password);
+
+    /**
      * 修改实例Shape
      * @param params 参数
      */

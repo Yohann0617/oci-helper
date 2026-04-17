@@ -176,30 +176,56 @@ public class OciServiceImpl implements IOciService {
                         .privateKeyPath(ociUser.getOciKeyPath())
                         .build())
                 .build();
+        // 仅做快速连通性校验，失败则直接拒绝
         try (OracleInstanceFetcher fetcher = new OracleInstanceFetcher(sysUserDTO)) {
             fetcher.getAvailabilityDomains();
-            Tenancy tenancy = fetcher.getIdentityClient().getTenancy(GetTenancyRequest.builder()
-                    .tenancyId(sysUserDTO.getOciCfg().getTenantId())
-                    .build()).getTenancy();
-            ociUser.setTenantName(tenancy.getName());
-            try {
-                ociUser.setTenantCreateTime(LocalDateTime.parse(fetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
-            } catch (Exception ignored) {
-            }
-            // Query subscription plan type; null if insufficient permissions (low-privilege API key)
-            try {
-                com.oracle.bmc.ospgateway.model.Subscription sub = fetcher.getSubscriptionInfo();
-                if (sub != null && sub.getPlanType() != null) {
-                    ociUser.setPlanType(sub.getPlanType().getValue());
-                }
-            } catch (Exception ignored) {
-            }
         } catch (Exception e) {
             log.error("配置:[{}],区域:[{}],不生效,错误信息:[{}]",
                     ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
             throw new OciException(-1, "配置不生效，请检查密钥与配置项是否准确无误，注意：新生成的API需要等待10分钟左右生效");
         }
+        // 先保存，后续异步补全租户名称、创建时间、套餐类型
         userService.save(ociUser);
+
+        // 第二步：异步补全租户详情
+        final String savedUserId = ociUser.getId();
+        final SysUserDTO asyncUserDTO = sysUserDTO;
+        virtualExecutor.execute(() -> {
+            try (OracleInstanceFetcher asyncFetcher = new OracleInstanceFetcher(asyncUserDTO)) {
+                OciUser update = new OciUser();
+                update.setId(savedUserId);
+                // 获取租户名称
+                try {
+                    Tenancy tenancy = asyncFetcher.getIdentityClient().getTenancy(
+                            GetTenancyRequest.builder()
+                                    .tenancyId(asyncUserDTO.getOciCfg().getTenantId())
+                                    .build()).getTenancy();
+                    update.setTenantName(tenancy.getName());
+                } catch (Exception e) {
+                    log.warn("异步获取配置:[{}] 租户名称失败: {}", savedUserId, e.getLocalizedMessage());
+                }
+                // 获取租户创建时间
+                try {
+                    update.setTenantCreateTime(
+                            LocalDateTime.parse(asyncFetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
+                } catch (Exception e) {
+                    log.warn("异步获取配置:[{}] 租户创建时间失败: {}", savedUserId, e.getLocalizedMessage());
+                }
+                // 获取套餐类型（权限不足时为 null，忽略即可）
+                try {
+                    com.oracle.bmc.ospgateway.model.Subscription sub = asyncFetcher.getSubscriptionInfo();
+                    if (sub != null && sub.getPlanType() != null) {
+                        update.setPlanType(sub.getPlanType().getValue());
+                    }
+                } catch (Exception e) {
+                    log.warn("异步获取配置:[{}] 套餐类型失败: {}", savedUserId, e.getLocalizedMessage());
+                }
+                userService.updateById(update);
+                log.info("异步补全配置:[{}] 租户信息完成", savedUserId);
+            } catch (Exception e) {
+                log.error("异步补全配置:[{}] 租户信息失败: {}", savedUserId, e.getLocalizedMessage());
+            }
+        });
     }
 
     @Override
@@ -498,15 +524,16 @@ public class OciServiceImpl implements IOciService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void uploadCfg(UploadCfgParams params) {
+    public String uploadCfg(UploadCfgParams params) {
         params.getFileList().forEach(x -> {
             if (!x.getOriginalFilename().contains(".ini") && !x.getOriginalFilename().contains(".txt")) {
                 throw new OciException(-1, "文件必须是.txt或者.ini的文本文件");
             }
         });
+
+        // 解析所有配置文件，展平为单条配置
         Set<String> seenUsernames = new HashSet<>();
-        List<OciUser> ociUserList = params.getFileList().parallelStream()
+        List<OciUser> allUsers = params.getFileList().parallelStream()
                 .map(file -> {
                     try {
                         String read = IoUtil.read(file.getInputStream(), StandardCharsets.UTF_8);
@@ -516,48 +543,103 @@ public class OciServiceImpl implements IOciService {
                     }
                 })
                 .collect(Collectors.toList()).stream()
-                .flatMap(Collection::stream).parallel()
+                .flatMap(Collection::stream)
                 .peek(ociUser -> {
+                    // 重复名称属于输入错误，直接打断整批
                     if (!seenUsernames.add(ociUser.getUsername())) {
-                        log.error("名称:[{}]重复,添加配置失败", ociUser.getUsername());
                         throw new OciException(-1, "名称: " + ociUser.getUsername() + " 重复,添加配置失败");
                     }
                     ociUser.setId(IdUtil.randomUUID());
                     ociUser.setOciKeyPath(keyDirPath + File.separator + ociUser.getOciKeyPath());
-                    SysUserDTO sysUserDTO = SysUserDTO.builder()
-                            .ociCfg(SysUserDTO.OciCfg.builder()
-                                    .userId(ociUser.getOciUserId())
-                                    .fingerprint(ociUser.getOciFingerprint())
-                                    .tenantId(ociUser.getOciTenantId())
-                                    .region(ociUser.getOciRegion())
-                                    .privateKeyPath(ociUser.getOciKeyPath())
-                                    .build())
-                            .build();
-                    try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
-                        ociFetcher.getAvailabilityDomains();
-                        Tenancy tenancy = ociFetcher.getIdentityClient().getTenancy(GetTenancyRequest.builder()
-                                .tenancyId(sysUserDTO.getOciCfg().getTenantId())
-                                .build()).getTenancy();
-                        ociUser.setTenantName(tenancy.getName());
-                        try {
-                            ociUser.setTenantCreateTime(LocalDateTime.parse(ociFetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
-                        } catch (Exception ignored) {
-                        }
-                        try {
-                            com.oracle.bmc.ospgateway.model.Subscription sub = ociFetcher.getSubscriptionInfo();
-                            if (sub != null && sub.getPlanType() != null) {
-                                ociUser.setPlanType(sub.getPlanType().getValue());
-                            }
-                        } catch (Exception ignored) {
-                        }
-                    } catch (Exception e) {
-                        log.error("配置:[{}],区域:[{}]不生效,请检查密钥与配置项是否准确无误,错误信息:{}",
-                                ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
-                        throw new OciException(-1, "配置:" + ociUser.getUsername() + " 不生效,请检查密钥与配置项是否准确无误");
-                    }
                 })
                 .collect(Collectors.toList());
-        userService.saveBatch(ociUserList);
+
+        // 对每个配置独立做连通性校验，成功和失败分开收集
+        List<OciUser> successList = new ArrayList<>();
+        List<String> failList = new ArrayList<>();
+        for (OciUser ociUser : allUsers) {
+            SysUserDTO sysUserDTO = SysUserDTO.builder()
+                    .ociCfg(SysUserDTO.OciCfg.builder()
+                            .userId(ociUser.getOciUserId())
+                            .fingerprint(ociUser.getOciFingerprint())
+                            .tenantId(ociUser.getOciTenantId())
+                            .region(ociUser.getOciRegion())
+                            .privateKeyPath(ociUser.getOciKeyPath())
+                            .build())
+                    .build();
+            try (OracleInstanceFetcher ociFetcher = new OracleInstanceFetcher(sysUserDTO)) {
+                // 仅做连通性校验
+                ociFetcher.getAvailabilityDomains();
+                successList.add(ociUser);
+            } catch (Exception e) {
+                log.error("配置:[{}],区域:[{}] 不生效,错误信息:{}",
+                        ociUser.getUsername(), ociUser.getOciRegion(), e.getLocalizedMessage());
+                failList.add(ociUser.getUsername());
+            }
+        }
+
+        // 批量保存校验通过的配置
+        if (!successList.isEmpty()) {
+            userService.saveBatch(successList);
+        }
+
+        // 异步补全租户详情（每个配置独立异步，重新 new OracleInstanceFetcher，避免复用已关闭的连接）
+        successList.forEach(savedUser -> virtualExecutor.execute(() -> {
+            SysUserDTO asyncDTO = SysUserDTO.builder()
+                    .ociCfg(SysUserDTO.OciCfg.builder()
+                            .userId(savedUser.getOciUserId())
+                            .fingerprint(savedUser.getOciFingerprint())
+                            .tenantId(savedUser.getOciTenantId())
+                            .region(savedUser.getOciRegion())
+                            .privateKeyPath(savedUser.getOciKeyPath())
+                            .build())
+                    .build();
+            try (OracleInstanceFetcher asyncFetcher = new OracleInstanceFetcher(asyncDTO)) {
+                OciUser update = new OciUser();
+                update.setId(savedUser.getId());
+                // 获取租户名称
+                try {
+                    Tenancy tenancy = asyncFetcher.getIdentityClient().getTenancy(
+                            GetTenancyRequest.builder()
+                                    .tenancyId(asyncDTO.getOciCfg().getTenantId())
+                                    .build()).getTenancy();
+                    update.setTenantName(tenancy.getName());
+                } catch (Exception e) {
+                    log.warn("异步获取配置:[{}] 租户名称失败: {}", savedUser.getUsername(), e.getLocalizedMessage());
+                }
+                // 获取租户创建时间
+                try {
+                    update.setTenantCreateTime(
+                            LocalDateTime.parse(asyncFetcher.getRegisteredTime(), CommonUtils.DATETIME_FMT_NORM));
+                } catch (Exception e) {
+                    log.warn("异步获取配置:[{}] 租户创建时间失败: {}", savedUser.getUsername(), e.getLocalizedMessage());
+                }
+                // 获取套餐类型（权限不足时为 null，忽略即可）
+                try {
+                    com.oracle.bmc.ospgateway.model.Subscription sub = asyncFetcher.getSubscriptionInfo();
+                    if (sub != null && sub.getPlanType() != null) {
+                        update.setPlanType(sub.getPlanType().getValue());
+                    }
+                } catch (Exception e) {
+                    log.warn("异步获取配置:[{}] 套餐类型失败: {}", savedUser.getUsername(), e.getLocalizedMessage());
+                }
+                userService.updateById(update);
+                log.info("异步补全配置:[{}] 租户信息完成", savedUser.getUsername());
+            } catch (Exception e) {
+                log.error("异步补全配置:[{}] 租户信息失败: {}", savedUser.getUsername(), e.getLocalizedMessage());
+            }
+        }));
+
+        // 拼接返回消息：全部成功 / 部分失败 / 全部失败 三种情况
+        if (failList.isEmpty()) {
+            return String.format("成功上传 %d 个配置", successList.size());
+        } else if (successList.isEmpty()) {
+            return String.format("全部 %d 个配置校验失败，请检查密钥与配置项。失败配置：%s",
+                    failList.size(), String.join("、", failList));
+        } else {
+            return String.format("成功 %d 个，失败 %d 个，请检查失败配置的密钥与配置项。失败配置：%s",
+                    successList.size(), failList.size(), String.join("、", failList));
+        }
     }
 
     @Override
@@ -640,6 +722,12 @@ public class OciServiceImpl implements IOciService {
     public void updateInstanceName(UpdateInstanceNameParams params) {
         SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
         instanceService.updateInstanceName(sysUserDTO, params.getInstanceId(), params.getName());
+    }
+
+    @Override
+    public void updateInstanceRootPassword(UpdateInstanceRootPasswordParams params) {
+        SysUserDTO sysUserDTO = getOciUser(params.getOciCfgId());
+        instanceService.updateInstanceRootPassword(sysUserDTO, params.getInstanceId(), params.getPassword());
     }
 
     @Override

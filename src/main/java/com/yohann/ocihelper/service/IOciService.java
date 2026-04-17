@@ -51,7 +51,7 @@ public interface IOciService {
 
     void createInstanceBatch(CreateInstanceBatchParams params);
 
-    void uploadCfg(UploadCfgParams params);
+    String uploadCfg(UploadCfgParams params);
 
     void updateInstanceState(UpdateInstanceStateParams params);
 
@@ -66,6 +66,9 @@ public interface IOciService {
     void createIpv6(CreateIpv6Params params);
 
     void updateInstanceName(UpdateInstanceNameParams params);
+
+    /** 更新或删除实例 freeformTags 中的 root 密码标签 */
+    void updateInstanceRootPassword(UpdateInstanceRootPasswordParams params);
 
     void updateInstanceCfg(UpdateInstanceCfgParams params);
 

@@ -73,8 +73,8 @@ public class OciController {
 
     @PostMapping(path = "/uploadCfg")
     public ResponseData<Void> uploadCfg(@Validated UploadCfgParams params) {
-        ociService.uploadCfg(params);
-        return ResponseData.successData("上传配置成功");
+        String resultMsg = ociService.uploadCfg(params);
+        return ResponseData.successData(resultMsg);
     }
 
     @PostMapping(path = "/removeCfg")
@@ -182,6 +182,13 @@ public class OciController {
     public ResponseData<Void> updateInstanceName(@Validated @RequestBody UpdateInstanceNameParams params) {
         ociService.updateInstanceName(params);
         return ResponseData.successData("修改实例名称成功");
+    }
+
+    @PostMapping(path = "/updateInstanceRootPassword")
+    public ResponseData<Void> updateInstanceRootPassword(@Validated @RequestBody UpdateInstanceRootPasswordParams params) {
+        ociService.updateInstanceRootPassword(params);
+        String action = (params.getPassword() == null || params.getPassword().isBlank()) ? "删除" : "更新";
+        return ResponseData.successData(action + " root 密码标签成功");
     }
 
     @PostMapping(path = "/updateInstanceCfg")

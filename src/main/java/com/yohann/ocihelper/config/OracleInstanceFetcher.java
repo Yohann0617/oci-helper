@@ -45,6 +45,7 @@ import com.oracle.bmc.ospgateway.responses.GetSubscriptionResponse;
 import com.oracle.bmc.ospgateway.responses.ListSubscriptionsResponse;
 import com.oracle.bmc.workrequests.WorkRequestClient;
 import com.yohann.ocihelper.bean.constant.CacheConstant;
+import com.yohann.ocihelper.bean.constant.OciInstanceConstant;
 import com.yohann.ocihelper.bean.dto.InstanceCfgDTO;
 import com.yohann.ocihelper.bean.dto.InstanceDetailDTO;
 import com.yohann.ocihelper.bean.dto.SysUserDTO;
@@ -1307,7 +1308,7 @@ public class OracleInstanceFetcher implements Closeable {
                         .build())
                 // 将 root 密码存入实例的自由标签，方便后续查询（通知未配置时也能找回密码）
                 .freeformTags(StrUtil.isBlank(user.getRootPassword()) ? null :
-                        Collections.singletonMap("root-password", user.getRootPassword()))
+                        Collections.singletonMap(OciInstanceConstant.TAG_ROOT_PASSWORD, user.getRootPassword()))
                 .build();
     }
 
@@ -1640,7 +1641,7 @@ public class OracleInstanceFetcher implements Closeable {
 
         // 从实例自由标签中读取 root 密码（开机时写入，方便未配置通知的用户找回密码）
         Map<String, String> freeformTags = instance.getFreeformTags();
-        String rootPassword = (freeformTags != null) ? freeformTags.get("root-password") : null;
+        String rootPassword = (freeformTags != null) ? freeformTags.get(OciInstanceConstant.TAG_ROOT_PASSWORD) : null;
 
         return OciCfgDetailsRsp.InstanceInfo.builder()
                 .ocId(instanceId)
@@ -1987,6 +1988,34 @@ public class OracleInstanceFetcher implements Closeable {
                 .build());
 
         return createIpv6Response.getIpv6();
+    }
+
+    /**
+     * 更新或删除实例 freeformTags 中的 root 密码标签。
+     * password 为 null 或空字符串时删除该标签；否则写入新值。
+     */
+    public void updateRootPasswordTag(String instanceId, String password) {
+        // 先获取当前实例的全量 freeformTags，避免覆盖其他标签
+        Instance instance = getInstanceById(instanceId);
+        Map<String, String> tags = new HashMap<>(instance.getFreeformTags() != null
+                ? instance.getFreeformTags() : Collections.emptyMap());
+
+        if (StrUtil.isBlank(password)) {
+            // 密码为空 → 删除标签
+            tags.remove(OciInstanceConstant.TAG_ROOT_PASSWORD);
+        } else {
+            // 密码非空 → 写入或更新标签
+            tags.put(OciInstanceConstant.TAG_ROOT_PASSWORD, password);
+        }
+
+        computeClient.updateInstance(UpdateInstanceRequest.builder()
+                .instanceId(instanceId)
+                .updateInstanceDetails(UpdateInstanceDetails.builder()
+                        .freeformTags(tags)
+                        .build())
+                .build());
+//        log.info("用户:[{}],区域:[{}],实例:[{}] root-password 标签更新完成",
+//                user.getUsername(), user.getOciCfg().getRegion(), instanceId);
     }
 
     public void updateInstanceName(String instanceId, String name) {
