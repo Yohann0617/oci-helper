@@ -20,10 +20,10 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.io.Serializable;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.URI;
+import javax.net.SocketFactory;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -51,8 +51,9 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
 
     /**
      * 构造函数，支持代理配置
+     *
      * @param botToken Bot Token
-     * @param chatId Chat ID
+     * @param chatId   Chat ID
      * @param proxyUrl 代理地址，格式：http://host:port 或 socks5://host:port，为空则不使用代理
      */
     public TgBot(String botToken, String chatId, String proxyUrl) {
@@ -60,50 +61,224 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
         CHAT_ID = chatId;
         telegramClient = createTelegramClient(botToken, proxyUrl);
     }
-    
+
     /**
-     * 创建 Telegram 客户端，并配置代理
+     * 创建 Telegram 客户端，并配置代理（含用户名密码认证）。
+     * OkHttp 通过 ProxyAuthenticator 在收到 407 时自动重试并注入凭据，无需手动建立隧道。
      */
     private TelegramClient createTelegramClient(String botToken, String proxyUrl) {
-        if (StrUtil.isNotBlank(proxyUrl)) {
-            try {
-                URI uri = new URI(proxyUrl.trim());
-                String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
-                String host = uri.getHost();
-                int port = uri.getPort();
+        okhttp3.OkHttpClient okHttpClient = buildOkHttpClient(proxyUrl);
+        return okHttpClient != null
+                ? new OkHttpTelegramClient(okHttpClient, botToken)
+                : new OkHttpTelegramClient(botToken);
+    }
 
-                if (StrUtil.isBlank(host) || port <= 0) {
-                    log.warn("Telegram 代理地址格式不正确，将不使用代理：{}", proxyUrl);
-                    return new OkHttpTelegramClient(botToken);
-                }
+    /**
+     * 根据代理 URL 构建带代理（含认证）的 OkHttpClient。
+     * 供 TgBot 和 TelegramBotsLongPollingApplication 共享使用，确保长轮询也走代理。
+     * 若 proxyUrl 为空或解析失败，返回 null（调用方使用默认客户端）。
+     * <p>
+     * SOCKS5 带认证：JDK 的 SocksSocketImpl 通过全局静态 Authenticator 获取凭据，
+     * OkHttp 的 proxyAuthenticator 对 SOCKS5 无效，因此改用自定义 SocketFactory
+     * 手动完成 RFC 1928/1929 握手，完全绕开 JDK 内置机制。
+     */
+    public static okhttp3.OkHttpClient buildOkHttpClient(String proxyUrl) {
+        if (StrUtil.isBlank(proxyUrl)) {
+            return null;
+        }
+        try {
+            URI uri = new URI(proxyUrl.trim());
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
+            String host = uri.getHost();
+            int port = uri.getPort();
+            String userInfo = uri.getUserInfo();
 
-                Proxy.Type proxyType;
-                if ("http".equals(scheme) || "https".equals(scheme)) {
-                    proxyType = Proxy.Type.HTTP;
-                } else if (scheme.startsWith("socks")) {
-                    proxyType = Proxy.Type.SOCKS;
-                } else {
-                    log.warn("不支持的 Telegram 代理协议 [{}]，将不使用代理", scheme);
-                    return new OkHttpTelegramClient(botToken);
-                }
-
-                Proxy proxy = new Proxy(proxyType, new InetSocketAddress(host, port));
-
-                // OkHttp 4.x 用 Kotlin 写成，Builder 的所有方法均为 Kotlin internal。
-                // 通过反射直接设置 OkHttpClient 内部的 proxy 字段，绕开这个限制。
-                okhttp3.OkHttpClient baseClient = new okhttp3.OkHttpClient();
-                java.lang.reflect.Field proxyField = okhttp3.OkHttpClient.class.getDeclaredField("proxy");
-                proxyField.setAccessible(true);
-                proxyField.set(baseClient, proxy);
-
-                log.info("Telegram Bot 已配置代理：{}", proxyUrl);
-                return new OkHttpTelegramClient(baseClient, botToken);
-            } catch (Exception e) {
-                log.warn("配置 Telegram 代理失败，将不使用代理：{}", e.getMessage());
-                return new OkHttpTelegramClient(botToken);
+            if (StrUtil.isBlank(host) || port <= 0) {
+                log.warn("Telegram 代理地址格式不正确，将不使用代理：{}", proxyUrl);
+                return null;
             }
-        } else {
-            return new OkHttpTelegramClient(botToken);
+
+            if ("http".equals(scheme) || "https".equals(scheme)) {
+                // HTTP 代理：OkHttp 原生支持，proxyAuthenticator 可正确应答 407
+                Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(host, port));
+                okhttp3.OkHttpClient.Builder builder = new okhttp3.OkHttpClient.Builder().proxy(proxy);
+                if (StrUtil.isNotBlank(userInfo)) {
+                    int idx = userInfo.indexOf(':');
+                    String username = idx >= 0 ? userInfo.substring(0, idx) : userInfo;
+                    String password = idx >= 0 ? userInfo.substring(idx + 1) : "";
+                    String credential = okhttp3.Credentials.basic(username, password);
+                    builder.proxyAuthenticator((route, response) ->
+                            response.request().newBuilder()
+                                    .header("Proxy-Authorization", credential)
+                                    .build()
+                    );
+                    log.info("Telegram 已配置带认证 HTTP 代理：{}://{}:{}@{}:{}", scheme, username, password, host, port);
+                } else {
+                    log.info("Telegram 已配置无认证 HTTP 代理：{}", proxyUrl);
+                }
+                return builder.build();
+            }
+
+            if (scheme.startsWith("socks")) {
+                if (StrUtil.isNotBlank(userInfo)) {
+                    // SOCKS5 带认证：JDK SocksSocketImpl 不支持通过 OkHttp proxyAuthenticator 注入凭据，
+                    // 改用自定义 SocketFactory 手动完成 RFC 1928/1929 握手，完全绕开 JDK 内置机制。
+                    int idx = userInfo.indexOf(':');
+                    String username = idx >= 0 ? userInfo.substring(0, idx) : userInfo;
+                    String password = idx >= 0 ? userInfo.substring(idx + 1) : "";
+                    SocketFactory sf = new Socks5AuthSocketFactory(host, port, username, password);
+                    // 不设置 proxy()，让所有连接都经由自定义 SocketFactory 建立
+                    okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                            .socketFactory(sf)
+                            .build();
+                    log.info("Telegram 已配置带认证 SOCKS5 代理：socks5://{}@{}:{}", username, host, port);
+                    return client;
+                } else {
+                    // SOCKS5 无认证：直接使用标准 Proxy
+                    Proxy proxy = new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(host, port));
+                    log.info("Telegram 已配置无认证 SOCKS5 代理：{}", proxyUrl);
+                    return new okhttp3.OkHttpClient.Builder().proxy(proxy).build();
+                }
+            }
+
+            log.warn("不支持的 Telegram 代理协议 [{}]，将不使用代理", scheme);
+            return null;
+        } catch (Exception e) {
+            log.warn("构建 Telegram 代理 OkHttpClient 失败，将不使用代理：{}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 自定义 SocketFactory：每次创建 Socket 时手动完成 SOCKS5 RFC 1928/1929 握手。
+     * 完全绕开 JDK 的 SocksSocketImpl（其认证依赖全局静态 Authenticator，线程不安全），
+     * 适用于 OkHttp + SOCKS5 带用户名密码认证的场景。
+     */
+    private static class Socks5AuthSocketFactory extends SocketFactory {
+
+        private final String proxyHost;
+        private final int proxyPort;
+        private final String username;
+        private final String password;
+
+        Socks5AuthSocketFactory(String proxyHost, int proxyPort, String username, String password) {
+            this.proxyHost = proxyHost;
+            this.proxyPort = proxyPort;
+            this.username = username;
+            this.password = password;
+        }
+
+        /**
+         * OkHttp 会先调用无参 createSocket() 拿到一个未连接的 Socket，
+         * 再自行调用 socket.connect(address, timeout) 建立连接。
+         * 这里返回一个代理 Socket：connect() 被调用时先连代理、再完成 SOCKS5 握手。
+         */
+        @Override
+        public Socket createSocket() {
+            return new Socket() {
+                @Override
+                public void connect(SocketAddress endpoint, int timeout) throws IOException {
+                    // endpoint 是 OkHttp 传入的目标地址（如 api.telegram.org:443）
+                    InetSocketAddress target = (InetSocketAddress) endpoint;
+                    // 先用底层 Socket 连接代理服务器
+                    super.connect(new InetSocketAddress(proxyHost, proxyPort), timeout > 0 ? timeout : 10_000);
+                    // 再手动完成 SOCKS5 握手，建立到目标的隧道
+                    socks5Handshake(this, target.getHostString(), target.getPort());
+                }
+            };
+        }
+
+        @Override
+        public Socket createSocket(String targetHost, int targetPort) throws IOException {
+            Socket socket = new Socket();
+            socket.connect(new InetSocketAddress(proxyHost, proxyPort), 10_000);
+            socks5Handshake(socket, targetHost, targetPort);
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(String host, int port, InetAddress localAddr, int localPort) throws IOException {
+            return createSocket(host, port);
+        }
+
+        @Override
+        public Socket createSocket(InetAddress address, int port) throws IOException {
+            return createSocket(address.getHostAddress(), port);
+        }
+
+        @Override
+        public Socket createSocket(InetAddress address, int port, InetAddress localAddr, int localPort) throws IOException {
+            return createSocket(address.getHostAddress(), port);
+        }
+
+        /**
+         * 手动完成 SOCKS5 握手：版本协商 → 用户密码认证 → CONNECT 请求。
+         */
+        private void socks5Handshake(Socket socket, String targetHost, int targetPort) throws IOException {
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
+
+            // 第一步：版本协商，告知支持无认证(0x00)和用户密码认证(0x02)两种方式
+            out.write(new byte[]{0x05, 0x02, 0x00, 0x02});
+            out.flush();
+
+            byte[] resp = in.readNBytes(2);
+            if (resp[0] != 0x05) {
+                throw new IOException("SOCKS5 版本协商失败");
+            }
+
+            if (resp[1] == 0x02) {
+                // 第二步：用户密码子认证 RFC 1929
+                byte[] user = username.getBytes(StandardCharsets.UTF_8);
+                byte[] pass = password.getBytes(StandardCharsets.UTF_8);
+                byte[] authReq = new byte[3 + user.length + pass.length];
+                authReq[0] = 0x01;
+                authReq[1] = (byte) user.length;
+                System.arraycopy(user, 0, authReq, 2, user.length);
+                authReq[2 + user.length] = (byte) pass.length;
+                System.arraycopy(pass, 0, authReq, 3 + user.length, pass.length);
+                out.write(authReq);
+                out.flush();
+
+                byte[] authResp = in.readNBytes(2);
+                if (authResp[1] != 0x00) {
+                    socket.close();
+                    throw new IOException("SOCKS5 用户密码认证失败，请检查用户名和密码");
+                }
+            } else if (resp[1] == (byte) 0xFF) {
+                socket.close();
+                throw new IOException("SOCKS5 代理拒绝所有认证方式");
+            }
+            // resp[1] == 0x00：无认证，直接继续
+
+            // 第三步：发送 CONNECT 请求，ATYP=0x03（域名）
+            byte[] hostBytes = targetHost.getBytes(StandardCharsets.UTF_8);
+            byte[] connReq = new byte[7 + hostBytes.length];
+            connReq[0] = 0x05; // VER
+            connReq[1] = 0x01; // CMD = CONNECT
+            connReq[2] = 0x00; // RSV
+            connReq[3] = 0x03; // ATYP = 域名
+            connReq[4] = (byte) hostBytes.length;
+            System.arraycopy(hostBytes, 0, connReq, 5, hostBytes.length);
+            connReq[5 + hostBytes.length] = (byte) (targetPort >> 8);
+            connReq[6 + hostBytes.length] = (byte) (targetPort & 0xFF);
+            out.write(connReq);
+            out.flush();
+
+            // 读取响应，REP=0x00 表示成功
+            byte[] connResp = in.readNBytes(4);
+            if (connResp[1] != 0x00) {
+                socket.close();
+                throw new IOException("SOCKS5 CONNECT 失败，响应码：" + (connResp[1] & 0xFF));
+            }
+            // 跳过 BND.ADDR + BND.PORT 字段
+            int skip = switch (connResp[3]) {
+                case 0x01 -> 4 + 2;          // IPv4
+                case 0x04 -> 16 + 2;         // IPv6
+                case 0x03 -> in.read() + 2;  // 域名：先读长度字节，再加 2 字节端口
+                default -> throw new IOException("SOCKS5 未知地址类型：" + connResp[3]);
+            };
+            in.readNBytes(skip);
         }
     }
 

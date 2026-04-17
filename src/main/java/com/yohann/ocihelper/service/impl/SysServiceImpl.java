@@ -1239,9 +1239,14 @@ public class SysServiceImpl implements ISysService {
                         log.error("TG Bot Application close error", e);
                     }
                 }
-                botsApplication = new TelegramBotsLongPollingApplication();
-                try {
+                                try {
                     String globalProxy = getCfgValue(SysCfgEnum.SYS_PROXY);
+                    // 将带代理的 OkHttpClient 传入 TelegramBotsLongPollingApplication，
+                    // 使得 deleteWebhook 和长轮询请求同样走代理
+                    okhttp3.OkHttpClient okHttpClient = TgBot.buildOkHttpClient(globalProxy);
+                    botsApplication = okHttpClient != null
+                            ? new TelegramBotsLongPollingApplication(com.fasterxml.jackson.databind.ObjectMapper::new, () -> okHttpClient)
+                            : new TelegramBotsLongPollingApplication();
                     botsApplication.registerBot(botToken, new TgBot(botToken, chatId, globalProxy));
                     Thread.currentThread().join();
                 } catch (Exception e) {

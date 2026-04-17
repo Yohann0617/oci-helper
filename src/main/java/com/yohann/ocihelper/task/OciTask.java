@@ -110,11 +110,16 @@ public class OciTask implements ApplicationRunner {
                 return;
             }
             if (StrUtil.isNotBlank(tgToken.getValue()) && StrUtil.isNotBlank(tgChatId.getValue())) {
-                botsApplication = new TelegramBotsLongPollingApplication();
+                // 获取全局代理配置
+                OciKv proxyKv = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_PROXY.getCode()));
+                String globalProxy = proxyKv != null ? proxyKv.getValue() : null;
+                // 将带代理的 OkHttpClient 传入 TelegramBotsLongPollingApplication，
+                // 使得 deleteWebhook 和长轮询请求同样走代理，而不是直连。
+                okhttp3.OkHttpClient okHttpClient = TgBot.buildOkHttpClient(globalProxy);
+                botsApplication = okHttpClient != null
+                        ? new TelegramBotsLongPollingApplication(com.fasterxml.jackson.databind.ObjectMapper::new, () -> okHttpClient)
+                        : new TelegramBotsLongPollingApplication();
                 try {
-                    // 获取全局代理配置
-                    OciKv proxyKv = kvService.getOne(new LambdaQueryWrapper<OciKv>().eq(OciKv::getCode, SysCfgEnum.SYS_PROXY.getCode()));
-                    String globalProxy = proxyKv != null ? proxyKv.getValue() : null;
                     botsApplication.registerBot(tgToken.getValue(), new TgBot(tgToken.getValue(), tgChatId.getValue(), globalProxy));
                     Thread.currentThread().join();
                 } catch (Exception e) {

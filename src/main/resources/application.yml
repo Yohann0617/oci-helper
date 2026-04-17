@@ -37,6 +37,7 @@ logging:
   level:
     com.oracle.bmc: error
     c.o.b.h.c.j: error
+    org.telegram.telegrambots.longpolling.BotSession: off
 
 # 密钥文件存放目录（如果是docker部署则不用修改）
 oci-cfg:
