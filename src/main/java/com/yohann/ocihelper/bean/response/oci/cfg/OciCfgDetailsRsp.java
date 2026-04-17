@@ -46,6 +46,8 @@ public class OciCfgDetailsRsp {
         private String state;
         private String availabilityDomain;
         private List<InstanceVnicInfo> vnicList;
+        /** 存储在实例自由标签中的 root 密码，开机成功后可通过控制台查看 */
+        private String rootPassword;
     }
 
     @Data

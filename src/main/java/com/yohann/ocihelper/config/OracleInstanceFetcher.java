@@ -1305,6 +1305,9 @@ public class OracleInstanceFetcher implements Closeable {
                         .imageId(image.getId())
                         .bootVolumeSizeInGBs(user.getDisk())
                         .build())
+                // 将 root 密码存入实例的自由标签，方便后续查询（通知未配置时也能找回密码）
+                .freeformTags(StrUtil.isBlank(user.getRootPassword()) ? null :
+                        Collections.singletonMap("root-password", user.getRootPassword()))
                 .build();
     }
 
@@ -1623,7 +1626,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .build());
     }
 
-    public OciCfgDetailsRsp.InstanceInfo getInstanceInfo(String instanceId) {
+        public OciCfgDetailsRsp.InstanceInfo getInstanceInfo(String instanceId) {
         Instance instance = getInstanceById(instanceId);
         String bootVolumeSize = null;
         try {
@@ -1635,7 +1638,10 @@ public class OracleInstanceFetcher implements Closeable {
                     instance.getDisplayName(), e);
         }
 
-        // 打印引导卷大小（以 GB 为单位）
+        // 从实例自由标签中读取 root 密码（开机时写入，方便未配置通知的用户找回密码）
+        Map<String, String> freeformTags = instance.getFreeformTags();
+        String rootPassword = (freeformTags != null) ? freeformTags.get("root-password") : null;
+
         return OciCfgDetailsRsp.InstanceInfo.builder()
                 .ocId(instanceId)
                 .region(instance.getRegion())
@@ -1654,6 +1660,7 @@ public class OracleInstanceFetcher implements Closeable {
                 .vnicList(listVnicByInstanceId(instanceId).stream()
                         .map(x -> new OciCfgDetailsRsp.InstanceVnicInfo(x.getId(), x.getDisplayName() + "（" + x.getPublicIp() + "）"))
                         .collect(Collectors.toList()))
+                .rootPassword(rootPassword)
                 .build();
     }
 
