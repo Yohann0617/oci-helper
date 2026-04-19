@@ -220,24 +220,22 @@ public class InstanceServiceImpl implements IInstanceService {
                     accountTypeLabel = "未知";
                 }
 
-                // 构建一个涵盖本轮所有成功案例的综合消息
-                StringBuilder channelMsg = new StringBuilder();
-                for (InstanceDetailDTO instanceDetail : successList) {
-                    channelMsg.append(String.format(CHANNEL_MESSAGE_TEMPLATE,
-                            LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
-                            instanceDetail.getRegion(),
-                            OciRegionsEnum.getNameById(instanceDetail.getRegion()).get(),
-                            instanceDetail.getArchitecture(),
-                            instanceDetail.getOcpus().longValue(),
-                            instanceDetail.getMemory().longValue(),
-                            instanceDetail.getDisk(),
-                            currentCount,
-                            createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()),
-                            accountTypeLabel));
-                }
+                // broadcast using the first successful instance as representative
+                InstanceDetailDTO firstDetail = successList.get(0);
+                String channelMsg = String.format(CHANNEL_MESSAGE_TEMPLATE,
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)),
+                        firstDetail.getRegion(),
+                        OciRegionsEnum.getNameById(firstDetail.getRegion()).get(),
+                        firstDetail.getArchitecture(),
+                        firstDetail.getOcpus().longValue(),
+                        firstDetail.getMemory().longValue(),
+                        firstDetail.getDisk(),
+                        currentCount,
+                        createTask == null ? "未知" : CommonUtils.getTimeDifference(createTask.getCreateTime()),
+                        accountTypeLabel);
 
                 try (HttpResponse response = HttpRequest.get(bootBroadcastChannel)
-                        .form("text", channelMsg.toString())
+                        .form("text", channelMsg)
                         .timeout(20_000)
                         .execute()) {
                     int status = response.getStatus();
