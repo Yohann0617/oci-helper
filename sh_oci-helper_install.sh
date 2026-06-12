@@ -2,6 +2,29 @@
 
 clear
 
+# ======================
+# 参数解析
+# ======================
+DEV_MODE=false
+DEV_OCI_HELPER_IMAGE="oci-helper:dev"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dev)
+            DEV_MODE=true
+            # 可选指定自定义镜像: --dev 或 --dev my-image:tag
+            if [[ -n "$2" && "$2" != -* ]]; then
+                DEV_OCI_HELPER_IMAGE="$2"
+                shift
+            fi
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
 # 定义颜色
 YELLOW='\033[33m'
 GREEN='\033[32m'
@@ -99,14 +122,26 @@ deploy() {
 
     # 下载文件
     echo "🔍 检查所需文件..."
+    COMPOSE_DOWNLOADED=false
     for file in "${FILES[@]}"; do
         if [[ -f "$TARGET_DIR/$file" ]]; then
             echo "✔ 文件 '$file' 已存在，跳过下载。"
         else
             echo "⬇️ 正在下载 '$file' ..."
             curl -LO "$BASE_URL/$file" || { echo "❌ 下载文件 '$file' 失败，请检查网络连接或 URL。"; exit 1; }
+            # 标记 docker-compose.yml 是本次新下载的
+            [[ "$file" == "docker-compose.yml" ]] && COMPOSE_DOWNLOADED=true
         fi
     done
+
+    COMPOSE_FILE="$TARGET_DIR/docker-compose.yml"
+
+    # --dev 模式：docker-compose.yml 是新下载的，替换 oci-helper 主镜像为开发镜像
+    if [[ "$DEV_MODE" == true && "$COMPOSE_DOWNLOADED" == true ]]; then
+        echo "🔧 [DEV模式] 替换 oci-helper 镜像为开发镜像: $DEV_OCI_HELPER_IMAGE"
+        sed -i "s|ghcr.io/yohann0617/oci-helper:.*|$DEV_OCI_HELPER_IMAGE|" "$COMPOSE_FILE"
+        echo "✅ 开发镜像替换完成"
+    fi
 
     # 检查并移除 /usr/bin/docker 挂载
     COMPOSE_FILE="$TARGET_DIR/docker-compose.yml"
@@ -121,7 +156,8 @@ deploy() {
         echo "✅ 不兼容挂载已移除。"
     fi
 
-    # 自动替换 docker-compose.yml 中的宿主机路径（第一部分）
+    # 自动替换 docker-compose.yml 中的宿主机路径
+    # 只替换 volumes 挂载行中冒号左侧的宿主机路径，容器内路径保持不变
     OLD_HOST_PATH="/app/oci-helper"
     NEW_HOST_PATH="$TARGET_DIR"
     
@@ -129,7 +165,10 @@ deploy() {
         echo "🔄 替换 docker-compose.yml 中的宿主机路径..."
         echo "   原路径: $OLD_HOST_PATH"
         echo "   新路径: $NEW_HOST_PATH"
-        sed -i "s|$OLD_HOST_PATH|$NEW_HOST_PATH|g" "$COMPOSE_FILE"
+        # volumes 行的格式: "  - /host/path:/container/path"
+        # 只替换每行第一个匹配的路径（即宿主机路径，在冒号左边）
+        # 使用 sed 地址匹配：对包含 volumes 挂载路径的行，只替换第一个出现的 /app/oci-helper
+        sed -i "s|\(- \)\?${OLD_HOST_PATH}/|\1${NEW_HOST_PATH}/|" "$COMPOSE_FILE"
         
         if grep -q "$OLD_HOST_PATH" "$COMPOSE_FILE"; then
             echo "⚠️ 部分路径替换失败，请手动检查 $COMPOSE_FILE"
