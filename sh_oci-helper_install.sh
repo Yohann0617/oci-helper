@@ -166,9 +166,9 @@ deploy() {
         echo "   原路径: $OLD_HOST_PATH"
         echo "   新路径: $NEW_HOST_PATH"
         # volumes 行的格式: "  - /host/path:/container/path"
-        # 只替换每行第一个匹配的路径（即宿主机路径，在冒号左边）
-        # 使用 sed 地址匹配：对包含 volumes 挂载路径的行，只替换第一个出现的 /app/oci-helper
-        sed -i "s|\(- \)\?${OLD_HOST_PATH}/|\1${NEW_HOST_PATH}/|" "$COMPOSE_FILE"
+        # 只替换冒号左边的宿主机路径（即 - 后面的第一个路径），容器内路径保持不变
+        # 匹配模式: 行首空格 + "- " + 宿主机路径 + ":"，只替换宿主机路径部分
+        sed -i "s|\([[:space:]]*-[[:space:]]*\)${OLD_HOST_PATH}/|\1${NEW_HOST_PATH}/|" "$COMPOSE_FILE"
         
         if grep -q "$OLD_HOST_PATH" "$COMPOSE_FILE"; then
             echo "⚠️ 部分路径替换失败，请手动检查 $COMPOSE_FILE"
