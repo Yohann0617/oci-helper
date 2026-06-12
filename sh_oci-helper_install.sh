@@ -139,15 +139,15 @@ deploy() {
 
     COMPOSE_FILE="$TARGET_DIR/docker-compose.yml"
 
-    # --dev 模式：docker-compose.yml 是新下载的，替换 oci-helper 主镜像为开发镜像
-    if [[ "$DEV_MODE" == true && "$COMPOSE_DOWNLOADED" == true ]]; then
+    # --dev 模式：替换 oci-helper 主镜像为开发镜像（无论文件是新建还是已存在）
+    if [[ "$DEV_MODE" == true ]]; then
         echo "🔧 [DEV模式] 替换 oci-helper 镜像为开发镜像: $DEV_OCI_HELPER_IMAGE"
         sed -i "s|ghcr.io/yohann0617/oci-helper:.*|$DEV_OCI_HELPER_IMAGE|" "$COMPOSE_FILE"
         echo "✅ 开发镜像替换完成"
     fi
 
-    # --dev 模式：application.yml 是新下载的，追加 dev 独有的配置（官方版没有）
-    if [[ "$DEV_MODE" == true && "$APP_YML_DOWNLOADED" == true ]]; then
+    # --dev 模式：追加 dev 独有的配置（官方版没有），无论 application.yml 是否新下载
+    if [[ "$DEV_MODE" == true ]]; then
         APP_YML="$TARGET_DIR/application.yml"
         echo "🔧 [DEV模式] 追加 dev 独有配置到 application.yml ..."
         # 在 "# --------------------------------------- 用户自定义修改项 ------------------------------------" 注释块内追加
@@ -171,20 +171,25 @@ task:
 #   name: your-vcn-name
 DEVEOF
 )
-        # 在第二个 MARKER（即用户自定义修改项结束标记）之前插入 dev 配置
-        # 使用 awk 实现：找到第二个 MARKER 时，在其前一行插入 dev 配置
-        awk -v marker="$MARKER" -v devcfg="$DEV_CONFIG" '
-        BEGIN { count = 0 }
-        {
-            if ($0 == marker) {
-                count++
-                if (count == 2) {
-                    print devcfg
+        # 检查是否已包含 dev 配置（避免重复追加）
+        if grep -q "interval-random-min" "$APP_YML" 2>/dev/null; then
+            echo "ℹ️ [DEV模式] application.yml 已包含 dev 配置，跳过追加"
+        else
+            # 在第二个 MARKER（即用户自定义修改项结束标记）之前插入 dev 配置
+            # 使用 awk 实现：找到第二个 MARKER 时，在其前一行插入 dev 配置
+            awk -v marker="$MARKER" -v devcfg="$DEV_CONFIG" '
+            BEGIN { count = 0 }
+            {
+                if ($0 == marker) {
+                    count++
+                    if (count == 2) {
+                        print devcfg
+                    }
                 }
-            }
-            print
-        }' "$APP_YML" > "${APP_YML}.tmp" && mv "${APP_YML}.tmp" "$APP_YML"
-        echo "✅ Dev 独有配置追加完成"
+                print
+            }' "$APP_YML" > "${APP_YML}.tmp" && mv "${APP_YML}.tmp" "$APP_YML"
+            echo "✅ Dev 独有配置追加完成"
+        fi
     fi
 
     # 检查并移除 /usr/bin/docker 挂载

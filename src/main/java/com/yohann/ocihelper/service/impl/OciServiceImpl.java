@@ -1372,8 +1372,16 @@ public class OciServiceImpl implements IOciService {
         Runnable schedulingWrapper = new Runnable() {
             @Override
             public void run() {
-                VIRTUAL_EXECUTOR.execute(task);
                 Long savedBaseInterval = TASK_BASE_INTERVAL_MAP.get(taskId);
+                if (savedBaseInterval == null || TASK_MAP.get(taskId) == null || TASK_MAP.get(taskId).isCancelled()) {
+                    return;
+                }
+                try {
+                    VIRTUAL_EXECUTOR.submit(task).get();
+                } catch (Exception e) {
+                    log.error("【调度任务】任务 [{}] 执行异常: {}", taskId, e.getMessage());
+                }
+                savedBaseInterval = TASK_BASE_INTERVAL_MAP.get(taskId);
                 if (savedBaseInterval == null || TASK_MAP.get(taskId) == null || TASK_MAP.get(taskId).isCancelled()) {
                     return;
                 }
@@ -1398,7 +1406,7 @@ public class OciServiceImpl implements IOciService {
         // RUNNING_TASKS 标志只在 finally 块中清除，禁止在 stopAndRemoveTask 中提前移除，
         // 否则会在标志被清除到 finally 执行之间产生竞态窗口，导致下一轮调度趁虚而入、重复开机。
         if (!RUNNING_TASKS.add(taskId)) {
-//            log.warn("【开机任务】任务 [{}] 已在运行中,跳过本轮执行", taskId);
+            log.warn("【开机任务】任务 [{}] 已在运行中,跳过本轮执行", taskId);
             return;
         }
 
