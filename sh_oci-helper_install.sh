@@ -123,6 +123,7 @@ deploy() {
     # 下载文件
     echo "🔍 检查所需文件..."
     COMPOSE_DOWNLOADED=false
+    APP_YML_DOWNLOADED=false
     for file in "${FILES[@]}"; do
         if [[ -f "$TARGET_DIR/$file" ]]; then
             echo "✔ 文件 '$file' 已存在，跳过下载。"
@@ -131,6 +132,8 @@ deploy() {
             curl -LO "$BASE_URL/$file" || { echo "❌ 下载文件 '$file' 失败，请检查网络连接或 URL。"; exit 1; }
             # 标记 docker-compose.yml 是本次新下载的
             [[ "$file" == "docker-compose.yml" ]] && COMPOSE_DOWNLOADED=true
+            # 标记 application.yml 是本次新下载的
+            [[ "$file" == "application.yml" ]] && APP_YML_DOWNLOADED=true
         fi
     done
 
@@ -141,6 +144,47 @@ deploy() {
         echo "🔧 [DEV模式] 替换 oci-helper 镜像为开发镜像: $DEV_OCI_HELPER_IMAGE"
         sed -i "s|ghcr.io/yohann0617/oci-helper:.*|$DEV_OCI_HELPER_IMAGE|" "$COMPOSE_FILE"
         echo "✅ 开发镜像替换完成"
+    fi
+
+    # --dev 模式：application.yml 是新下载的，追加 dev 独有的配置（官方版没有）
+    if [[ "$DEV_MODE" == true && "$APP_YML_DOWNLOADED" == true ]]; then
+        APP_YML="$TARGET_DIR/application.yml"
+        echo "🔧 [DEV模式] 追加 dev 独有配置到 application.yml ..."
+        # 在 "# --------------------------------------- 用户自定义修改项 ------------------------------------" 注释块内追加
+        # 定位到第一个 "用户自定义修改项" 结束标记行之前，插入 task 和 vcn 配置
+        MARKER="# --------------------------------------- 用户自定义修改项 ------------------------------------"
+        DEV_CONFIG=$(cat <<'DEVEOF'
+
+# 开机任务动态间隔配置
+# interval-random-min: 随机延迟的最小值（秒），相对于设置时间的偏移量
+# interval-random-max: 随机延迟的最大值（秒），相对于设置时间的偏移量
+# 实际间隔 = 设置时间 + [interval-random-min, interval-random-max] 范围内的随机值
+task:
+  interval-random-min: -1
+  interval-random-max: 5
+
+# 开机任务 VCN 选择配置（可选）
+# 如需指定使用特定的 VCN，取消下面的注释并填写 VCN 名称（区分大小写）
+# 1. 配置了有效的 VCN 名称 → 优先使用该 VCN
+# 2. 未配置、VCN 名称不存在、或无有效子网 → 使用默认逻辑（选择第一个有公有子网的 VCN）
+# vcn:
+#   name: your-vcn-name
+DEVEOF
+)
+        # 在第二个 MARKER（即用户自定义修改项结束标记）之前插入 dev 配置
+        # 使用 awk 实现：找到第二个 MARKER 时，在其前一行插入 dev 配置
+        awk -v marker="$MARKER" -v devcfg="$DEV_CONFIG" '
+        BEGIN { count = 0 }
+        {
+            if ($0 == marker) {
+                count++
+                if (count == 2) {
+                    print devcfg
+                }
+            }
+            print
+        }' "$APP_YML" > "${APP_YML}.tmp" && mv "${APP_YML}.tmp" "$APP_YML"
+        echo "✅ Dev 独有配置追加完成"
     fi
 
     # 检查并移除 /usr/bin/docker 挂载
