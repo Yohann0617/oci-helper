@@ -1150,7 +1150,7 @@ public class SysServiceImpl implements ISysService {
                             .rootPassword(task.getRootPassword())
                             .build();
                     stopTask(CommonUtils.CREATE_TASK_PREFIX + task.getId());
-                    addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
+                    addTaskWithDynamicDelay(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
                                     execCreate(sysUserDTO, this, instanceService, createTaskService),
                             0, task.getInterval(), TimeUnit.SECONDS);
                 }

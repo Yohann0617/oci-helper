@@ -6,6 +6,21 @@ server:
 web:
   account: yohann1
   password: yohann1
+
+# 开机任务动态间隔配置
+# interval-random-min: 随机延迟的最小值（秒），相对于设置时间的偏移量
+# interval-random-max: 随机延迟的最大值（秒），相对于设置时间的偏移量
+# 实际间隔 = 设置时间 + [interval-random-min, interval-random-max] 范围内的随机值
+task:
+  interval-random-min: -1
+  interval-random-max: 5
+
+# 开机任务 VCN 选择配置（可选）
+# 如需指定使用特定的 VCN，取消下面的注释并填写 VCN 名称（区分大小写）
+# 1. 配置了有效的 VCN 名称 → 优先使用该 VCN
+# 2. 未配置、VCN 名称不存在、或无有效子网 → 使用默认逻辑（选择第一个有公有子网的 VCN）
+# vcn:
+#   name: your-vcn-name
 # --------------------------------------- 用户自定义修改项 ------------------------------------
 
 spring:
