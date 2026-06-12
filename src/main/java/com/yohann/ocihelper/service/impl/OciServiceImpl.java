@@ -58,6 +58,7 @@ import com.yohann.ocihelper.service.*;
 import com.yohann.ocihelper.utils.CommonUtils;
 import com.yohann.ocihelper.utils.CustomExpiryGuavaCache;
 import com.yohann.ocihelper.utils.OciConsoleUtils;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
@@ -116,12 +117,43 @@ public class OciServiceImpl implements IOciService {
     @Value("${oci-cfg.key-dir-path}")
     private String keyDirPath;
 
+    @Value("${task.interval-random-min:-1}")
+    private Integer intervalRandomMin;
+
+    @Value("${task.interval-random-max:5}")
+    private Integer intervalRandomMax;
+
+    @Value("${vcn.name:}")
+    private String vcnName;
+
+    public static int INTERVAL_RANDOM_MIN = -1;
+    public static int INTERVAL_RANDOM_MAX = 5;
+    public static String VCN_NAME = "";
+
+    @PostConstruct
+    public void initStaticConfig() {
+        if (intervalRandomMin != null) {
+            INTERVAL_RANDOM_MIN = intervalRandomMin;
+        }
+        if (intervalRandomMax != null) {
+            INTERVAL_RANDOM_MAX = intervalRandomMax;
+        }
+        if (StrUtil.isNotBlank(vcnName)) {
+            VCN_NAME = vcnName.trim();
+        } else {
+            VCN_NAME = "";
+        }
+    }
+
     public final static Map<String, Object> TEMP_MAP = new ConcurrentHashMap<>();
     public final static Map<String, ScheduledFuture<?>> TASK_MAP = new ConcurrentHashMap<>();
     public final static ScheduledThreadPoolExecutor CREATE_INSTANCE_POOL = new ScheduledThreadPoolExecutor(
             Math.max(8, Runtime.getRuntime().availableProcessors() * 2),
             ThreadFactoryBuilder.create().setNamePrefix("oci-task-").build());
     public final static Set<String> RUNNING_TASKS = ConcurrentHashMap.newKeySet();
+    public final static Map<String, Long> TASK_BASE_INTERVAL_MAP = new ConcurrentHashMap<>();
+    public final static Map<String, Runnable> TASK_RUNNABLE_MAP = new ConcurrentHashMap<>();
+    public final static Random RANDOM = new Random();
 
     @Override
     public Page<OciUserListRsp> userPage(GetOciUserListParams params) {
@@ -276,7 +308,7 @@ public class OciServiceImpl implements IOciService {
         sysUserDTO.setOperationSystem(params.getOperationSystem());
         sysUserDTO.setRootPassword(params.getRootPassword());
         sysUserDTO.setJoinChannelBroadcast(params.isJoinChannelBroadcast());
-        addTask(CommonUtils.CREATE_TASK_PREFIX + taskId, () ->
+        addTaskWithDynamicDelay(CommonUtils.CREATE_TASK_PREFIX + taskId, () ->
                         execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                 0, params.getInterval(), TimeUnit.SECONDS);
         String beginCreateMsg = String.format(CommonUtils.BEGIN_CREATE_MESSAGE_TEMPLATE,
@@ -493,7 +525,7 @@ public class OciServiceImpl implements IOciService {
         sysUserDTO.setCreateNumbers(params.getCreateNumbers());
         sysUserDTO.setOperationSystem(params.getOperationSystem());
         sysUserDTO.setRootPassword(params.getRootPassword());
-        addTask(CommonUtils.CREATE_TASK_PREFIX + params.getTaskId(),
+        addTaskWithDynamicDelay(CommonUtils.CREATE_TASK_PREFIX + params.getTaskId(),
                 () -> execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                 0, params.getInterval(), TimeUnit.SECONDS);
 
@@ -551,7 +583,7 @@ public class OciServiceImpl implements IOciService {
                     sysUserDTO.setCreateNumbers(params.getCreateNumbers());
                     sysUserDTO.setOperationSystem(params.getOperationSystem());
                     sysUserDTO.setRootPassword(params.getRootPassword());
-                    addTask(CommonUtils.CREATE_TASK_PREFIX + taskId,
+                    addTaskWithDynamicDelay(CommonUtils.CREATE_TASK_PREFIX + taskId,
                             () -> execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                             0, params.getInterval(), TimeUnit.SECONDS);
                     log.info("[Batch Update Task] task [{}] re-submitted with {}s delay", taskId, delaySeconds);
@@ -610,7 +642,7 @@ public class OciServiceImpl implements IOciService {
                 sysUserDTO.setCreateNumbers(task.getCreateNumbers());
                 sysUserDTO.setOperationSystem(task.getOperationSystem());
                 sysUserDTO.setRootPassword(task.getRootPassword());
-                addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(),
+                addTaskWithDynamicDelay(CommonUtils.CREATE_TASK_PREFIX + task.getId(),
                         () -> execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                         0, task.getInterval(), TimeUnit.SECONDS);
                 log.info("[Resume Task] task [{}] scheduled with {}s delay", task.getId(), delaySeconds);
@@ -1321,6 +1353,47 @@ public class OciServiceImpl implements IOciService {
             future.cancel(false);
         }
         TASK_MAP.remove(taskId);
+        TASK_BASE_INTERVAL_MAP.remove(taskId);
+        TASK_RUNNABLE_MAP.remove(taskId);
+    }
+
+    private static long computeDynamicDelaySeconds(long baseIntervalSeconds) {
+        int range = INTERVAL_RANDOM_MAX - INTERVAL_RANDOM_MIN + 1;
+        long randomOffset = RANDOM.nextInt(range) + INTERVAL_RANDOM_MIN;
+        long delay = baseIntervalSeconds + randomOffset;
+        return delay > 0 ? delay : 1;
+    }
+
+    public static void addTaskWithDynamicDelay(String taskId, Runnable task, long initialDelay, long baseInterval, TimeUnit timeUnit) {
+        long baseIntervalSeconds = timeUnit.toSeconds(baseInterval);
+        TASK_BASE_INTERVAL_MAP.put(taskId, baseIntervalSeconds);
+        TASK_RUNNABLE_MAP.put(taskId, task);
+
+        Runnable schedulingWrapper = new Runnable() {
+            @Override
+            public void run() {
+                Long savedBaseInterval = TASK_BASE_INTERVAL_MAP.get(taskId);
+                if (savedBaseInterval == null || TASK_MAP.get(taskId) == null || TASK_MAP.get(taskId).isCancelled()) {
+                    return;
+                }
+                try {
+                    VIRTUAL_EXECUTOR.submit(task).get();
+                } catch (Exception e) {
+                    log.error("【调度任务】任务 [{}] 执行异常: {}", taskId, e.getMessage());
+                }
+                savedBaseInterval = TASK_BASE_INTERVAL_MAP.get(taskId);
+                if (savedBaseInterval == null || TASK_MAP.get(taskId) == null || TASK_MAP.get(taskId).isCancelled()) {
+                    return;
+                }
+                long nextDelaySeconds = computeDynamicDelaySeconds(savedBaseInterval);
+                ScheduledFuture<?> nextFuture = CREATE_INSTANCE_POOL.schedule(this, nextDelaySeconds, TimeUnit.SECONDS);
+                TASK_MAP.put(taskId, nextFuture);
+            }
+        };
+
+        long initialDelaySeconds = timeUnit.toSeconds(initialDelay);
+        ScheduledFuture<?> future = CREATE_INSTANCE_POOL.schedule(schedulingWrapper, initialDelaySeconds, TimeUnit.SECONDS);
+        TASK_MAP.put(taskId, future);
     }
 
     public static void execCreate(
@@ -1333,7 +1406,7 @@ public class OciServiceImpl implements IOciService {
         // RUNNING_TASKS 标志只在 finally 块中清除，禁止在 stopAndRemoveTask 中提前移除，
         // 否则会在标志被清除到 finally 执行之间产生竞态窗口，导致下一轮调度趁虚而入、重复开机。
         if (!RUNNING_TASKS.add(taskId)) {
-//            log.warn("【开机任务】任务 [{}] 已在运行中,跳过本轮执行", taskId);
+            log.warn("【开机任务】任务 [{}] 已在运行中,跳过本轮执行", taskId);
             return;
         }
 

@@ -220,7 +220,7 @@ public class OciTask implements ApplicationRunner {
                         sysUserDTO.setCreateNumbers(task.getCreateNumbers());
                         sysUserDTO.setOperationSystem(task.getOperationSystem());
                         sysUserDTO.setRootPassword(task.getRootPassword());
-                        addTask(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
+                        addTaskWithDynamicDelay(CommonUtils.CREATE_TASK_PREFIX + task.getId(), () ->
                                         execCreate(sysUserDTO, sysService, instanceService, createTaskService),
                                 0, task.getInterval(), TimeUnit.SECONDS);
                     }

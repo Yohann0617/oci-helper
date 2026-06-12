@@ -69,6 +69,7 @@ import java.util.stream.Collectors;
 
 import static com.oracle.bmc.core.model.CreatePublicIpDetails.Lifetime.Ephemeral;
 import static com.yohann.ocihelper.service.impl.OciServiceImpl.TASK_MAP;
+import static com.yohann.ocihelper.service.impl.OciServiceImpl.VCN_NAME;
 
 /**
  * <p>
@@ -330,46 +331,111 @@ public class OracleInstanceFetcher implements Closeable {
 //                            networkSecurityGroup = createNetworkSecurityGroup(virtualNetworkClient, compartmentId, vcn);
 //                            addNetworkSecurityGroupSecurityRules(virtualNetworkClient, networkSecurityGroup, networkCidrBlock);
                         } else {
-                            for (Vcn vcnItem : vcnList) {
-                                vcn = vcnItem;
+                            boolean useConfiguredVcn = StrUtil.isNotBlank(VCN_NAME);
+                            Vcn selectedVcn = null;
+                            Subnet selectedSubnet = null;
 
-                                List<InternetGateway> internetGatewayList = virtualNetworkClient.listInternetGateways(ListInternetGatewaysRequest.builder()
-                                        .vcnId(vcn.getId())
-                                        .compartmentId(compartmentId)
-                                        .build()).getItems();
-                                if (CollectionUtil.isEmpty(internetGatewayList)) {
-                                    log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],检测到 VCN:[{}] 的 Internet 网关不存在,正在创建 Internet 网关...",
-                                            user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
-                                    internetGateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
-                                    addInternetGatewayToDefaultRouteTable(virtualNetworkClient, vcn, internetGateway);
-                                }
+                            if (useConfiguredVcn) {
+                                Optional<Vcn> vcnOpt = vcnList.stream()
+                                        .filter(v -> VCN_NAME.equals(v.getDisplayName()))
+                                        .findFirst();
+                                if (vcnOpt.isPresent()) {
+                                    selectedVcn = vcnOpt.get();
+                                    log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],找到配置的 VCN:[{}],准备检查并使用...",
+                                            user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), selectedVcn.getDisplayName());
 
-                                List<Subnet> subnets = listSubnets(vcnItem.getId());
-                                if (CollectionUtil.isEmpty(subnets)) {
-                                    log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}], 检测到 VCN:[{}] 的子网不存在,正在创建子网...",
-                                            user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
-                                    subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
-                                            getCidr(virtualNetworkClient, compartmentId), vcnItem);
-                                    break;
+                                    List<InternetGateway> internetGatewayList = virtualNetworkClient.listInternetGateways(ListInternetGatewaysRequest.builder()
+                                            .vcnId(selectedVcn.getId())
+                                            .compartmentId(compartmentId)
+                                            .build()).getItems();
+                                    if (CollectionUtil.isEmpty(internetGatewayList)) {
+                                        log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],检测到配置的 VCN:[{}] 的 Internet 网关不存在,正在创建 Internet 网关...",
+                                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), selectedVcn.getDisplayName());
+                                        internetGateway = createInternetGateway(virtualNetworkClient, compartmentId, selectedVcn);
+                                        addInternetGatewayToDefaultRouteTable(virtualNetworkClient, selectedVcn, internetGateway);
+                                    }
+
+                                    List<Subnet> subnets = listSubnets(selectedVcn.getId());
+                                    if (CollectionUtil.isEmpty(subnets)) {
+                                        log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],检测到配置的 VCN:[{}] 的子网不存在,正在创建子网...",
+                                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), selectedVcn.getDisplayName());
+                                        selectedSubnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
+                                                getCidr(virtualNetworkClient, compartmentId), selectedVcn);
+                                    } else {
+                                        for (Subnet subnetItem : subnets) {
+                                            if (!subnetItem.getProhibitInternetIngress()) {
+                                                selectedSubnet = subnetItem;
+                                                break;
+                                            }
+                                        }
+                                        if (selectedSubnet == null) {
+                                            log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],检测到配置的 VCN:[{}] 不存在公有子网,正在删除私有子网并创建公有子网...",
+                                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), selectedVcn.getDisplayName());
+                                            subnets.forEach(this::deleteSubnet);
+                                            selectedSubnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
+                                                    getCidr(virtualNetworkClient, compartmentId), selectedVcn);
+                                        }
+                                    }
+
+                                    if (selectedSubnet != null) {
+                                        vcn = selectedVcn;
+                                        subnet = selectedSubnet;
+                                        log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],使用配置的 VCN:[{}] 的公有子网:[{}] 创建实例...",
+                                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName(), subnet.getDisplayName());
+                                    } else {
+                                        log.warn("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],配置的 VCN:[{}] 无法获取有效子网,将回退到默认选择逻辑...",
+                                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), VCN_NAME);
+                                        useConfiguredVcn = false;
+                                    }
                                 } else {
-                                    for (Subnet subnetItem : subnets) {
-                                        if (!subnetItem.getProhibitInternetIngress()) {
-                                            subnet = subnetItem;
+                                    log.warn("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],未找到配置的 VCN:[{}],将使用默认选择逻辑...",
+                                            user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), VCN_NAME);
+                                    useConfiguredVcn = false;
+                                }
+                            }
+
+                            if (!useConfiguredVcn) {
+                                for (Vcn vcnItem : vcnList) {
+                                    vcn = vcnItem;
+
+                                    List<InternetGateway> internetGatewayList = virtualNetworkClient.listInternetGateways(ListInternetGatewaysRequest.builder()
+                                            .vcnId(vcn.getId())
+                                            .compartmentId(compartmentId)
+                                            .build()).getItems();
+                                    if (CollectionUtil.isEmpty(internetGatewayList)) {
+                                        log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],检测到 VCN:[{}] 的 Internet 网关不存在,正在创建 Internet 网关...",
+                                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
+                                        internetGateway = createInternetGateway(virtualNetworkClient, compartmentId, vcn);
+                                        addInternetGatewayToDefaultRouteTable(virtualNetworkClient, vcn, internetGateway);
+                                    }
+
+                                    List<Subnet> subnets = listSubnets(vcnItem.getId());
+                                    if (CollectionUtil.isEmpty(subnets)) {
+                                        log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}], 检测到 VCN:[{}] 的子网不存在,正在创建子网...",
+                                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
+                                        subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
+                                                getCidr(virtualNetworkClient, compartmentId), vcnItem);
+                                        break;
+                                    } else {
+                                        for (Subnet subnetItem : subnets) {
+                                            if (!subnetItem.getProhibitInternetIngress()) {
+                                                subnet = subnetItem;
+                                                break;
+                                            }
+                                        }
+                                        if (subnet == null) {
+                                            log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],检测到 VCN:[{}] 不存在公有子网,正在删除私有子网并创建公有子网...",
+                                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
+                                            subnets.forEach(this::deleteSubnet);
+                                            subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
+                                                    getCidr(virtualNetworkClient, compartmentId), vcn);
                                             break;
                                         }
                                     }
-                                    if (subnet == null) {
-                                        log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],检测到 VCN:[{}] 不存在公有子网,正在删除私有子网并创建公有子网...",
-                                                user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName());
-                                        subnets.forEach(this::deleteSubnet);
-                                        subnet = createSubnet(virtualNetworkClient, compartmentId, availableDomain,
-                                                getCidr(virtualNetworkClient, compartmentId), vcn);
-                                        break;
-                                    }
                                 }
+                                log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],默认使用 VCN:[{}] 的公有子网:[{}] 创建实例...",
+                                        user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName(), subnet.getDisplayName());
                             }
-                            log.info("【开机任务】用户:[{}],区域:[{}],系统架构:[{}],默认使用 VCN:[{}] 的公有子网:[{}] 创建实例...",
-                                    user.getUsername(), user.getOciCfg().getRegion(), user.getArchitecture(), vcn.getDisplayName(), subnet.getDisplayName());
                         }
 
                         String cloudInitScript = CommonUtils.getPwdShell(user.getRootPassword());
