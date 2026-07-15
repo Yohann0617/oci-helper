@@ -16,6 +16,7 @@ import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateC
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
@@ -26,6 +27,9 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+
+import reactor.core.publisher.Flux;
 
 /**
  * Telegram Bot 主类
@@ -885,27 +889,53 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     /**
-     * 处理 AI 对话
+     * 处理 AI 对话（流式）
+     * 先发送占位消息，然后随着 AI 生成逐块更新消息内容
      */
     private void handleAiChat(long chatId, String message) {
         try {
-            // Send typing indicator
-            sendMessage(chatId, "🤔 思考中...", false);
+            // 先发送一条占位消息，后续通过编辑来更新
+            Integer sentMessageId = sendMessageAndGetId(chatId, "🤔 思考中...");
+            if (sentMessageId == null) {
+                log.error("Failed to send placeholder message for AI chat");
+                return;
+            }
 
-            // Call AI service asynchronously
+            // 调用 AI 流式服务
             AiChatService aiChatService = SpringUtil.getBean(AiChatService.class);
-            CompletableFuture<String> future = aiChatService.chat(chatId, message);
+            Flux<String> streamFlux = aiChatService.chatStream(chatId, message);
 
-            // Wait for response and send
-            future.thenAccept(response -> {
-                // Format response with proper Markdown
-                String formattedResponse = MarkdownFormatter.formatAiResponse(response);
-                sendMessage(chatId, formattedResponse, true);
-            }).exceptionally(ex -> {
-                log.error("AI chat failed", ex);
-                sendMessage(chatId, "❌ AI 对话失败: " + ex.getMessage(), false);
-                return null;
-            });
+            // 用于累积流式响应文本
+            AtomicReference<String> accumulatedText = new AtomicReference<>("");
+            // 上次编辑的时间戳，用于限流
+            AtomicReference<Long> lastEditTime = new AtomicReference<>(System.currentTimeMillis());
+
+            streamFlux
+                    .subscribe(
+                            chunk -> {
+                                // 收到新 chunk，累积文本
+                                String current = accumulatedText.updateAndGet(t -> t + chunk);
+
+                                // 限流：每 500ms 最多编辑一次，避免 Telegram API 限流
+                                long now = System.currentTimeMillis();
+                                if (now - lastEditTime.get() >= 500) {
+                                    lastEditTime.set(now);
+                                    editMessageText(chatId, sentMessageId, current, false);
+                                }
+                            },
+                            error -> {
+                                // 出错时编辑消息显示错误
+                                log.error("AI chat stream error", error);
+                                editMessageText(chatId, sentMessageId,
+                                        "❌ AI 对话失败: " + error.getMessage(), false);
+                            },
+                            () -> {
+                                // 流式完成，最终编辑消息
+                                String finalText = accumulatedText.get();
+                                String formattedResponse = MarkdownFormatter.formatAiResponse(finalText);
+                                editMessageText(chatId, sentMessageId, formattedResponse, true);
+                            }
+                    );
 
         } catch (Exception e) {
             log.error("Failed to handle AI chat", e);
@@ -1014,6 +1044,85 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     /**
+     * 发送普通消息并返回消息 ID（用于后续编辑）
+     *
+     * @param chatId chat ID
+     * @param text   message text
+     * @return message ID，失败返回 null
+     */
+    private Integer sendMessageAndGetId(long chatId, String text) {
+        try {
+            SendMessage sendMessage = SendMessage.builder()
+                    .chatId(chatId)
+                    .text(text)
+                    .build();
+            Message sentMsg = telegramClient.execute(sendMessage);
+            return sentMsg.getMessageId();
+        } catch (TelegramApiException e) {
+            log.error("发送消息失败: text={}", text, e);
+            return null;
+        }
+    }
+
+    /**
+     * 编辑已发送的消息（用于流式更新）
+     * 流式中间过程使用纯文本（避免 Markdown 解析错误），最终完成时使用 Markdown
+     *
+     * @param chatId         chat ID
+     * @param messageId      要编辑的消息 ID
+     * @param newText        新的消息文本
+     * @param enableMarkdown 是否启用 Markdown 解析
+     */
+    private void editMessageText(long chatId, int messageId, String newText, boolean enableMarkdown) {
+        try {
+            String truncatedText = MarkdownFormatter.truncate(newText);
+
+            org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText editMessage =
+                    org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText.builder()
+                            .chatId(chatId)
+                            .messageId(messageId)
+                            .text(truncatedText)
+                            .build();
+
+            if (enableMarkdown) {
+                editMessage.enableMarkdown(true);
+            }
+
+            telegramClient.execute(editMessage);
+        } catch (TelegramApiException e) {
+            // 如果内容没变化，Telegram 会返回 400 错误，忽略即可
+            if (e.getMessage() != null && e.getMessage().contains("message is not modified")) {
+                // 内容未变化，正常忽略
+            } else {
+                log.debug("编辑消息失败: chatId={}, messageId={}", chatId, messageId, e);
+
+                // Markdown 解析失败时，尝试纯文本重试
+                if (enableMarkdown) {
+                    try {
+                        org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText fallbackMsg =
+                                org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText.builder()
+                                        .chatId(chatId)
+                                        .messageId(messageId)
+                                        .text(newText)
+                                        .build();
+                        telegramClient.execute(fallbackMsg);
+                        log.info("编辑消息重试成功（不使用 Markdown）");
+                    } catch (TelegramApiException fallbackEx) {
+                        log.debug("编辑消息重试也失败", fallbackEx);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 编辑已发送的消息（纯文本，无 Markdown）
+     */
+    private void editMessageText(long chatId, int messageId, String newText) {
+        editMessageText(chatId, messageId, newText, false);
+    }
+
+    /**
      * 发送普通消息
      *
      * @param chatId         chat ID
@@ -1031,7 +1140,7 @@ public class TgBot implements LongPollingSingleThreadUpdateConsumer {
 
             // Enable Markdown only if requested
             if (enableMarkdown) {
-                builder.parseMode("Markdown");
+                builder.parseMode("Markdown"); // TelegramBots 10.x 中也可以用 enableMarkdown(true)
             }
 
             telegramClient.execute(builder.build());

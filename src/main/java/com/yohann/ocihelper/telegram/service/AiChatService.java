@@ -20,98 +20,130 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+
+import reactor.core.publisher.Flux;
 
 /**
  * AI Chat Service for Telegram Bot
- * Provides non-streaming chat functionality
- * 
+ * Provides streaming chat functionality
+ *
  * @author yohann
  */
 @Slf4j
 @Service
 public class AiChatService {
-    
+
     @Resource
     private CustomExpiryGuavaCache<String, Object> customCache;
-    
+
     @Resource
     private IOciKvService kvService;
-    
+
     private final DynamicChatClientFactory factory;
     private final DuckDuckGoSearchService searchService;
-    
+
     public AiChatService(DynamicChatClientFactory factory,
-                        DuckDuckGoSearchService searchService) {
+                         DuckDuckGoSearchService searchService) {
         this.factory = factory;
         this.searchService = searchService;
     }
-    
+
     // Cache for ChatClient instances
     private ChatClient cachedChatClient = null;
     private String cachedModel = null;
-    
+
     /**
-     * Send message to AI and get response (non-streaming)
-     * 
-     * @param chatId Telegram chat ID
+     * Send message to AI and get streaming response
+     * Returns a Flux that emits chunks of the AI response as they arrive
+     *
+     * @param chatId  Telegram chat ID
      * @param message user message
-     * @return AI response
+     * @return Flux of response chunks
      */
-    public CompletableFuture<String> chat(long chatId, String message) {
-        return CompletableFuture.supplyAsync(() -> {
+    public Flux<String> chatStream(long chatId, String message) {
+        return Flux.defer(() -> {
             try {
                 ChatSessionStorage storage = ChatSessionStorage.getInstance();
-                
-                // Get settings
+
+                // 获取设置
                 String model = storage.getModel(chatId);
                 boolean enableInternet = storage.isInternetEnabled(chatId);
                 String sessionId = storage.getOrCreateSessionId(chatId);
-                
-                // Get API key
+
+                // 获取 API 密钥
                 String apiKey = getApiKey();
                 if (StringUtils.isBlank(apiKey)) {
-                    return "❌ 未配置 AI API 密钥，请在系统配置中设置";
+                    return Flux.just("❌ 未配置 AI API 密钥，请在系统配置中设置");
                 }
-                
-                // Get or create ChatClient
+
+                // 获取或创建 ChatClient
                 ChatClient chatClient = getOrCreateChatClient(apiKey, model);
-                
-                // Build message history
+
+                // 构建消息历史
                 List<Message> history = buildMessageHistory(chatId, message);
-                
-                // Call AI
-                String response;
+
+                // 用于收集完整响应的容器
+                AtomicReference<String> fullResponse = new AtomicReference<>("");
+
+                // 调用 AI 流式接口
+                Flux<String> streamFlux;
                 if (enableInternet) {
-                    response = chatWithInternet(chatClient, message, model, history);
+                    streamFlux = chatWithInternetStream(chatClient, message, model, history);
                 } else {
-                    response = chatNormal(chatClient, message, model, history);
+                    streamFlux = chatNormalStream(chatClient, model, history);
                 }
-                
-                // Format response to separate thinking and answer
-                String formattedResponse = formatAiResponse(response);
-                
-                // Store message and response
-                storage.addMessage(chatId, "User: " + message);
-                storage.addMessage(chatId, "AI: " + formattedResponse);
-                
-                log.info("AI chat completed: chatId={}, model={}, internet={}", 
-                        chatId, model, enableInternet);
-                
-                return formattedResponse;
-                
+
+                return streamFlux
+                        .doOnNext(chunk -> {
+                            // 累积完整响应
+                            fullResponse.updateAndGet(current -> current + chunk);
+                        })
+                        .doOnComplete(() -> {
+                            // 流式完成后，存储完整消息历史
+                            // 【关键】双轨存储：给 AI 看的原始文本（不含格式标记）和给用户看的格式化文本
+                            String completeResponse = fullResponse.get();
+                            // 提取纯文本（去掉 thinking 标签），用于 AI 上下文
+                            String rawResponse = extractRawText(completeResponse);
+                            // 格式化后的文本，用于 Telegram 展示
+                            String formattedResponse = formatAiResponse(completeResponse);
+                            // 存储用户消息（原始）
+                            storage.addMessage(chatId, "User: " + message);
+                            // 存储 AI 回复（原始文本，不含格式标记）
+                            storage.addMessage(chatId, "AI: " + rawResponse);
+                        })
+                        .doOnError(e -> {
+                            log.error("AI chat stream failed: chatId={}, message={}", chatId, message, e);
+                        })
+                        .onErrorResume(e -> Flux.just("\n\n❌ AI 对话失败: " + e.getMessage()));
+
             } catch (Exception e) {
-                log.error("AI chat failed: chatId={}, message={}", chatId, message, e);
-                return "❌ AI 对话失败: " + e.getMessage();
+                log.error("AI chat stream init failed: chatId={}, message={}", chatId, message, e);
+                return Flux.just("❌ AI 对话失败: " + e.getMessage());
             }
         });
     }
-    
+
+    /**
+     * 提取纯文本内容，去掉  thinking 标签，只保留回答部分
+     * 用于存储到历史记录中作为 AI 上下文，避免格式标记干扰后续对话
+     */
+    private String extractRawText(String response) {
+        if (response == null || response.isEmpty()) {
+            return response;
+        }
+        int thinkEnd = response.indexOf(" response");
+        if (thinkEnd != -1) {
+            return response.substring(thinkEnd + 8).trim();
+        }
+        return response;
+    }
+
     /**
      * Format AI response to separate thinking and answer
-     * Extracts <think> tags and formats them as code blocks
+     * Extracts  thinking tags and formats them as code blocks
      * Properly handles Markdown formatting in answer
-     * 
+     *
      * @param response raw AI response
      * @return formatted response
      */
@@ -119,22 +151,22 @@ public class AiChatService {
         if (response == null || response.isEmpty()) {
             return response;
         }
-        
+
         // Check if response contains thinking tags
         if (response.contains("<think>") || response.contains("</think>")) {
             StringBuilder formatted = new StringBuilder();
-            
+
             // Extract thinking part (between <think> and </think>)
             int thinkStart = response.indexOf("<think>");
             int thinkEnd = response.indexOf("</think>");
-            
+
             if (thinkStart != -1 && thinkEnd != -1 && thinkEnd > thinkStart) {
                 // Extract thinking content
                 String thinking = response.substring(thinkStart + 7, thinkEnd).trim();
-                
+
                 // Extract answer part (after </think>)
                 String answer = response.substring(thinkEnd + 8).trim();
-                
+
                 // Format with thinking as code block
                 if (!thinking.isEmpty()) {
                     formatted.append("💭 *AI 思考过程：*\n");
@@ -142,7 +174,7 @@ public class AiChatService {
                     formatted.append(thinking);
                     formatted.append("\n```\n\n");
                 }
-                
+
                 // Add answer with Markdown support
                 if (!answer.isEmpty()) {
                     formatted.append("💬 *回答：*\n");
@@ -151,7 +183,7 @@ public class AiChatService {
                 } else {
                     formatted.append(processMarkdownContent(answer));
                 }
-                
+
                 return formatted.toString();
             } else if (thinkEnd != -1) {
                 // Only </think> found, everything after is answer
@@ -159,16 +191,16 @@ public class AiChatService {
                 return "💬 *回答：*\n" + processMarkdownContent(answer);
             }
         }
-        
+
         // No thinking tags, process the whole response for Markdown
         return processMarkdownContent(response);
     }
-    
+
     /**
      * Process content to preserve Markdown formatting
      * Protects code blocks and inline code from being escaped
      * Allows bold, italic, links, headers, and lists to work properly
-     * 
+     * <p>
      * Supported Markdown syntax:
      * - ```code blocks```
      * - `inline code`
@@ -176,7 +208,7 @@ public class AiChatService {
      * - [links](url)
      * - # Headers (at line start)
      * - - Lists (at line start)
-     * 
+     *
      * @param content raw content
      * @return processed content with Markdown support
      */
@@ -184,7 +216,7 @@ public class AiChatService {
         if (content == null || content.isEmpty()) {
             return content;
         }
-        
+
         // Strategy: Preserve existing Markdown syntax
         // - Keep ```code blocks``` intact
         // - Keep `inline code` intact
@@ -193,14 +225,14 @@ public class AiChatService {
         // - Keep # headers (at line start) intact
         // - Keep - lists (at line start) intact
         // - Escape problematic standalone characters
-        
+
         StringBuilder result = new StringBuilder();
         int i = 0;
         int len = content.length();
-        
+
         while (i < len) {
             char c = content.charAt(i);
-            
+
             // Handle code blocks ```
             if (i + 2 < len && content.substring(i, i + 3).equals("```")) {
                 // Find the closing ```
@@ -217,7 +249,7 @@ public class AiChatService {
                     continue;
                 }
             }
-            
+
             // Handle inline code `
             if (c == '`') {
                 // Find the closing `
@@ -234,7 +266,7 @@ public class AiChatService {
                     continue;
                 }
             }
-            
+
             // Handle bold ** or *
             if (c == '*') {
                 // Check if it's ** (bold) or * (italic)
@@ -262,7 +294,7 @@ public class AiChatService {
                 i++;
                 continue;
             }
-            
+
             // Handle italic _
             if (c == '_') {
                 // Find closing _
@@ -278,7 +310,7 @@ public class AiChatService {
                 i++;
                 continue;
             }
-            
+
             // Handle links [text](url)
             if (c == '[') {
                 // Find ]
@@ -298,7 +330,7 @@ public class AiChatService {
                 i++;
                 continue;
             }
-            
+
             // Handle headers # (at start of line)
             if (c == '#' && (i == 0 || content.charAt(i - 1) == '\n')) {
                 // Count consecutive #
@@ -319,7 +351,7 @@ public class AiChatService {
                 i++;
                 continue;
             }
-            
+
             // Handle lists - (at start of line)
             if (c == '-' && (i == 0 || content.charAt(i - 1) == '\n')) {
                 // If followed by space, it's a list item - keep as-is
@@ -329,7 +361,7 @@ public class AiChatService {
                     continue;
                 }
             }
-            
+
             // For other - characters, check context
             if (c == '-') {
                 // Keep - as-is (Telegram Markdown is lenient with -)
@@ -337,22 +369,22 @@ public class AiChatService {
                 i++;
                 continue;
             }
-            
+
             // Handle # outside of line start (keep as-is for Telegram)
             if (c == '#') {
                 result.append('#');
                 i++;
                 continue;
             }
-            
+
             // Regular character, keep as-is
             result.append(c);
             i++;
         }
-        
+
         return result.toString();
     }
-    
+
     /**
      * Get or create ChatClient
      */
@@ -365,16 +397,16 @@ public class AiChatService {
         }
         return cachedChatClient;
     }
-    
+
     /**
      * Build message history
      */
     private List<Message> buildMessageHistory(long chatId, String currentMessage) {
         ChatSessionStorage storage = ChatSessionStorage.getInstance();
         List<String> historyStrings = storage.getHistory(chatId);
-        
+
         List<Message> messages = new ArrayList<>();
-        
+
         // Add history messages
         for (String msg : historyStrings) {
             if (msg.startsWith("User: ")) {
@@ -383,58 +415,58 @@ public class AiChatService {
                 messages.add(new AssistantMessage(msg.substring(4)));
             }
         }
-        
+
         // Add current message
         messages.add(new UserMessage(currentMessage));
-        
+
         return messages;
     }
-    
+
     /**
-     * Chat with internet search
+     * 流式对话（带联网搜索）
      */
-    private String chatWithInternet(ChatClient chatClient, String message, 
-                                    String model, List<Message> history) {
-        try {
-            // Search for information
-            List<String> searchResults = searchService.searchWithHtml(message)
-                    .block(); // Block to wait for search results
-            
-            if (searchResults != null && !searchResults.isEmpty()) {
-                String prompt = message + "\n\n根据以下搜索结果回答：\n" +
-                               String.join("\n", searchResults);
-                
-                return chatClient.prompt(prompt)
-                        .messages(history)
-                        .options(OpenAiChatOptions.builder()
-                                .model(model)
-                                .build())
-                        .call()
-                        .content();
-            } else {
-                // Fallback to normal chat if search fails
-                return chatNormal(chatClient, message, model, history);
-            }
-        } catch (Exception e) {
-            log.error("Internet search failed, fallback to normal chat", e);
-            return chatNormal(chatClient, message, model, history);
-        }
+    private Flux<String> chatWithInternetStream(ChatClient chatClient, String message,
+                                                String model, List<Message> history) {
+        return searchService.searchWithHtml(message)
+                .flatMapMany(results -> {
+                    if (results != null && !results.isEmpty()) {
+                        String prompt = message + "\n\n根据以下搜索结果回答：\n" +
+                                String.join("\n", results);
+
+                        return chatClient.prompt(prompt)
+                                .messages(history)
+                                .options(OpenAiChatOptions.builder()
+                                        .model(model)
+                                        .build())
+                                .stream()
+                                .content()
+                                .map(chunk -> chunk == null ? "" : chunk);
+                    } else {
+                        // 搜索无结果，回退到普通流式对话
+                        return chatNormalStream(chatClient, model, history);
+                    }
+                })
+                .onErrorResume(e -> {
+                    log.error("Internet search failed, fallback to normal stream chat", e);
+                    return chatNormalStream(chatClient, model, history);
+                });
     }
-    
+
     /**
-     * Normal chat without internet search
+     * 普通流式对话（不带联网搜索）
      */
-    private String chatNormal(ChatClient chatClient, String message, 
-                             String model, List<Message> history) {
+    private Flux<String> chatNormalStream(ChatClient chatClient, String model,
+                                          List<Message> history) {
         return chatClient.prompt()
                 .messages(history)
                 .options(OpenAiChatOptions.builder()
                         .model(model)
                         .build())
-                .call()
-                .content();
+                .stream()
+                .content()
+                .map(chunk -> chunk == null ? "" : chunk);
     }
-    
+
     /**
      * Get API key from database
      */
@@ -445,8 +477,8 @@ public class AiChatService {
                     .eq(OciKv::getCode, SysCfgEnum.SILICONFLOW_AI_API.getCode()));
             if (cfg != null && StringUtils.isNotBlank(cfg.getValue())) {
                 apiKey = cfg.getValue();
-                customCache.put(SysCfgEnum.SILICONFLOW_AI_API.getCode(), apiKey, 
-                               24 * 60 * 60 * 1000);
+                customCache.put(SysCfgEnum.SILICONFLOW_AI_API.getCode(), apiKey,
+                        24 * 60 * 60 * 1000);
             }
         }
         return apiKey;
