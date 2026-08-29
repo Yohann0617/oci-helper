@@ -3,9 +3,9 @@ package com.yohann.ocihelper.config.ws;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
-import cn.hutool.jwt.JWTUtil;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.JwtUtils;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
@@ -54,7 +54,7 @@ public class MetricsWebSocketHandler {
     int size = 15;
 
     private boolean validateToken(String token) {
-        return !CommonUtils.isTokenExpired(token) && JWTUtil.verify(token, ((String) TEMP_MAP.get("password")).getBytes());
+        return !CommonUtils.isTokenExpired(token) && JwtUtils.verifyToken(token, (String) TEMP_MAP.get("password"));
     }
 
     @OnOpen

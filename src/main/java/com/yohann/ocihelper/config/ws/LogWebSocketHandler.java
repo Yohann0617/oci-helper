@@ -2,8 +2,8 @@ package com.yohann.ocihelper.config.ws;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.file.Tailer;
-import cn.hutool.jwt.JWTUtil;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.JwtUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.input.TailerListener;
 import org.apache.commons.io.input.TailerListenerAdapter;
@@ -53,7 +53,7 @@ public class LogWebSocketHandler extends TextWebSocketHandler {
     }
 
     private boolean validateToken(String token) {
-        return !CommonUtils.isTokenExpired(token) && JWTUtil.verify(token, ((String) TEMP_MAP.get("password")).getBytes());
+        return !CommonUtils.isTokenExpired(token) && JwtUtils.verifyToken(token, (String) TEMP_MAP.get("password"));
     }
 
     @Override

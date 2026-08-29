@@ -9,8 +9,7 @@ import cn.hutool.core.util.PageUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.qrcode.QrCodeUtil;
 import cn.hutool.json.JSONObject;
-import cn.hutool.jwt.JWT;
-import cn.hutool.jwt.JWTUtil;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
@@ -355,25 +354,11 @@ public class CommonUtils {
     }
 
     public static String genToken(Map<String, Object> payload, String secretKey) {
-        ZoneId zoneId = ZoneId.systemDefault();
-        Instant instant = LocalDateTime.now().plusHours(3).atZone(zoneId).toInstant();
-
-        return JWT.create()
-                .addHeaders(null)
-                .addPayloads(payload)
-                .setKey(secretKey.getBytes())
-                .setExpiresAt(Date.from(instant))
-                .sign();
+        return JwtUtils.genToken(payload, secretKey, 3);
     }
 
     public static boolean isTokenExpired(String token) {
-        JWT jwt = JWTUtil.parseToken(token);
-
-        Long exp = Long.parseLong(String.valueOf(jwt.getPayload("exp")));
-        if (exp != null) {
-            return exp < System.currentTimeMillis() / 1000; // 将毫秒转换为秒
-        }
-        return true;
+        return JwtUtils.isTokenExpired(token);
     }
 
     public static String dateFmt2String(Date date) {

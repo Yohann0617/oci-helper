@@ -1,9 +1,9 @@
 package com.yohann.ocihelper.config.auth;
 
-import cn.hutool.jwt.JWTUtil;
 import com.yohann.ocihelper.exception.OciException;
 import com.yohann.ocihelper.service.IpSecurityService;
 import com.yohann.ocihelper.utils.CommonUtils;
+import com.yohann.ocihelper.utils.JwtUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,9 +51,12 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
         
-        // 放行 WebSocket 握手请求
+        // 仅放行 WebSocket 端点的握手请求（/metrics/ 和 /logs），WebSocket handler 内部自行校验 token
         if ("GET".equalsIgnoreCase(request.getMethod()) && "websocket".equalsIgnoreCase(request.getHeader("Upgrade"))) {
-            return true;
+            String uri = request.getRequestURI();
+            if (uri != null && (uri.startsWith("/metrics/") || uri.equals("/logs"))) {
+                return true;
+            }
         }
 
         // 放行预检请求（OPTIONS）
@@ -94,7 +97,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     }
 
         private boolean validateToken(String token) {
-        return !CommonUtils.isTokenExpired(token) && JWTUtil.verify(token, password.getBytes());
+        return !CommonUtils.isTokenExpired(token) && JwtUtils.verifyToken(token, password);
     }
     
     /**
