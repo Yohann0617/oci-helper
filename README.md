@@ -241,9 +241,15 @@ chmod +x /app/oci-helper/sh_oci-helper_install.sh && cd /app/oci-helper && ./sh_
 
 </details>
 
-## ⭐Stargazers over time
+## ⭐Star History
 
-[![Stargazers over time](https://starchart.cc/Yohann0617/oci-helper.svg?variant=adaptive)](https://starchart.cc/Yohann0617/oci-helper)
+<a href="https://www.star-history.com/?repos=yohann0617%2Foci-helper&type=date&logscale=&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=yohann0617/oci-helper&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=yohann0617/oci-helper&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yohann0617/oci-helper&type=date&legend=bottom-right" />
+ </picture>
+</a>
 
 ## 🙏 特别鸣谢
 
