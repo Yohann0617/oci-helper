@@ -1,6 +1,6 @@
 # oci-helper 🐢
 
-> 📢 旧项目 oci-helper 已停止维护，推荐迁移到全新重构的 OCI Helper Serverless：基于 Cloudflare Workers + D1，零服务器成本，点一下按钮即可部署，自带抢机/换 IP/流量统计/成本分析/TG 通知，支持手机端，持续更新中。项目地址：https://github.com/Yohann0617/oci-helper-serverless-c
+> 📢 旧项目 oci-helper 已停止维护，推荐迁移到全新重构的 OCI Helper Serverless：基于 Cloudflare Workers + D1，零服务器成本，点一下按钮即可部署，自带抢机/换 IP/流量统计/成本分析/TG 通知，支持手机端，持续更新中。项目地址：https://github.com/Yohann0617/oci-helper-serverless-cf
 
 
 [![visitors](https://komarev.com/ghpvc/?username=Yohann0617&color=green&base=20000&abbreviated=true)](https://github.com/Yohann0617)
