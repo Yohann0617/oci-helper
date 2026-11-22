@@ -1,5 +1,8 @@
 # oci-helper 🐢
 
+> 📢 旧项目 oci-helper 已停止维护，推荐迁移到全新重构的 OCI Helper Serverless：基于 Cloudflare Workers + D1，零服务器成本，点一下按钮即可部署，自带抢机/换 IP/流量统计/成本分析/TG 通知，支持手机端，持续更新中。项目地址：https://github.com/Yohann0617/oci-helper-serverless-c
+
+
 [![visitors](https://komarev.com/ghpvc/?username=Yohann0617&color=green&base=20000&abbreviated=true)](https://github.com/Yohann0617)
 [![Stars](https://img.shields.io/github/stars/Yohann0617/oci-helper)](https://github.com/Yohann0617/oci-helper/stargazers)
 [![Issues](https://img.shields.io/github/issues/Yohann0617/oci-helper?logo=refinedgithub)](https://github.com/Yohann0617/oci-helper/issues)
@@ -11,7 +14,6 @@
 [![SQLite](https://img.shields.io/badge/SQLite-3+-blue?logo=sqlite)](https://sqlite.org)
 [![Maven](https://img.shields.io/badge/Maven-3+-red?logo=apachemaven)](https://maven.apache.org)
 [![Docker](https://img.shields.io/badge/Docker-28+-blue?logo=Docker)](https://www.docker.com)
-
 
 
 > oci-helper（Y探长） 是一个基于 Spring Boot 3 + JDK 21 开发的轻量级 OCI 管理面板，后端采用 SQLite 存储，整体通过 Docker 容器化运行，并支持一键脚本结合 docker-compose 快速部署，无需在本机安装额外环境。项目面向 Oracle Cloud（OCI）的日常运维与自动化场景，提供实例管理、网络与 IP 操作、任务持久化、日志实时查看、多租户管理等功能，帮助用户以更直观、安全、高效的方式管理云资源。得益于 Spring Boot 3 的现代化框架特性与 JDK 21 的虚拟线程机制，系统能够更好地应对高并发请求，降低资源消耗；结合 Docker 的隔离与一致性，保证了跨环境部署的安全与稳定。
